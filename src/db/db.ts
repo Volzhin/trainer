@@ -344,6 +344,11 @@ export interface FoodItem {
   serving_size?: number
   serving_label?: string
   source: 'off' | 'manual'
+  /**
+   * Кто создал продукт. Заполняется только у своих (source: 'manual') —
+   * кешу из внешней базы владелец не нужен, он общий для всех аккаунтов.
+   */
+  creator_id?: string
   image_url?: string
   used_at: number
   updated_at: number

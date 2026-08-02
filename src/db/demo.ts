@@ -8,6 +8,7 @@ import {
   type WorkoutSession,
 } from './db'
 import { estimate1RM, startOfDay } from '../lib/calc'
+import { deriveComposition } from '../lib/anthropometry'
 import { addFeedback, addTrainerNote, assignProgram, createAccount } from './coach'
 
 /**
@@ -62,6 +63,9 @@ const NOTES = [
 type HistoryOptions = {
   weeks: number
   seed: number
+  /** Нужны для расчёта состава тела в демо-замерах. */
+  heightCm: number
+  sex: 'м' | 'ж'
   /** Множитель стартовых весов: новичок слабее опытного. */
   strength: number
   /** Доля пропущенных тренировок, 0..1. */
@@ -198,12 +202,44 @@ async function buildHistory(userId: string, opts: HistoryOptions): Promise<Histo
   for (let week = 0; week <= opts.weeks; week++) {
     const ts = thisMonday - (opts.weeks - week) * 7 * 86400_000 + 8 * 3600_000
     if (ts > Date.now()) continue
+
+    const weight = Math.round((opts.startWeightKg - week * 0.42 + (rand() - 0.5) * 0.6) * 10) / 10
+    const fatPct = Math.round((21.5 - week * 0.38 + (rand() - 0.5) * 0.4) * 10) / 10
+
+    // Демо-замер должен быть полным: с одним весом экран анализа тела
+    // остаётся полупустым, и посмотреть на нём нечего.
+    const derived = deriveComposition({
+      weightKg: weight,
+      heightCm: opts.heightCm,
+      sex: opts.sex,
+      girths: {
+        neck: Math.round((38 - week * 0.05) * 10) / 10,
+        waist: Math.round((88 - week * 0.45) * 10) / 10,
+        hip: Math.round((100 - week * 0.2) * 10) / 10,
+      },
+      knownBodyFatPct: fatPct,
+    })
+
     metrics.push({
       id: uid(),
       user_id: userId,
-      weight_kg: Math.round((opts.startWeightKg - week * 0.42 + (rand() - 0.5) * 0.6) * 10) / 10,
-      body_fat_pct: Math.round((21.5 - week * 0.38 + (rand() - 0.5) * 0.4) * 10) / 10,
+      weight_kg: weight,
+      body_fat_pct: fatPct,
       waist_cm: Math.round((88 - week * 0.45) * 10) / 10,
+      neck_cm: Math.round((38 - week * 0.05) * 10) / 10,
+      hip_cm: Math.round((100 - week * 0.2) * 10) / 10,
+      body_fat_kg: derived.fatMassKg,
+      fat_free_mass_kg: derived.leanMassKg,
+      skeletal_muscle_kg: derived.skeletalMuscleKg,
+      body_water_l: derived.bodyWaterL,
+      protein_kg: derived.proteinKg,
+      minerals_kg: derived.mineralsKg,
+      bmi: derived.bmi,
+      waist_to_height: derived.waistToHeight,
+      waist_to_hip: derived.waistToHip,
+      visceral_fat: Math.max(1, Math.round(fatPct / 2.4)),
+      source: 'manual',
+      derived: 1,
       logged_at: ts,
       updated_at: ts,
     })
@@ -221,6 +257,8 @@ export async function generateDemoData(userId = currentUserId()) {
     missRate: 0.08,
     silentDays: 0,
     startWeightKg: 84.2,
+    heightCm: 182,
+    sex: 'м',
   })
 
   // Чистим только данные этого аккаунта — чужие клиенты не должны пострадать.
@@ -262,7 +300,7 @@ const DEMO_CLIENTS: {
   gender: 'м' | 'ж'
   height: number
   weight: number
-  opts: Omit<HistoryOptions, 'startWeightKg'>
+  opts: Omit<HistoryOptions, 'startWeightKg' | 'heightCm' | 'sex'>
   weeklyTarget: number
   note?: string
 }[] = [
@@ -345,7 +383,12 @@ export async function seedTrainerDemo(trainerId = currentUserId()) {
       updated_at: now(),
     })
 
-    const bundle = await buildHistory(clientId, { ...spec.opts, startWeightKg: spec.weight })
+    const bundle = await buildHistory(clientId, {
+      ...spec.opts,
+      startWeightKg: spec.weight,
+      heightCm: spec.height,
+      sex: spec.gender,
+    })
     await db.sessions.bulkAdd(bundle.sessions)
     await db.sets.bulkAdd(bundle.sets)
     await db.bodyMetrics.bulkAdd(bundle.metrics)

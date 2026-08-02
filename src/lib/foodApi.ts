@@ -11,18 +11,22 @@ import type { FoodItem, Nutrients } from '../db/db'
  */
 
 const BASE = 'https://world.openfoodfacts.org'
+/** Новый поисковый бэкенд OFF: старый /cgi/search.pl объявлен устаревшим. */
+const SEARCH = 'https://search.openfoodfacts.org'
 const FIELDS =
-  'code,product_name,product_name_ru,brands,nutriments,serving_quantity,serving_size,image_small_url,quantity'
+  'code,product_name,product_name_ru,brands,nutriments,serving_quantity,serving_size,image_small_url,quantity,countries_tags'
 
 type OffProduct = {
   code?: string
   product_name?: string
   product_name_ru?: string
-  brands?: string
+  /** Поиск отдаёт бренды массивом, товарный API — строкой. */
+  brands?: string | string[]
   quantity?: string
   serving_quantity?: number | string
   serving_size?: string
   image_small_url?: string
+  countries_tags?: string[]
   nutriments?: Record<string, number | string | undefined>
 }
 
@@ -56,13 +60,15 @@ function toItem(p: OffProduct): FoodItem | null {
   const name = (p.product_name_ru || p.product_name || '').trim()
   if (!per100 || !name) return null
 
+  const brand = (Array.isArray(p.brands) ? p.brands[0] : p.brands?.split(',')[0])?.trim()
+
   // Напитки считаем в миллилитрах: «100 г сока» звучит неестественно.
   const liquid = /(мл|ml|l\b|литр)/i.test(p.quantity ?? '') || /напит|сок|вода|молок/i.test(name)
 
   return {
     id: `off-${p.code ?? name}`,
     name,
-    brand: p.brands?.split(',')[0]?.trim() || undefined,
+    brand: brand || undefined,
     barcode: p.code,
     per100,
     unit: liquid ? 'мл' : 'г',
@@ -77,16 +83,44 @@ function toItem(p: OffProduct): FoodItem | null {
 
 const round1 = (v: number) => Math.round(v * 10) / 10
 
-/** Поиск по названию. Локаль русская: бренды и названия приходят на языке. */
+/** Российские товары вперёд: аудитория русская, импорт — исключение. */
+const russianFirst = (a: OffProduct, b: OffProduct) =>
+  Number(b.countries_tags?.includes('en:russia') ?? false) -
+  Number(a.countries_tags?.includes('en:russia') ?? false)
+
+/**
+ * Поиск по названию. Идём в новый бэкенд (search-a-licious): старый
+ * /cgi/search.pl устарел и режется до 10 запросов в минуту на IP.
+ * Если новый недоступен — падаем на старый, чтобы поиск не умирал совсем.
+ */
 export async function searchFood(query: string, signal?: AbortSignal): Promise<FoodItem[]> {
   const url =
-    `${BASE}/cgi/search.pl?search_terms=${encodeURIComponent(query)}` +
-    `&search_simple=1&action=process&json=1&page_size=25&lc=ru&fields=${FIELDS}`
+    `${SEARCH}/search?q=${encodeURIComponent(query)}` +
+    `&page_size=25&langs=ru&fields=${FIELDS}`
 
-  const res = await fetch(url, { signal })
+  let products: OffProduct[]
+  try {
+    const res = await fetch(url, { signal })
+    if (!res.ok) throw new Error(String(res.status))
+    const data = (await res.json()) as { hits?: OffProduct[] }
+    products = data.hits ?? []
+  } catch (e) {
+    if ((e as Error).name === 'AbortError') throw e
+    products = await legacySearch(query, signal)
+  }
+
+  return products.sort(russianFirst).map(toItem).filter((x): x is FoodItem => !!x)
+}
+
+async function legacySearch(query: string, signal?: AbortSignal): Promise<OffProduct[]> {
+  const res = await fetch(
+    `${BASE}/cgi/search.pl?search_terms=${encodeURIComponent(query)}` +
+      `&search_simple=1&action=process&json=1&page_size=25&lc=ru&fields=${FIELDS}`,
+    { signal },
+  )
   if (!res.ok) throw new Error('Поиск недоступен')
   const data = (await res.json()) as { products?: OffProduct[] }
-  return (data.products ?? []).map(toItem).filter((x): x is FoodItem => !!x)
+  return data.products ?? []
 }
 
 /** Поиск по штрихкоду GTIN-13 / EAN / UPC. */

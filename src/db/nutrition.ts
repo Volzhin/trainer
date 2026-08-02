@@ -155,21 +155,105 @@ export async function rememberFood(food: FoodItem) {
   await db.foods.put({ ...food, used_at: now(), updated_at: now() })
 }
 
+/** Чужие «свои» продукты в выдачу не попадают: аккаунты живут в одной базе. */
+const visibleTo = (userId: string) => (f: FoodItem) =>
+  f.source !== 'manual' || !f.creator_id || f.creator_id === userId
+
 /** Недавние продукты — самый быстрый путь записи: люди едят одно и то же. */
-export async function recentFoods(limit = 20): Promise<FoodItem[]> {
+export async function recentFoods(limit = 20, userId = currentUserId()): Promise<FoodItem[]> {
   const rows = await db.foods.toArray()
-  return rows.sort((a, b) => b.used_at - a.used_at).slice(0, limit)
+  return rows
+    .filter(visibleTo(userId))
+    .sort((a, b) => b.used_at - a.used_at)
+    .slice(0, limit)
 }
 
 /** Локальный поиск по кешу — работает офлайн и мгновенно. */
-export async function searchCachedFoods(query: string): Promise<FoodItem[]> {
+export async function searchCachedFoods(
+  query: string,
+  userId = currentUserId(),
+): Promise<FoodItem[]> {
   const term = query.trim().toLowerCase()
-  if (!term) return recentFoods()
+  if (!term) return recentFoods(20, userId)
   const rows = await db.foods.toArray()
   return rows
+    .filter(visibleTo(userId))
     .filter((f) => `${f.name} ${f.brand ?? ''}`.toLowerCase().includes(term))
-    .sort((a, b) => b.used_at - a.used_at)
+    // Свои продукты вперёд: их создавали как раз потому, что базы не хватило.
+    .sort((a, b) => Number(b.source === 'manual') - Number(a.source === 'manual') || b.used_at - a.used_at)
     .slice(0, 25)
+}
+
+/* -------------------------- свои продукты ----------------------------- */
+
+export type CustomFoodInput = {
+  name: string
+  brand?: string
+  unit: 'г' | 'мл'
+  /** Нутриенты на 100 г / 100 мл — как на упаковке. */
+  per100: Nutrients
+  /** Типичная порция: «одна котлета — 85 г». */
+  serving_size?: number
+  serving_label?: string
+  barcode?: string
+}
+
+/**
+ * Свой продукт: домашнее блюдо, местный бренд, добавка — всё, чего нет
+ * во внешней базе. Живёт в той же таблице, что и кеш, поэтому попадает
+ * и в поиск, и в недавние, и переиспользуется как обычный продукт.
+ */
+export async function saveCustomFood(
+  input: CustomFoodInput,
+  userId = currentUserId(),
+): Promise<FoodItem> {
+  const ts = now()
+  const food: FoodItem = {
+    id: `my-${uid()}`,
+    name: input.name.trim(),
+    brand: input.brand?.trim() || undefined,
+    barcode: input.barcode?.trim() || undefined,
+    per100: input.per100,
+    unit: input.unit,
+    serving_size: input.serving_size,
+    serving_label: input.serving_label,
+    source: 'manual',
+    creator_id: userId,
+    used_at: ts,
+    updated_at: ts,
+  }
+  await db.foods.put(food)
+  return food
+}
+
+export async function updateCustomFood(id: string, patch: Partial<CustomFoodInput>) {
+  const food = await db.foods.get(id)
+  if (!food || food.source !== 'manual') throw new Error('Редактировать можно только свои продукты')
+  await db.foods.put({ ...food, ...patch, id, updated_at: now() })
+}
+
+export async function deleteCustomFood(id: string) {
+  const food = await db.foods.get(id)
+  if (!food || food.source !== 'manual') throw new Error('Удалять можно только свои продукты')
+  // Записи в дневнике держат слепок нутриентов, поэтому история не пострадает.
+  await db.foods.delete(id)
+}
+
+/** Свои продукты — отдельным списком для управления и быстрого выбора. */
+export async function myFoods(userId = currentUserId()): Promise<FoodItem[]> {
+  const rows = await db.foods.toArray()
+  return rows
+    .filter((f) => f.source === 'manual' && (!f.creator_id || f.creator_id === userId))
+    .sort((a, b) => b.used_at - a.used_at)
+}
+
+/** Сколько раз продукт попадал в дневник — показываем в списке своих. */
+export async function foodUsageCount(foodId: string, userId = currentUserId()): Promise<number> {
+  return db.foodLogs
+    .where('user_id')
+    .equals(userId)
+    .and((l) => l.food_id === foodId)
+    .count()
 }
 
 /* --------------------------- расчёт расхода ---------------------------- */

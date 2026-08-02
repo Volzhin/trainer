@@ -128,6 +128,22 @@ export function BodyCompositionView({
   const latest = scans[0]
   const previous = scans[1]
 
+  /**
+   * Свежее взвешивание часто содержит только вес: состав меряют реже.
+   * Поэтому кольцо, нормы и сегменты берём из последнего замера, где эти
+   * данные есть, и подписываем его дату — иначе разделы стоят пустыми,
+   * хотя разбор в истории имеется.
+   */
+  const composed = useMemo(
+    () => scans.find((m) => m.skeletal_muscle_kg != null || m.body_water_l != null),
+    [scans],
+  )
+  const composedPrev = useMemo(
+    () => scans.filter((m) => m !== composed && (m.skeletal_muscle_kg != null || m.body_water_l != null))[0],
+    [scans, composed],
+  )
+  const segmented = useMemo(() => scans.find((m) => m.muscle_segments), [scans])
+
   const onFile = async (file?: File) => {
     if (!file) return
     setBusy(true)
@@ -151,17 +167,19 @@ export function BodyCompositionView({
     setPending(null)
   }
 
-  const donutParts: DonutPart[] = latest
+  const donutParts: DonutPart[] = composed
     ? ([
-        { key: 'muscle', label: 'Мышцы', value: latest.skeletal_muscle_kg, unit: 'кг', color: C.muscle },
-        { key: 'protein', label: 'Белок', value: latest.protein_kg, unit: 'кг', color: C.protein },
-        { key: 'minerals', label: 'Минералы', value: latest.minerals_kg, unit: 'кг', color: C.minerals },
-        { key: 'water', label: 'Вода', value: latest.body_water_l, unit: 'л', color: C.water },
-        { key: 'fat', label: 'Жир', value: latest.body_fat_kg, unit: 'кг', color: C.fat },
+        { key: 'muscle', label: 'Мышцы', value: composed.skeletal_muscle_kg, unit: 'кг', color: C.muscle },
+        { key: 'protein', label: 'Белок', value: composed.protein_kg, unit: 'кг', color: C.protein },
+        { key: 'minerals', label: 'Минералы', value: composed.minerals_kg, unit: 'кг', color: C.minerals },
+        { key: 'water', label: 'Вода', value: composed.body_water_l, unit: 'л', color: C.water },
+        { key: 'fat', label: 'Жир', value: composed.body_fat_kg, unit: 'кг', color: C.fat },
       ].filter((p) => typeof p.value === 'number') as DonutPart[])
     : []
 
-  const weightStatus = latest ? statusFor(latest.weight_kg, latest.norms?.weight_kg) : undefined
+  const weightStatus = composed
+    ? statusFor(composed.weight_kg, composed.norms?.weight_kg)
+    : undefined
 
   const trendRow = TRACKABLE.find((r) => r.key === trendKey)!
   const trendPoints = (metrics ?? [])
@@ -198,15 +216,20 @@ export function BodyCompositionView({
         </div>
       )}
 
-      {latest && (
+      {composed && donutParts.length > 0 && (
         <div className="card">
           <BodyDonut
             parts={donutParts}
             centerLabel="Вес"
-            centerValue={`${latest.weight_kg ?? '—'} кг`}
+            centerValue={`${composed.weight_kg ?? latest?.weight_kg ?? '—'} кг`}
             status={weightStatus ? STATUS_TEXT[weightStatus] : undefined}
             statusKind={weightStatus}
           />
+          {composed !== latest && (
+            <div className="mute-sm" style={{ textAlign: 'center', marginTop: 10 }}>
+              Состав по замеру от {formatDate(composed.logged_at)}
+            </div>
+          )}
         </div>
       )}
 
@@ -215,20 +238,38 @@ export function BodyCompositionView({
           <div className="section-title">Основные параметры</div>
           <div className="group stagger">
             {MAIN.map((row, i) => (
-              <MetricRow key={String(row.key)} row={row} now={latest} was={previous} index={i} />
+              <MetricRow
+                key={String(row.key)}
+                row={row}
+                now={row.key === 'weight_kg' || row.key === 'body_fat_pct' ? latest : composed ?? latest}
+                was={row.key === 'weight_kg' || row.key === 'body_fat_pct' ? previous : composedPrev}
+                index={i}
+              />
             ))}
           </div>
 
-          <div className="section-title">Другие</div>
-          <div className="group stagger">
-            {OTHER.map((row, i) => (
-              <MetricRow key={String(row.key)} row={row} now={latest} was={previous} index={i} />
-            ))}
-          </div>
+          {/* Раздел показываем, только если в нём есть хоть одно значение:
+              пустая рамка с заголовком читается как поломка. */}
+          {composed && OTHER.some((r) => composed[r.key] != null) && (
+            <>
+              <div className="section-title">Другие</div>
+              <div className="group stagger">
+                {OTHER.map((row, i) => (
+                  <MetricRow
+                    key={String(row.key)}
+                    row={row}
+                    now={composed}
+                    was={composedPrev}
+                    index={i}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </>
       )}
 
-      {latest?.muscle_segments && (
+      {segmented?.muscle_segments && (
         <>
           <div className="section-title">Анализ тела по сегментам</div>
           <div className="segmented" style={{ marginBottom: 12 }}>
@@ -242,11 +283,16 @@ export function BodyCompositionView({
           <div className="card">
             <BodySegmentsFigure
               segments={
-                (segTab === 'muscle' ? latest.muscle_segments : latest.fat_segments) ?? {}
+                (segTab === 'muscle' ? segmented.muscle_segments : segmented.fat_segments) ?? {}
               }
               kind={segTab}
-              total={segTab === 'muscle' ? latest.skeletal_muscle_kg : latest.body_fat_kg}
+              total={segTab === 'muscle' ? segmented.skeletal_muscle_kg : segmented.body_fat_kg}
             />
+            {segmented !== latest && (
+              <div className="mute-sm" style={{ textAlign: 'center', marginTop: 10 }}>
+                По замеру от {formatDate(segmented.logged_at)}
+              </div>
+            )}
           </div>
         </>
       )}
