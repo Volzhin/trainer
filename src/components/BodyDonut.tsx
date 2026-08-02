@@ -19,8 +19,13 @@ type Props = {
 
 const SIZE = 240
 const R = 88
-const STROKE = 16
-const GAP_DEG = 6
+const STROKE = 15
+/**
+ * Зазор между дугами. Со скруглёнными концами промежуток съедался шапками
+ * штриха и кольцо читалось как одна непрерывная линия, поэтому концы
+ * прямые, а зазор задан явно.
+ */
+const GAP_DEG = 5
 
 const polar = (deg: number, r = R) => {
   const rad = ((deg - 90) * Math.PI) / 180
@@ -102,7 +107,7 @@ export function BodyDonut({ parts, centerLabel, centerValue, status, statusKind 
             d={arcPath(a.from, a.to)}
             stroke={a.color}
             strokeWidth={STROKE}
-            strokeLinecap="round"
+            strokeLinecap="butt"
             fill="none"
             style={
               {
@@ -131,7 +136,7 @@ export function BodyDonut({ parts, centerLabel, centerValue, status, statusKind 
       </svg>
 
       {status && (
-        <div style={{ textAlign: 'center', marginTop: -6 }}>
+        <div style={{ textAlign: 'center', marginTop: 2 }}>
           <span className={`status ${statusKind ?? 'normal'}`}>{status}</span>
         </div>
       )}
@@ -141,20 +146,20 @@ export function BodyDonut({ parts, centerLabel, centerValue, status, statusKind 
         className="stagger"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(76px, 1fr))',
-          gap: 10,
-          marginTop: 14,
+          gridTemplateColumns: 'repeat(auto-fit, minmax(88px, 1fr))',
+          gap: '18px 10px',
+          marginTop: 22,
         }}
       >
         {arcs.map((a, i) => (
           <div key={a.key} style={{ textAlign: 'center', '--i': i + 3 } as React.CSSProperties}>
             <div
               style={{
-                width: 22,
-                height: 3,
+                width: 26,
+                height: 4,
                 borderRadius: 2,
                 background: a.color,
-                margin: '0 auto 6px',
+                margin: '0 auto 8px',
               }}
             />
             <div style={{ fontWeight: 700, fontSize: 15, fontVariantNumeric: 'tabular-nums' }}>

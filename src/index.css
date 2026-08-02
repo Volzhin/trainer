@@ -173,7 +173,7 @@ a {
 }
 
 .tab.active {
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .tab svg {
@@ -294,7 +294,11 @@ a {
 }
 
 .btn:disabled {
-  opacity: 0.45;
+  /* Не прозрачность: полупрозрачный акцент делает подпись нечитаемой.
+     Система задаёт для disabled собственную пару surface-2 / text-3. */
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text-3);
   pointer-events: none;
 }
 
@@ -366,9 +370,9 @@ a {
 }
 
 .badge.pro {
-  background: rgba(91, 140, 255, 0.16);
-  color: var(--accent);
-  border-color: var(--accent-dim);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  border-color: transparent;
 }
 
 /* ------------------------------- поля ------------------------------- */
@@ -1215,7 +1219,7 @@ button.group-row:active {
 }
 
 .status.low {
-  color: var(--accent);
+  color: var(--accent-ink);
   background: var(--accent-wash);
 }
 
@@ -1287,7 +1291,7 @@ button.group-row:active {
   height: 22px;
   border-radius: 7px;
   background: var(--accent-wash);
-  color: var(--accent);
+  color: var(--accent-ink);
   font-size: 11.5px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -1318,7 +1322,7 @@ button.group-row:active {
 .tag.accent {
   background: var(--accent-soft);
   border-color: transparent;
-  color: var(--accent);
+  color: var(--accent-ink);
   font-weight: 700;
 }
 
@@ -1421,7 +1425,7 @@ button.group-row:active {
   place-items: center;
   font-size: 12px;
   background: var(--accent-wash);
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .bubble.mine .voice-play {
@@ -1441,7 +1445,7 @@ button.group-row:active {
   flex: 1;
   min-width: 2px;
   border-radius: 2px;
-  background: var(--accent);
+  background: var(--accent-ink);
   transition: opacity 0.15s;
 }
 
@@ -1558,4 +1562,99 @@ button.group-row:active {
   object-fit: cover;
   background: #000;
   flex: 0 0 auto;
+}
+
+/* =============================== календарь ============================ */
+
+.cal-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.cal-weekdays {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font: 800 11px/1 var(--font-ui);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.cal-day {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: var(--r-md);
+  display: grid;
+  place-items: center;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-num);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+/* В недельном режиме под числом стоит день недели, поэтому клетка выше. */
+.cal-grid.week .cal-day {
+  aspect-ratio: auto;
+  padding: 10px 0 8px;
+  gap: 2px;
+  align-content: center;
+}
+
+.cal-day .d-wd {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  color: var(--text-3);
+  text-transform: uppercase;
+}
+
+.cal-day.dim {
+  color: var(--text-3);
+  opacity: 0.5;
+}
+
+.cal-day.today {
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+
+.cal-day.on {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.cal-day.on .d-wd {
+  color: var(--on-accent);
+  opacity: 0.75;
+}
+
+/* Точка-маркер: в дне есть тренировка. На выбранном дне инвертируется. */
+.cal-day .d-dot {
+  position: absolute;
+  bottom: 5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent-ink);
+}
+
+.cal-day.on .d-dot {
+  background: var(--on-accent);
+}
+
+.cal-empty {
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-xl);
+  padding: 22px 18px;
+  text-align: center;
 }

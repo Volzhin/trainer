@@ -233,3 +233,22 @@ export const IconTeacher = ({ size }: P) => (
     <path d="M16.5 5.5h5v7h-5z" />
   </svg>
 )
+
+export const IconChevronRight = ({ size }: P) => (
+  <svg {...base(size)}>
+    <path d="m9 5 7 7-7 7" />
+  </svg>
+)
+
+export const IconRepeat = ({ size }: P) => (
+  <svg {...base(size)}>
+    <path d="M4 9V8a3 3 0 0 1 3-3h10l-2.5-2.5M20 15v1a3 3 0 0 1-3 3H7l2.5 2.5" />
+  </svg>
+)
+
+export const IconCalendar = ({ size }: P) => (
+  <svg {...base(size)}>
+    <rect x="3" y="5" width="18" height="16" rx="3" />
+    <path d="M3 10h18M8 3v4M16 3v4" />
+  </svg>
+)

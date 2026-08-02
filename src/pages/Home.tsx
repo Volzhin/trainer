@@ -11,6 +11,7 @@ import {
 import { activeAssignmentFor } from '../db/coach'
 import { formatDate, formatDuration, formatTonnage, plural, startOfDay, totalVolume } from '../lib/calc'
 import { BodyCompositionCard } from '../components/BodyCompositionCard'
+import { WorkoutCalendar } from '../components/WorkoutCalendar'
 import { IconCheck, IconDumbbell, IconFlame, IconPlay, IconPlus } from '../components/Icons'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
@@ -149,6 +150,9 @@ export function Home() {
           </button>
         </div>
       )}
+
+      <div className="section-title">Календарь</div>
+      <WorkoutCalendar />
 
       <div className="section-title">Сводка</div>
       <div className="stat-grid">

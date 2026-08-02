@@ -97,6 +97,54 @@ export async function startSessionFromRoutine(routineId: string) {
   return sessionId
 }
 
+/**
+ * Повторяет тренировку: создаёт новую сессию с тем же составом упражнений
+ * и весами из образца. Плановых записей на будущую дату в модели нет,
+ * поэтому копия начинается сразу — это и есть сценарий «повторить в зале».
+ */
+export async function repeatSession(sourceId: string): Promise<string> {
+  const active = await getActiveSession()
+  if (active) return active.id
+
+  const source = await db.sessions.get(sourceId)
+  if (!source) throw new Error('Тренировка не найдена')
+
+  const rows = await db.sets.where('workout_session_id').equals(sourceId).toArray()
+  const ts = now()
+  const sessionId = uid()
+
+  const session: WorkoutSession = {
+    id: sessionId,
+    user_id: currentUserId(),
+    routine_id: source.routine_id,
+    title: source.title,
+    start_time: ts,
+    is_completed: 0,
+    updated_at: ts,
+  }
+  await db.sessions.add(session)
+
+  // Веса переносим как ориентир, отметки выполнения — нет: подходы делаются заново.
+  const copies: ExerciseSet[] = rows
+    .sort((a, b) => a.sequence_order - b.sequence_order || a.set_number - b.set_number)
+    .map((r) => ({
+      id: uid(),
+      workout_session_id: sessionId,
+      exercise_id: r.exercise_id,
+      sequence_order: r.sequence_order,
+      set_number: r.set_number,
+      weight_kg: r.weight_kg,
+      reps_completed: r.reps_completed,
+      is_pr: 0,
+      is_done: 0,
+      updated_at: ts,
+    }))
+
+  if (copies.length) await db.sets.bulkAdd(copies)
+  await enqueue('session', sessionId, 'create', session)
+  return sessionId
+}
+
 /** Добавляет упражнение в идущую сессию. */
 export async function addExerciseToSession(sessionId: string, exerciseId: string) {
   const existing = await db.sets.where('workout_session_id').equals(sessionId).toArray()
