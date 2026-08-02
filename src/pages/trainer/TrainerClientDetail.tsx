@@ -22,6 +22,7 @@ import { Sheet } from '../../components/Sheet'
 import { Group, Row } from '../../components/Group'
 import { SessionReview } from '../../components/SessionReview'
 import { ClientNutrition } from '../../components/ClientNutrition'
+import { ProgressView } from '../../components/ProgressView'
 import { IconBack, IconCheck, IconPlus, IconTrash } from '../../components/Icons'
 import { formatDate, formatDuration, plural, totalVolume } from '../../lib/calc'
 import { useApp } from '../../store/app'
@@ -30,7 +31,7 @@ export function TrainerClientDetail() {
   const { id = '' } = useParams()
   const nav = useNavigate()
   const { toast, userId } = useApp()
-  const [tab, setTab] = useState<'overview' | 'body' | 'history' | 'nutrition' | 'notes'>('overview')
+  const [tab, setTab] = useState<'overview' | 'progress' | 'body' | 'history' | 'nutrition' | 'notes'>('overview')
   // Из списка клиентов можно попасть сразу к назначению программы.
   const [params, setParams] = useSearchParams()
   const [assignOpen, setAssignOpen] = useState(params.get('assign') === '1')
@@ -104,6 +105,7 @@ export function TrainerClientDetail() {
         {(
           [
             ['overview', 'Сводка'],
+            ['progress', 'Прогресс'],
             ['body', 'Тело'],
             ['nutrition', 'Питание'],
             ['history', 'Тренировки'],
@@ -308,6 +310,14 @@ export function TrainerClientDetail() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Тот же разбор, что видит клиент: тренер должен смотреть на те же
+          цифры, иначе они спорят о разных отчётах. */}
+      {tab === 'progress' && (
+        <div style={{ marginTop: 14 }}>
+          <ProgressView userId={id} readOnly />
         </div>
       )}
 
