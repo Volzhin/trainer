@@ -29,15 +29,16 @@ const DEFAULT_PROFILE: Omit<NutritionProfile, 'id' | 'updated_at'> = {
   weekly_change_kg: 0,
 }
 
+/**
+ * Только читает. Записи может не быть — тогда возвращаются значения по
+ * умолчанию. Создавать её здесь нельзя: функция вызывается из живых
+ * запросов, а запись внутри читающего запроса роняет подписку.
+ */
 export async function getNutritionProfile(
   userId = currentUserId(),
 ): Promise<NutritionProfile> {
   const existing = await db.nutritionProfile.get(userId)
-  if (existing) return existing
-
-  const created: NutritionProfile = { id: userId, ...DEFAULT_PROFILE, updated_at: now() }
-  await db.nutritionProfile.put(created)
-  return created
+  return existing ?? { id: userId, ...DEFAULT_PROFILE, updated_at: 0 }
 }
 
 export async function updateNutritionProfile(

@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-
 import { useLiveQuery } from 'dexie-react-hooks'
 import { isOnboarded } from './db/db'
 import { Onboarding } from './pages/Onboarding'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { TabBar } from './components/TabBar'
 import { RestTimer } from './components/RestTimer'
 import { Home } from './pages/Home'
@@ -50,7 +51,8 @@ export default function App() {
     <div className="app">
       {/* key по аккаунту: смена профиля перемонтирует дерево, и все
           запросы к базе перечитываются от имени нового пользователя. */}
-      <Routes key={userId}>
+      <ErrorBoundary key={`${userId}-${location.pathname}`}>
+      <Routes>
         {isTrainer ? (
           <>
             <Route path="/trainer" element={<TrainerClients />} />
@@ -83,6 +85,7 @@ export default function App() {
           </>
         )}
       </Routes>
+      </ErrorBoundary>
 
       {!inSession && !inChat && !isTrainer && <ActiveSessionBanner />}
       {!inChat && <RestTimer />}

@@ -471,6 +471,19 @@ class TrainerDB extends Dexie {
       foods: 'id, barcode, name, used_at',
     })
 
+    /**
+     * v6 повторяет схему питания намеренно. В одной из сборок версии
+     * объявлялись не по возрастанию, и у части устройств база записалась
+     * как пятая, но без таблиц дневника. Dexie не переприменяет схему при
+     * том же номере, поэтому нужен новый — иначе эти устройства остаются
+     * со сломанным модулем навсегда.
+     */
+    this.version(6).stores({
+      nutritionProfile: 'id',
+      foodLogs: 'id, user_id, date, [user_id+date], logged_at',
+      foods: 'id, barcode, name, used_at',
+    })
+
   }
 }
 
