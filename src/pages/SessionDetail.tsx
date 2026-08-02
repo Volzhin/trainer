@@ -1,16 +1,18 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Exercise, type ExerciseSet } from '../db/db'
 import { deleteSession } from '../db/repo'
 import { feedbackForSession, markFeedbackRead, trainerOfClient } from '../db/coach'
 import { VideoUploader } from '../components/ExerciseVideo'
+import { ExerciseTechniqueSheet } from '../components/ExerciseTechnique'
 import { IconBack, IconChat, IconTrash } from '../components/Icons'
 import { formatDateTime, formatDuration, formatWeight, plural, totalVolume } from '../lib/calc'
 import { useApp } from '../store/app'
 
 export function SessionDetail() {
   const { id = '' } = useParams()
+  const [techniqueFor, setTechniqueFor] = useState<string | null>(null)
   const nav = useNavigate()
   const { toast } = useApp()
 
@@ -105,14 +107,25 @@ export function SessionDetail() {
         return (
           <div className="ex-block" key={seq}>
             <div className="ex-head">
-              <div className="grow">
-                <div className="truncate" style={{ fontWeight: 600 }}>
-                  {ex?.name ?? 'Упражнение'}
-                </div>
-                <div className="mute-sm">
-                  {rows.length} {plural(rows.length, ['подход', 'подхода', 'подходов'])}
-                </div>
-              </div>
+              <button
+                className="row grow"
+                style={{ textAlign: 'left', gap: 10 }}
+                onClick={() => ex && setTechniqueFor(ex.id)}
+              >
+                {ex?.image_url ? (
+                  <img src={ex.image_url} alt="" className="ex-thumb" loading="lazy" />
+                ) : (
+                  <span className="ex-thumb placeholder" />
+                )}
+                <span className="grow">
+                  <span className="truncate" style={{ display: 'block', fontWeight: 600 }}>
+                    {ex?.name ?? 'Упражнение'}
+                  </span>
+                  <span className="mute-sm">
+                    {rows.length} {plural(rows.length, ['подход', 'подхода', 'подходов'])} · как делать
+                  </span>
+                </span>
+              </button>
             </div>
             {rows
               .sort((a, b) => a.set_number - b.set_number)
@@ -151,6 +164,8 @@ export function SessionDetail() {
           </div>
         )
       })}
+
+      <ExerciseTechniqueSheet exerciseId={techniqueFor} onClose={() => setTechniqueFor(null)} />
     </div>
   )
 }

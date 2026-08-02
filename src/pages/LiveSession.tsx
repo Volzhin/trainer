@@ -18,6 +18,7 @@ import {
 import { estimate1RM, formatDuration, formatWeight, plural, totalVolume } from '../lib/calc'
 import { IconBack, IconCheck, IconPlus, IconSwap, IconTrash } from '../components/Icons'
 import { ExercisePicker } from '../components/ExercisePicker'
+import { ExerciseTechniqueSheet } from '../components/ExerciseTechnique'
 import { VideoUploader } from '../components/ExerciseVideo'
 import { trainerOfClient } from '../db/coach'
 import { Sheet } from '../components/Sheet'
@@ -39,6 +40,7 @@ export function LiveSession() {
 
   const [pickerOpen, setPickerOpen] = useState(false)
   const [swapFor, setSwapFor] = useState<Block | null>(null)
+  const [techniqueFor, setTechniqueFor] = useState<string | null>(null)
   const [finishOpen, setFinishOpen] = useState(false)
   const [notes, setNotes] = useState('')
   const [elapsed, setElapsed] = useState(0)
@@ -188,18 +190,31 @@ export function LiveSession() {
         {blocks.map((block) => (
           <div className="ex-block" key={block.sequence_order}>
             <div className="ex-head">
-              <div className="grow">
-                <div className="truncate" style={{ fontWeight: 600 }}>
-                  {block.exercise.name}
-                </div>
-                <div className="mute-sm">
-                  {block.exercise.muscle_group}
-                  {block.prev.length > 0 &&
-                    ` · прошлый раз ${formatWeight(block.prev[0].weight_kg)} кг × ${
-                      block.prev[0].reps_completed ?? '—'
-                    }`}
-                </div>
-              </div>
+              {/* Техника открывается шторкой поверх тренировки: уходить со
+                  страницы с незаписанными подходами нельзя. */}
+              <button
+                className="row grow"
+                style={{ textAlign: 'left', gap: 10 }}
+                onClick={() => setTechniqueFor(block.exercise.id)}
+              >
+                {block.exercise.image_url ? (
+                  <img src={block.exercise.image_url} alt="" className="ex-thumb" loading="lazy" />
+                ) : (
+                  <span className="ex-thumb placeholder" />
+                )}
+                <span className="grow">
+                  <span className="truncate" style={{ display: 'block', fontWeight: 600 }}>
+                    {block.exercise.name}
+                  </span>
+                  <span className="mute-sm">
+                    {block.prev.length > 0
+                      ? `прошлый раз ${formatWeight(block.prev[0].weight_kg)} кг × ${
+                          block.prev[0].reps_completed ?? '—'
+                        }`
+                      : 'как делать'}
+                  </span>
+                </span>
+              </button>
               <button
                 className="icon-btn"
                 onClick={() => setSwapFor(block)}
@@ -251,6 +266,8 @@ export function LiveSession() {
           <IconPlus size={17} /> Добавить упражнение
         </button>
       </div>
+
+      <ExerciseTechniqueSheet exerciseId={techniqueFor} onClose={() => setTechniqueFor(null)} />
 
       <ExercisePicker
         open={pickerOpen}

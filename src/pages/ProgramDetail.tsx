@@ -3,8 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, currentUserId, type Exercise, type WorkoutTemplateItem } from '../db/db'
 import { addTemplateItem, createRoutine, startSessionFromRoutine } from '../db/repo'
-import { IconBack, IconPlay, IconPlus, IconTrash } from '../components/Icons'
+import { IconBack, IconChevronRight, IconPlay, IconPlus, IconTrash } from '../components/Icons'
 import { ExercisePicker } from '../components/ExercisePicker'
+import { ExerciseTechniqueSheet } from '../components/ExerciseTechnique'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
 
@@ -13,6 +14,7 @@ export function ProgramDetail() {
   const nav = useNavigate()
   const { toast } = useApp()
   const [pickerFor, setPickerFor] = useState<string | null>(null)
+  const [techniqueFor, setTechniqueFor] = useState<string | null>(null)
 
   const program = useLiveQuery(() => db.programs.get(id), [id])
   const routines = useLiveQuery(
@@ -111,10 +113,28 @@ export function ProgramDetail() {
                     }}
                   >
                     <div className="row between">
-                      <div className="grow">
-                        <div className="truncate">{ex?.name ?? 'Упражнение'}</div>
-                        <div className="mute-sm">{ex?.muscle_group}</div>
-                      </div>
+                      {/* Строка ведёт к технике: без неё клиент видит название
+                          и не понимает, как упражнение делать. */}
+                      <button
+                        className="row grow"
+                        style={{ textAlign: 'left', gap: 10 }}
+                        onClick={() => ex && setTechniqueFor(ex.id)}
+                      >
+                        {ex?.image_url ? (
+                          <img src={ex.image_url} alt="" className="ex-thumb" loading="lazy" />
+                        ) : (
+                          <span className="ex-thumb placeholder" />
+                        )}
+                        <span className="grow">
+                          <span className="truncate" style={{ display: 'block' }}>
+                            {ex?.name ?? 'Упражнение'}
+                          </span>
+                          <span className="mute-sm">{ex?.muscle_group} · как делать</span>
+                        </span>
+                        <span className="chevron">
+                          <IconChevronRight size={16} />
+                        </span>
+                      </button>
                       {editable && (
                         <button
                           className="icon-btn"
@@ -176,6 +196,8 @@ export function ProgramDetail() {
           <IconPlus size={17} /> Добавить день
         </button>
       )}
+
+      <ExerciseTechniqueSheet exerciseId={techniqueFor} onClose={() => setTechniqueFor(null)} />
 
       <ExercisePicker
         open={!!pickerFor}
