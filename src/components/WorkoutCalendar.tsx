@@ -8,7 +8,7 @@ import {
   startSessionFromRoutine,
   startEmptySession,
 } from '../db/repo'
-import { activeAssignmentFor } from '../db/coach'
+import { activeAssignmentFor, plannedDates, plannedForDate } from '../db/coach'
 import { IconBack, IconChevronRight, IconPlay, IconRepeat } from '../components/Icons'
 import { formatDuration, plural, startOfDay, totalVolume } from '../lib/calc'
 import { haptics } from '../lib/native'
@@ -71,6 +71,20 @@ export function WorkoutCalendar() {
     return Array.from({ length: weeks * 7 }, (_, i) => gridStart + i * DAY)
   }, [mode, anchor])
 
+  // Плановые тренировки по расписанию — маркеры на будущих днях.
+  const planned = useLiveQuery(
+    async () =>
+      days.length
+        ? await plannedDates(days[0], days[days.length - 1], currentUserId())
+        : new Map<number, string>(),
+    [days[0], days[days.length - 1], plan?.assignment.id],
+    new Map<string, string>() as unknown as Map<number, string>,
+  )
+  const plannedToday = useLiveQuery(
+    () => plannedForDate(selected, currentUserId()),
+    [selected, plan?.assignment.id],
+  )
+
   const shift = (dir: -1 | 1) => {
     haptics.selection()
     setAnchor((a) =>
@@ -93,8 +107,9 @@ export function WorkoutCalendar() {
 
   const startToday = async () => {
     haptics.impact()
-    const routine = plan?.routines?.[0]
-    const id = routine ? await startSessionFromRoutine(routine.id) : await startEmptySession()
+    // Если на выбранный день есть план — запускаем именно его день программы.
+    const routineId = plannedToday?.routine.id ?? plan?.routines?.[0]?.id
+    const id = routineId ? await startSessionFromRoutine(routineId) : await startEmptySession()
     nav(`/session/${id}`)
   }
 
@@ -166,7 +181,11 @@ export function WorkoutCalendar() {
             >
               <span className="d-num">{new Date(ts).getDate()}</span>
               {mode === 'week' && <span className="d-wd">{WEEK_DAYS[(new Date(ts).getDay() + 6) % 7]}</span>}
-              {list.length > 0 && <span className="d-dot" />}
+              {list.length > 0 ? (
+                <span className="d-dot" />
+              ) : (
+                planned?.has(ts) && <span className="d-dot planned" />
+              )}
             </button>
           )
         })}
@@ -182,10 +201,20 @@ export function WorkoutCalendar() {
 
       {dayList.length === 0 ? (
         <div className="cal-empty">
-          <div className="muted">Нет тренировок в этот день</div>
+          {plannedToday ? (
+            <>
+              <div className="mute-sm">По плану</div>
+              <div style={{ fontWeight: 600, fontSize: 17, marginTop: 2 }}>
+                {plannedToday.routine.name}
+              </div>
+            </>
+          ) : (
+            <div className="muted">Нет тренировок в этот день</div>
+          )}
           {selected >= today && (
             <button className="btn primary block" style={{ marginTop: 14 }} onClick={startToday}>
-              <IconPlay size={17} /> Начать тренировку
+              <IconPlay size={17} />{' '}
+              {plannedToday ? `Начать: ${plannedToday.routine.name}` : 'Начать тренировку'}
             </button>
           )}
         </div>
@@ -244,7 +273,9 @@ export function WorkoutCalendar() {
               <div className="grow">
                 <div style={{ fontWeight: 600 }}>{plan.program.name}</div>
                 <div className="mute-sm" style={{ marginTop: 2 }}>
-                  План на неделю
+                  {plan.weeksLeft != null
+                    ? `Осталось ${plan.weeksLeft} ${plural(plan.weeksLeft, ['неделя', 'недели', 'недель'])}`
+                    : 'План на неделю'}
                 </div>
               </div>
               <span className="badge pro">

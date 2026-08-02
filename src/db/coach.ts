@@ -8,6 +8,7 @@ import {
   type Attachment,
   type Feedback,
   type Role,
+  type ScheduleSlot,
   threadId,
   type TrainerLink,
   type UserProfile,
@@ -332,7 +333,11 @@ export async function loadClientDetail(clientId: string): Promise<ClientDetail |
 export async function assignProgram(input: {
   clientId: string
   programId: string
-  weeklyTarget: number
+  weeklyTarget?: number
+  /** Какой день программы на какой день недели. */
+  schedule?: ScheduleSlot[]
+  /** Сколько недель программа актуальна. */
+  weeks?: number
   note?: string
   trainerId?: string
 }) {
@@ -348,18 +353,86 @@ export async function assignProgram(input: {
   }
 
   const id = uid()
+  const startAt = now()
+  const weeks = input.weeks
+  const schedule = input.schedule?.length ? input.schedule : undefined
+
   await db.assignments.add({
     id,
     trainer_id: trainerId,
     client_id: input.clientId,
     program_id: input.programId,
-    weekly_target: input.weeklyTarget,
+    // Расписание само задаёт недельный объём — дублировать его руками незачем.
+    weekly_target: schedule?.length ?? input.weeklyTarget ?? 3,
+    schedule,
+    weeks,
     note: input.note,
-    start_at: now(),
+    start_at: startAt,
+    // Срок считаем от понедельника недели старта: неделя плана — календарная.
+    end_at: weeks ? weekStart(startAt) + weeks * 7 * 86400_000 : undefined,
     status: 'ACTIVE',
-    updated_at: now(),
+    updated_at: startAt,
   })
   return id
+}
+
+/**
+ * Что запланировано на конкретную дату: день программы из расписания,
+ * если дата попадает в срок назначения. Без расписания плана на дату нет —
+ * старые назначения работают только счётчиком за неделю.
+ */
+export async function plannedForDate(date: number, clientId = currentUserId()) {
+  const assignment = await db.assignments
+    .where('client_id')
+    .equals(clientId)
+    .and((a) => a.status === 'ACTIVE')
+    .first()
+  if (!assignment?.schedule?.length) return null
+
+  const day = startOfDay(date)
+  if (day < weekStart(assignment.start_at)) return null
+  if (assignment.end_at && day >= assignment.end_at) return null
+
+  const weekday = (new Date(day).getDay() + 6) % 7
+  const slot = assignment.schedule.find((s) => s.weekday === weekday)
+  if (!slot) return null
+
+  const routine = await db.routines.get(slot.routine_id)
+  if (!routine) return null
+
+  const program = await db.programs.get(assignment.program_id)
+  return { assignment, routine, program }
+}
+
+/** Даты плановых тренировок в диапазоне — для маркеров календаря. */
+export async function plannedDates(
+  from: number,
+  to: number,
+  clientId = currentUserId(),
+): Promise<Map<number, string>> {
+  const out = new Map<number, string>()
+  const assignment = await db.assignments
+    .where('client_id')
+    .equals(clientId)
+    .and((a) => a.status === 'ACTIVE')
+    .first()
+  if (!assignment?.schedule?.length) return out
+
+  const routines = await db.routines.bulkGet(assignment.schedule.map((s) => s.routine_id))
+  const nameByWeekday = new Map<number, string>()
+  assignment.schedule.forEach((slot, i) => {
+    const r = routines[i]
+    if (r) nameByWeekday.set(slot.weekday, r.name)
+  })
+
+  const begin = Math.max(startOfDay(from), weekStart(assignment.start_at))
+  const finish = assignment.end_at ? Math.min(startOfDay(to), assignment.end_at - 86400_000) : startOfDay(to)
+
+  for (let d = begin; d <= finish; d += 86400_000) {
+    const name = nameByWeekday.get((new Date(d).getDay() + 6) % 7)
+    if (name) out.set(d, name)
+  }
+  return out
 }
 
 /**
@@ -410,6 +483,28 @@ export async function personalProgramsFor(clientId: string, trainerId = currentU
   return rows.filter((p) => p.author_id === trainerId)
 }
 
+/**
+ * Удаляет персональную программу клиента вместе с днями и упражнениями.
+ * Активное назначение на неё снимается: иначе у клиента останется план,
+ * ведущий в никуда.
+ */
+export async function deletePersonalProgram(programId: string) {
+  const assignments = await db.assignments.where('program_id').equals(programId).toArray()
+  for (const a of assignments) {
+    if (a.status === 'ACTIVE') {
+      await db.assignments.update(a.id, { status: 'CANCELLED', updated_at: now() })
+    }
+  }
+
+  const routines = await db.routines.where('program_id').equals(programId).toArray()
+  for (const r of routines) {
+    const items = await db.templateItems.where('routine_id').equals(r.id).toArray()
+    await db.templateItems.bulkDelete(items.map((i) => i.id))
+  }
+  await db.routines.bulkDelete(routines.map((r) => r.id))
+  await db.programs.delete(programId)
+}
+
 export async function cancelAssignment(assignmentId: string) {
   await db.assignments.update(assignmentId, { status: 'CANCELLED', updated_at: now() })
 }
@@ -436,7 +531,11 @@ export async function activeAssignmentFor(clientId = currentUserId()) {
     .and((s) => s.is_completed === 1 && s.start_time >= weekStart(Date.now()))
     .count()
 
-  return { assignment, program, trainer, routines, doneThisWeek }
+  const weeksLeft = assignment.end_at
+    ? Math.max(0, Math.ceil((assignment.end_at - Date.now()) / (7 * 86400_000)))
+    : undefined
+
+  return { assignment, program, trainer, routines, doneThisWeek, weeksLeft }
 }
 
 export async function addFeedback(input: {

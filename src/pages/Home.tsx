@@ -44,38 +44,6 @@ export function Home() {
         )}
       </div>
 
-      {assigned && (
-        <div className="card" style={{ marginBottom: 16, borderColor: 'var(--accent)' }}>
-          <div className="row between">
-            <div className="grow">
-              <div className="mute-sm">
-                Программа от тренера{assigned.trainer ? ` · ${assigned.trainer.name}` : ''}
-              </div>
-              <div style={{ fontWeight: 600, marginTop: 2 }}>{assigned.program.name}</div>
-            </div>
-            <span className="badge pro">
-              {assigned.doneThisWeek} / {assigned.assignment.weekly_target}
-            </span>
-          </div>
-          <div className="bar" style={{ marginTop: 12 }}>
-            <i
-              style={{
-                width: `${Math.min(100, (assigned.doneThisWeek / assigned.assignment.weekly_target) * 100)}%`,
-                background:
-                  assigned.doneThisWeek >= assigned.assignment.weekly_target
-                    ? 'var(--ok)'
-                    : 'var(--accent)',
-              }}
-            />
-          </div>
-          {assigned.assignment.note && (
-            <div className="mute-sm" style={{ marginTop: 10 }}>
-              {assigned.assignment.note}
-            </div>
-          )}
-        </div>
-      )}
-
       {active && (
         <button
           className="btn primary block"
@@ -87,6 +55,75 @@ export function Home() {
       )}
 
       <WorkoutCalendar />
+
+      {assigned && (
+        <>
+          <div className="section-title">Программа от тренера</div>
+          <div className="card">
+            <div style={{ fontWeight: 700, fontSize: 17 }}>{assigned.program.name}</div>
+            <div className="mute-sm" style={{ marginTop: 3 }}>
+              {assigned.trainer?.name ?? 'Тренер'}
+              {assigned.weeksLeft != null &&
+                ` · осталось ${assigned.weeksLeft} ${plural(assigned.weeksLeft, ['неделя', 'недели', 'недель'])}`}
+            </div>
+
+            {/* Дни недели с планом: клиенту важно знать, когда он тренируется,
+                а не только сколько раз. */}
+            {assigned.assignment.schedule?.length ? (
+              <div className="weekday-row" style={{ marginTop: 14 }}>
+                {['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'].map((label, wd) => {
+                  const on = assigned.assignment.schedule?.some((sl) => sl.weekday === wd)
+                  return (
+                    <div key={wd} className={`weekday${on ? ' on' : ''}`}>
+                      <span className="wd">{label}</span>
+                      <span className="slot">{on ? '•' : '—'}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : null}
+
+            <div className="row between" style={{ marginTop: 16, marginBottom: 6 }}>
+              <span className="mute-sm">На этой неделе</span>
+              <span className="mute-sm" style={{ fontFamily: 'var(--font-num)' }}>
+                {assigned.doneThisWeek} из {assigned.assignment.weekly_target}
+              </span>
+            </div>
+            <div className="bar">
+              <i
+                style={{
+                  width: `${Math.min(100, (assigned.doneThisWeek / assigned.assignment.weekly_target) * 100)}%`,
+                  background:
+                    assigned.doneThisWeek >= assigned.assignment.weekly_target
+                      ? 'var(--ok)'
+                      : 'var(--accent)',
+                }}
+              />
+            </div>
+
+            {assigned.assignment.note && (
+              <div
+                className="mute-sm"
+                style={{
+                  marginTop: 14,
+                  paddingLeft: 10,
+                  borderLeft: '2px solid var(--accent)',
+                }}
+              >
+                {assigned.assignment.note}
+              </div>
+            )}
+
+            <button
+              className="btn sm block"
+              style={{ marginTop: 14 }}
+              onClick={() => nav('/programs')}
+            >
+              Открыть программу
+            </button>
+          </div>
+        </>
+      )}
     </div>
   )
 }

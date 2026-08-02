@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Program, type WorkoutSession } from '../../db/db'
@@ -9,6 +9,7 @@ import {
   deleteTrainerNote,
   listTrainerNotes,
   createPersonalProgram,
+  deletePersonalProgram,
   loadClientDetail,
   personalProgramsFor,
   removeLink,
@@ -143,10 +144,16 @@ export function TrainerClientDetail() {
                   <div className="grow">
                     <div style={{ fontWeight: 600 }}>{assignedProgram.name}</div>
                     <div className="mute-sm">
-                      цель {assignment.weekly_target}{' '}
-                      {plural(assignment.weekly_target, ['тренировка', 'тренировки', 'тренировок'])} в неделю
-                      {' · с '}
-                      {formatDate(assignment.start_at)}
+                      {assignment.schedule?.length
+                        ? assignment.schedule
+                            .slice()
+                            .sort((a, b) => a.weekday - b.weekday)
+                            .map((sl) => WEEKDAYS[sl.weekday])
+                            .join(', ')
+                        : `${assignment.weekly_target} в неделю`}
+                      {assignment.end_at
+                        ? ` · до ${formatDate(assignment.end_at - 86400_000)}`
+                        : ` · с ${formatDate(assignment.start_at)}`}
                     </div>
                   </div>
                 </div>
@@ -208,8 +215,19 @@ export function TrainerClientDetail() {
                   title={p.name}
                   sub={p.id === assignment?.program_id ? 'назначена сейчас' : 'не назначена'}
                   onClick={() => nav(`/programs/${p.id}`)}
-                  chevron
-                />
+                >
+                  <button
+                    className="icon-btn"
+                    aria-label="Удалить программу"
+                    onClick={async (e) => {
+                      e.stopPropagation()
+                      await deletePersonalProgram(p.id)
+                      toast('Программа удалена')
+                    }}
+                  >
+                    <IconTrash size={16} />
+                  </button>
+                </Row>
               ))}
             </Group>
           )}
@@ -373,6 +391,8 @@ function SessionFeedback({ sessionId }: { sessionId: string }) {
   )
 }
 
+const WEEKDAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
+
 function AssignSheet({
   open,
   clientId,
@@ -390,29 +410,72 @@ function AssignSheet({
   const { userId, toast } = useApp()
   const [mode, setMode] = useState<'ready' | 'new'>('ready')
   const [programId, setProgramId] = useState('')
-  const [target, setTarget] = useState(3)
+  const [weeks, setWeeks] = useState(8)
   const [note, setNote] = useState('')
   const [newName, setNewName] = useState('')
   const [busy, setBusy] = useState(false)
+  /** Какой день программы стоит на каком дне недели. */
+  const [slots, setSlots] = useState<Record<number, string>>({})
 
-  // Тренер назначает свои программы и готовые сплиты платформы.
   const programs = useLiveQuery(
     () => db.programs.filter((p) => p.author_id === userId || p.author_id === 'system').toArray(),
     [userId],
     [] as Program[],
   )
-  const routines = useLiveQuery(() => db.routines.toArray(), [], [])
+  const allRoutines = useLiveQuery(() => db.routines.toArray(), [], [])
 
   const chosen = programId || programs?.[0]?.id || ''
+  const days = useMemo(
+    () => (allRoutines ?? []).filter((r) => r.program_id === chosen).sort((a, b) => a.day_order - b.day_order),
+    [allRoutines, chosen],
+  )
+
+  // При смене программы расписание раскладываем по умолчанию: пн / ср / пт
+  // и далее — самый частый разнос тренировок через день.
+  useEffect(() => {
+    if (!days.length) return setSlots({})
+    const preset = [0, 2, 4, 1, 3, 5, 6]
+    const next: Record<number, string> = {}
+    days.forEach((r, i) => {
+      const wd = preset[i % preset.length]
+      next[wd] = r.id
+    })
+    setSlots(next)
+  }, [chosen, days.length])
+
+  const schedule = Object.entries(slots)
+    .filter(([, routineId]) => routineId)
+    .map(([weekday, routineId]) => ({ weekday: Number(weekday), routine_id: routineId }))
+
+  /** Клик по дню недели перебирает дни программы и «пусто». */
+  const cycleDay = (weekday: number) => {
+    setSlots((prev) => {
+      const current = prev[weekday]
+      const idx = days.findIndex((d) => d.id === current)
+      const next = { ...prev }
+      if (idx === -1) next[weekday] = days[0]?.id
+      else if (idx === days.length - 1) delete next[weekday]
+      else next[weekday] = days[idx + 1].id
+      return next
+    })
+  }
+
+  const shortName = (routineId?: string) => {
+    const r = days.find((d) => d.id === routineId)
+    if (!r) return null
+    const i = days.indexOf(r)
+    return String.fromCharCode(65 + i)
+  }
 
   const assignReady = async () => {
-    if (!chosen) return
+    if (!chosen || !schedule.length) return
     setBusy(true)
     try {
       await assignProgram({
         clientId,
         programId: chosen,
-        weeklyTarget: target,
+        schedule,
+        weeks,
         note,
         trainerId: userId,
       })
@@ -424,18 +487,16 @@ function AssignSheet({
     }
   }
 
-  // Новая программа сразу назначается и открывается на наполнение:
-  // иначе тренер остаётся с пустым шаблоном и без понятного следующего шага.
   const createAndOpen = async () => {
     setBusy(true)
     try {
       const id = await createPersonalProgram({
         clientId,
         name: newName,
-        weeklyTarget: target,
+        weeklyTarget: 3,
         trainerId: userId,
       })
-      toast('Программа создана и назначена')
+      toast('Программа создана — добавьте упражнения')
       onClose()
       nav(`/programs/${id}`)
     } finally {
@@ -458,22 +519,18 @@ function AssignSheet({
         <div className="stack">
           <div className="group">
             {(programs ?? []).map((p) => {
-              const days = (routines ?? []).filter((r) => r.program_id === p.id).length
+              const count = (allRoutines ?? []).filter((r) => r.program_id === p.id).length
               return (
                 <button
                   key={p.id}
                   className="group-row"
                   onClick={() => setProgramId(p.id)}
-                  style={
-                    p.id === chosen
-                      ? { background: 'var(--accent-soft)' }
-                      : undefined
-                  }
+                  style={p.id === chosen ? { background: 'var(--accent-soft)' } : undefined}
                 >
                   <span className="grow">
                     <span className="title">{p.name}</span>
                     <span className="sub" style={{ display: 'block' }}>
-                      {p.goal} · {days} {plural(days, ['день', 'дня', 'дней'])}
+                      {p.goal} · {count} {plural(count, ['день', 'дня', 'дней'])}
                       {p.author_id === userId ? ' · моя' : ''}
                     </span>
                   </span>
@@ -488,10 +545,52 @@ function AssignSheet({
           </div>
 
           <div className="field">
-            <label>Тренировок в неделю</label>
+            <label>Дни недели</label>
+            {/* Нажатие перебирает дни программы: так расписание собирается
+                одним пальцем, без выпадающих списков на каждый день. */}
+            <div className="weekday-row">
+              {WEEKDAYS.map((label, wd) => {
+                const mark = shortName(slots[wd])
+                return (
+                  <button
+                    key={wd}
+                    className={`weekday${mark ? ' on' : ''}`}
+                    onClick={() => cycleDay(wd)}
+                  >
+                    <span className="wd">{label}</span>
+                    <span className="slot">{mark ?? '—'}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="mute-sm" style={{ marginTop: 8 }}>
+              {schedule.length
+                ? `${schedule.length} ${plural(schedule.length, ['тренировка', 'тренировки', 'тренировок'])} в неделю`
+                : 'Выберите хотя бы один день'}
+            </div>
+          </div>
+
+          {days.length > 0 && (
+            <div className="group">
+              {days.map((r, i) => (
+                <div className="group-row" key={r.id}>
+                  <span className="metric-icon" style={{ color: 'var(--accent-ink)' }}>
+                    {String.fromCharCode(65 + i)}
+                  </span>
+                  <span className="grow title">{r.name}</span>
+                  <span className="value">
+                    {WEEKDAYS.filter((_, wd) => slots[wd] === r.id).join(', ') || 'не назначен'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="field">
+            <label>Сколько недель</label>
             <div className="segmented">
-              {[2, 3, 4, 5, 6].map((v) => (
-                <button key={v} className={target === v ? 'on' : ''} onClick={() => setTarget(v)}>
+              {[4, 6, 8, 12].map((v) => (
+                <button key={v} className={weeks === v ? 'on' : ''} onClick={() => setWeeks(v)}>
                   {v}
                 </button>
               ))}
@@ -510,17 +609,17 @@ function AssignSheet({
 
           <button
             className="btn primary block"
-            disabled={busy || !chosen}
+            disabled={busy || !chosen || !schedule.length}
             onClick={assignReady}
           >
-            Назначить программу
+            Назначить на {weeks} {plural(weeks, ['неделю', 'недели', 'недель'])}
           </button>
         </div>
       ) : (
         <div className="stack">
           <div className="muted">
-            Создадим пустую программу под этого клиента и сразу её назначим — останется добавить
-            упражнения.
+            Создадим пустую программу под этого клиента. Наполните её днями и упражнениями, потом
+            назначьте на дни недели.
           </div>
           <div className="field">
             <label>Название</label>
@@ -530,16 +629,6 @@ function AssignSheet({
               onChange={(e) => setNewName(e.target.value)}
               placeholder={`Программа · ${clientName}`}
             />
-          </div>
-          <div className="field">
-            <label>Тренировок в неделю</label>
-            <div className="segmented">
-              {[2, 3, 4, 5, 6].map((v) => (
-                <button key={v} className={target === v ? 'on' : ''} onClick={() => setTarget(v)}>
-                  {v}
-                </button>
-              ))}
-            </div>
           </div>
           <button className="btn primary block" disabled={busy} onClick={createAndOpen}>
             Создать и наполнить

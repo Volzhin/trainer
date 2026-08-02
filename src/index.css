@@ -1658,3 +1658,55 @@ button.group-row:active {
   padding: 22px 18px;
   text-align: center;
 }
+
+/* Расписание по дням недели: нажатие перебирает дни программы. */
+.weekday-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.weekday {
+  display: grid;
+  gap: 4px;
+  padding: 8px 0;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  text-align: center;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.weekday .wd {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+}
+
+.weekday .slot {
+  font-family: var(--font-num);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.weekday.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.weekday.on .wd,
+.weekday.on .slot {
+  color: var(--on-accent);
+}
+
+/* Плановая тренировка — контурная точка: день ещё не состоялся. */
+.cal-day .d-dot.planned {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--accent-ink);
+}
+
+.cal-day.on .d-dot.planned {
+  box-shadow: inset 0 0 0 1.5px var(--on-accent);
+}
