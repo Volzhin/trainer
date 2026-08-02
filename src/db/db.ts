@@ -108,6 +108,13 @@ export interface BodyMetric {
   chest_cm?: number
   waist_cm?: number
   hip_cm?: number
+  neck_cm?: number
+  thigh_cm?: number
+  /** Отношения обхватов — считаются при вводе и хранятся вместе с замером. */
+  waist_to_height?: number
+  waist_to_hip?: number
+  /** Часть показателей выведена из обхватов, а не измерена приборно. */
+  derived?: 0 | 1
 
   /** Поля биоимпедансного анализа (InBody / DDX). Заполняются при импорте PDF. */
   skeletal_muscle_kg?: number

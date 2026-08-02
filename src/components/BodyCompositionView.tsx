@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import type { BodyMetric } from '../db/db'
+import { db, type BodyMetric } from '../db/db'
 import {
   deleteBodyMetric,
   listBodyMetrics,
@@ -18,6 +18,7 @@ import {
 import { Sheet } from './Sheet'
 import { IconTrash } from './Icons'
 import { formatDate } from '../lib/calc'
+import { deriveComposition } from '../lib/anthropometry'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
 
@@ -509,7 +510,11 @@ function metricRows(m: Partial<BodyMetric>): [string, string][] {
 }
 
 
-/** Ручной ввод замера. Обязателен только вес — остальное по возможности. */
+/**
+ * Ручной ввод замера. Обхваты важнее отдельных показателей: по ним
+ * считается процент жира и производный состав, поэтому измерительная лента
+ * заменяет весы с биоимпедансом там, где их нет.
+ */
 function ManualMeasurementSheet({
   open,
   userId,
@@ -521,20 +526,10 @@ function ManualMeasurementSheet({
   onClose: () => void
   onSaved: (replaced: boolean) => void
 }) {
+  const profile = useLiveQuery(async () => db.profile.get(userId), [userId])
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [values, setValues] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
-
-  const fields: { key: string; label: string; unit: string; hint?: string }[] = [
-    { key: 'weight_kg', label: 'Вес', unit: 'кг' },
-    { key: 'body_fat_pct', label: 'Жир', unit: '%' },
-    { key: 'skeletal_muscle_kg', label: 'Мышцы', unit: 'кг' },
-    { key: 'body_water_l', label: 'Вода', unit: 'л' },
-    { key: 'protein_kg', label: 'Белок', unit: 'кг' },
-    { key: 'minerals_kg', label: 'Минералы', unit: 'кг' },
-    { key: 'visceral_fat', label: 'Висцеральный жир', unit: '' },
-    { key: 'waist_cm', label: 'Талия', unit: 'см' },
-  ]
 
   const num = (key: string) => {
     const raw = values[key]
@@ -543,23 +538,70 @@ function ManualMeasurementSheet({
     return Number.isFinite(n) ? n : undefined
   }
 
+  const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setValues((v) => ({ ...v, [key]: e.target.value }))
+
+  const heightCm = num('height_cm') ?? profile?.height_cm
+  const sex = profile?.gender ?? 'м'
+
+  // Считаем на лету: человек должен видеть, что даёт очередной обхват,
+  // а не узнавать результат после сохранения.
+  const derived = useMemo(
+    () =>
+      deriveComposition({
+        weightKg: num('weight_kg'),
+        heightCm,
+        sex,
+        girths: {
+          neck: num('neck_cm'),
+          waist: num('waist_cm'),
+          hip: num('hip_cm'),
+          chest: num('chest_cm'),
+          thigh: num('thigh_cm'),
+        },
+        knownBodyFatPct: num('body_fat_pct'),
+      }),
+    [values, heightCm, sex],
+  )
+
+  const girthFields: { key: string; label: string; hint?: string }[] = [
+    { key: 'neck_cm', label: 'Шея', hint: 'под кадыком, лента горизонтально' },
+    { key: 'waist_cm', label: 'Талия', hint: 'на уровне пупка, не втягивая живот' },
+    { key: 'hip_cm', label: 'Таз', hint: 'по самой широкой части ягодиц' },
+    { key: 'chest_cm', label: 'Грудь' },
+    { key: 'thigh_cm', label: 'Бедро' },
+  ]
+
   const submit = async () => {
     const weight = num('weight_kg')
-    if (!weight && !num('body_fat_pct')) return
+    if (!weight && derived.bodyFatPct == null) return
     setBusy(true)
     try {
-      const payload: Record<string, number | undefined> = {}
-      for (const f of fields) payload[f.key] = num(f.key)
-
-      // Жировую массу считаем сами, если известны вес и процент: она нужна
-      // кольцу состава, а вручную её никто не вводит.
-      if (weight && num('body_fat_pct')) {
-        payload.body_fat_kg = Math.round(((weight * num('body_fat_pct')!) / 100) * 10) / 10
-        payload.fat_free_mass_kg = Math.round((weight - payload.body_fat_kg) * 10) / 10
-      }
-
       const at = new Date(`${date}T12:00:00`).getTime()
-      const res = await saveManualMeasurement({ ...payload, logged_at: at }, userId)
+      const res = await saveManualMeasurement(
+        {
+          weight_kg: weight,
+          neck_cm: num('neck_cm'),
+          waist_cm: num('waist_cm'),
+          hip_cm: num('hip_cm'),
+          chest_cm: num('chest_cm'),
+          thigh_cm: num('thigh_cm'),
+          // Значение, введённое руками, приоритетнее расчётного.
+          body_fat_pct: num('body_fat_pct') ?? derived.bodyFatPct,
+          body_fat_kg: derived.fatMassKg,
+          fat_free_mass_kg: derived.leanMassKg,
+          skeletal_muscle_kg: derived.skeletalMuscleKg,
+          body_water_l: derived.bodyWaterL,
+          protein_kg: derived.proteinKg,
+          minerals_kg: derived.mineralsKg,
+          bmi: derived.bmi,
+          waist_to_height: derived.waistToHeight,
+          waist_to_hip: derived.waistToHip,
+          derived: num('body_fat_pct') == null && derived.bodyFatPct != null ? 1 : 0,
+          logged_at: at,
+        },
+        userId,
+      )
       setValues({})
       onSaved(res.replaced)
       onClose()
@@ -567,6 +609,20 @@ function ManualMeasurementSheet({
       setBusy(false)
     }
   }
+
+  const rows: [string, string | undefined][] = [
+    ['Жир', derived.bodyFatPct != null ? `${derived.bodyFatPct} %` : undefined],
+    ['Жировая масса', derived.fatMassKg != null ? `${derived.fatMassKg} кг` : undefined],
+    ['Безжировая масса', derived.leanMassKg != null ? `${derived.leanMassKg} кг` : undefined],
+    ['Скелетные мышцы', derived.skeletalMuscleKg != null ? `${derived.skeletalMuscleKg} кг` : undefined],
+    ['Вода', derived.bodyWaterL != null ? `${derived.bodyWaterL} л` : undefined],
+    ['Белок', derived.proteinKg != null ? `${derived.proteinKg} кг` : undefined],
+    ['Минералы', derived.mineralsKg != null ? `${derived.mineralsKg} кг` : undefined],
+    ['ИМТ', derived.bmi != null ? String(derived.bmi) : undefined],
+    ['Талия к росту', derived.waistToHeight != null ? String(derived.waistToHeight) : undefined],
+    ['Талия к бёдрам', derived.waistToHip != null ? String(derived.waistToHip) : undefined],
+  ]
+  const shown = rows.filter(([, v]) => v)
 
   return (
     <Sheet open={open} title="Замер вручную" onClose={onClose}>
@@ -582,32 +638,107 @@ function ManualMeasurementSheet({
           />
         </div>
 
-        {fields.map((f) => (
-          <div className="field" key={f.key}>
-            <label>
-              {f.label}
-              {f.unit ? `, ${f.unit}` : ''}
-            </label>
+        <div className="row" style={{ gap: 8 }}>
+          <div className="field grow">
+            <label>Вес, кг</label>
             <input
               className="input"
               inputMode="decimal"
-              value={values[f.key] ?? ''}
-              onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
+              value={values.weight_kg ?? ''}
+              onChange={set('weight_kg')}
               placeholder="—"
               style={{ fontFamily: 'var(--font-num)' }}
             />
           </div>
-        ))}
+          <div className="field grow">
+            <label>Рост, см</label>
+            <input
+              className="input"
+              inputMode="numeric"
+              value={values.height_cm ?? (profile?.height_cm ? String(profile.height_cm) : '')}
+              onChange={set('height_cm')}
+              placeholder="—"
+              style={{ fontFamily: 'var(--font-num)' }}
+            />
+          </div>
+        </div>
+
+        <div className="section-title">Обхваты, см</div>
+        <div className="group">
+          {girthFields.map((f) => (
+            <div className="group-row" key={f.key}>
+              <span className="grow">
+                <span className="title">{f.label}</span>
+                {f.hint && (
+                  <span className="sub" style={{ display: 'block' }}>
+                    {f.hint}
+                  </span>
+                )}
+              </span>
+              <input
+                className="input"
+                inputMode="decimal"
+                value={values[f.key] ?? ''}
+                onChange={set(f.key)}
+                placeholder="—"
+                style={{ width: 84, textAlign: 'center', fontFamily: 'var(--font-num)', padding: '9px 8px' }}
+              />
+            </div>
+          ))}
+        </div>
+
+        {!heightCm && (
+          <div className="mute-sm" style={{ color: 'var(--warn)' }}>
+            Без роста процент жира по обхватам не посчитать — укажите его выше.
+          </div>
+        )}
+        {heightCm && sex === 'ж' && !num('hip_cm') && (
+          <div className="mute-sm" style={{ color: 'var(--warn)' }}>
+            Для женской формулы нужен обхват таза: без него расчёт занижает жир.
+          </div>
+        )}
+
+        {shown.length > 0 && (
+          <>
+            <div className="section-title">Расчёт по обхватам</div>
+            <div className="group">
+              {shown.map(([label, value]) => (
+                <div className="group-row" key={label}>
+                  <span className="grow title">{label}</span>
+                  <span className="value" style={{ fontFamily: 'var(--font-num)' }}>
+                    {value}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="mute-sm">
+              Оценка по методике ВМФ США: погрешность около трёх процентов.
+              Отчёт биоимпеданса точнее — если он есть, загрузите его.
+            </div>
+          </>
+        )}
+
+        <div className="field">
+          <label>Свой процент жира, если знаете</label>
+          <input
+            className="input"
+            inputMode="decimal"
+            value={values.body_fat_pct ?? ''}
+            onChange={set('body_fat_pct')}
+            placeholder="—"
+            style={{ fontFamily: 'var(--font-num)' }}
+          />
+        </div>
 
         <button
           className="btn primary block"
-          disabled={busy || (!values.weight_kg && !values.body_fat_pct)}
+          disabled={busy || (!values.weight_kg && derived.bodyFatPct == null)}
           onClick={submit}
         >
           Сохранить замер
         </button>
         <div className="mute-sm" style={{ textAlign: 'center' }}>
-          Достаточно веса — остальные поля заполняйте, если знаете.
+          Достаточно веса. Обхваты дадут состав тела без весов с биоимпедансом.
         </div>
       </div>
     </Sheet>
