@@ -10,6 +10,7 @@ import { generateDemoData } from '../db/demo'
 import { MyTrainerCard } from '../components/MyTrainerCard'
 import { AccountSwitcher } from '../components/AccountSwitcher'
 import { Group, Row } from '../components/Group'
+import { ThemePicker } from '../components/ThemePicker'
 
 export function Profile() {
   const { toast, online } = useApp()
@@ -141,6 +142,15 @@ export function Profile() {
           </div>
         </div>
       )}
+
+      <Group title="Оформление">
+        <div className="group-row" style={{ display: 'block' }}>
+          <div className="title" style={{ marginBottom: 8 }}>
+            Тема
+          </div>
+          <ThemePicker />
+        </div>
+      </Group>
 
       <Group title="Тренировка">
         <Row title="Отдых по умолчанию" sub="Если в шаблоне не задан свой">

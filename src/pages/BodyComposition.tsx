@@ -5,19 +5,24 @@ import type { BodyMetric } from '../db/db'
 import { deleteBodyMetric, listBodyMetrics, saveInBodyReport } from '../db/repo'
 import { parseInBodyPdf, statusFor, type InBodyReport, type NormStatus } from '../lib/inbody'
 import { LineChart } from '../components/LineChart'
-import { BodyDonut, BodySegments, type DonutPart } from '../components/BodyDonut'
+import { BodyDonut, BodySegments, useCountUp, type DonutPart } from '../components/BodyDonut'
+import {
+  IcoApple, IcoBmi, IcoBone, IcoFat, IcoFlame, IcoLean, IcoMuscle,
+  IcoProtein, IcoTarget, IcoVisceral, IcoWater, IcoWeight,
+} from '../components/MetricIcons'
 import { Sheet } from '../components/Sheet'
 import { IconBack, IconTrash } from '../components/Icons'
 import { formatDate } from '../lib/calc'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
 
+// Цвета берём из токенов: они подобраны отдельно для светлой и тёмной темы.
 const C = {
-  muscle: '#1f5f5b',
-  protein: '#f5c451',
-  minerals: '#2bc4c9',
-  water: '#7ec8f0',
-  fat: '#f26a1b',
+  muscle: 'var(--c-muscle)',
+  protein: 'var(--c-protein)',
+  minerals: 'var(--c-minerals)',
+  water: 'var(--c-water)',
+  fat: 'var(--c-fat)',
   neutral: 'var(--text-dim)',
 }
 
@@ -27,37 +32,31 @@ const STATUS_TEXT: Record<NormStatus, string> = {
   high: 'Выше нормы',
 }
 
-const STATUS_COLOR: Record<NormStatus, string> = {
-  low: 'var(--accent)',
-  normal: 'var(--success)',
-  high: 'var(--warn)',
-}
-
 /** Метрика экрана: как достать значение, как подписать и каким цветом. */
 type Row = {
   key: keyof BodyMetric
   label: string
   unit: string
   color: string
-  icon: string
+  Icon: (p: { size?: number; color?: string }) => JSX.Element
   /** Куда «лучше» двигаться — для окраски дельты. */
   better?: 'up' | 'down'
 }
 
 const MAIN: Row[] = [
-  { key: 'weight_kg', label: 'Вес', unit: 'кг', color: C.muscle, icon: '⚖️', better: 'down' },
-  { key: 'body_fat_pct', label: 'Жир', unit: '%', color: C.fat, icon: '💧', better: 'down' },
-  { key: 'skeletal_muscle_kg', label: 'Мышцы', unit: 'кг', color: C.muscle, icon: '💪', better: 'up' },
-  { key: 'body_water_l', label: 'Вода', unit: 'л', color: C.water, icon: '💦', better: 'up' },
-  { key: 'protein_kg', label: 'Белок', unit: 'кг', color: C.protein, icon: '🥚', better: 'up' },
-  { key: 'minerals_kg', label: 'Минералы', unit: 'кг', color: C.minerals, icon: '🦴', better: 'up' },
+  { key: 'weight_kg', label: 'Вес', unit: 'кг', color: C.muscle, Icon: IcoWeight, better: 'down' },
+  { key: 'body_fat_pct', label: 'Жир', unit: '%', color: C.fat, Icon: IcoFat, better: 'down' },
+  { key: 'skeletal_muscle_kg', label: 'Мышцы', unit: 'кг', color: C.muscle, Icon: IcoMuscle, better: 'up' },
+  { key: 'body_water_l', label: 'Вода', unit: 'л', color: C.water, Icon: IcoWater, better: 'up' },
+  { key: 'protein_kg', label: 'Белок', unit: 'кг', color: C.protein, Icon: IcoProtein, better: 'up' },
+  { key: 'minerals_kg', label: 'Минералы', unit: 'кг', color: C.minerals, Icon: IcoBone, better: 'up' },
 ]
 
 const OTHER: Row[] = [
-  { key: 'visceral_fat', label: 'Висцеральный жир', unit: '', color: C.neutral, icon: '🫃', better: 'down' },
-  { key: 'bmi', label: 'ИМТ', unit: '', color: C.neutral, icon: '📈', better: 'down' },
-  { key: 'fat_free_mass_kg', label: 'Безжировая масса', unit: 'кг', color: C.neutral, icon: '🧍', better: 'up' },
-  { key: 'bmr_kcal', label: 'Основной обмен веществ', unit: 'ккал', color: C.neutral, icon: '🔥', better: 'up' },
+  { key: 'visceral_fat', label: 'Висцеральный жир', unit: '', color: C.fat, Icon: IcoVisceral, better: 'down' },
+  { key: 'bmi', label: 'ИМТ', unit: '', color: C.neutral, Icon: IcoBmi, better: 'down' },
+  { key: 'fat_free_mass_kg', label: 'Безжировая масса', unit: 'кг', color: C.muscle, Icon: IcoLean, better: 'up' },
+  { key: 'bmr_kcal', label: 'Основной обмен веществ', unit: 'ккал', color: C.protein, Icon: IcoFlame, better: 'up' },
 ]
 
 const TRACKABLE = [...MAIN, ...OTHER]
@@ -169,7 +168,7 @@ export function BodyComposition() {
             centerLabel="Вес"
             centerValue={`${latest.weight_kg ?? '—'} кг`}
             status={weightStatus ? STATUS_TEXT[weightStatus] : undefined}
-            statusColor={weightStatus ? STATUS_COLOR[weightStatus] : undefined}
+            statusKind={weightStatus}
           />
         </div>
       )}
@@ -177,16 +176,16 @@ export function BodyComposition() {
       {latest && (
         <>
           <div className="section-title">Основные параметры</div>
-          <div className="group">
-            {MAIN.map((row) => (
-              <MetricRow key={String(row.key)} row={row} now={latest} was={previous} />
+          <div className="group stagger">
+            {MAIN.map((row, i) => (
+              <MetricRow key={String(row.key)} row={row} now={latest} was={previous} index={i} />
             ))}
           </div>
 
           <div className="section-title">Другие</div>
-          <div className="group">
-            {OTHER.map((row) => (
-              <MetricRow key={String(row.key)} row={row} now={latest} was={previous} />
+          <div className="group stagger">
+            {OTHER.map((row, i) => (
+              <MetricRow key={String(row.key)} row={row} now={latest} was={previous} index={i} />
             ))}
           </div>
         </>
@@ -195,17 +194,11 @@ export function BodyComposition() {
       {latest?.muscle_segments && (
         <>
           <div className="section-title">Анализ тела по сегментам</div>
-          <div className="chips" style={{ marginBottom: 10 }}>
-            <button
-              className={`chip${segTab === 'muscle' ? ' active' : ''}`}
-              onClick={() => setSegTab('muscle')}
-            >
+          <div className="segmented" style={{ marginBottom: 12 }}>
+            <button className={segTab === 'muscle' ? 'on' : ''} onClick={() => setSegTab('muscle')}>
               Мышцы
             </button>
-            <button
-              className={`chip${segTab === 'fat' ? ' active' : ''}`}
-              onClick={() => setSegTab('fat')}
-            >
+            <button className={segTab === 'fat' ? 'on' : ''} onClick={() => setSegTab('fat')}>
               Жир
             </button>
           </div>
@@ -256,7 +249,9 @@ export function BodyComposition() {
           <div className="group">
             {latest.optimal_weight_kg != null && (
               <div className="group-row">
-                <span className="avatar">🎯</span>
+                <span className="metric-icon" style={{ color: 'var(--c-muscle)' }}>
+                  <IcoTarget size={20} />
+                </span>
                 <span className="grow">
                   <span className="title">Оптимальный вес</span>
                   <span className="sub" style={{ display: 'block' }}>
@@ -268,7 +263,9 @@ export function BodyComposition() {
             )}
             {latest.daily_kcal != null && (
               <div className="group-row">
-                <span className="avatar">🍎</span>
+                <span className="metric-icon" style={{ color: 'var(--c-fat)' }}>
+                  <IcoApple size={20} />
+                </span>
                 <span className="grow">
                   <span className="title">Приём калорий</span>
                   <span className="sub" style={{ display: 'block' }}>
@@ -386,35 +383,42 @@ function Target({ label, value }: { label: string; value?: number }) {
   )
 }
 
-function MetricRow({ row, now, was }: { row: Row; now: BodyMetric; was?: BodyMetric }) {
+function MetricRow({
+  row,
+  now,
+  was,
+  index = 0,
+}: {
+  row: Row
+  now: BodyMetric
+  was?: BodyMetric
+  index?: number
+}) {
   const value = now[row.key] as number | undefined
+  const shown = useCountUp(value ?? 0, Number.isInteger(value) ? 0 : 1)
   if (value == null) return null
 
-  const norm = now.norms?.[row.key as string]
-  const status = statusFor(value, norm)
+  const status = statusFor(value, now.norms?.[row.key as string])
   const prev = was?.[row.key] as number | undefined
   const diff = prev != null ? round1(value - prev) : null
   const good = diff == null || diff === 0 ? null : row.better === 'up' ? diff > 0 : diff < 0
 
   return (
-    <div className="group-row">
-      <span
-        className="avatar"
-        style={{ background: row.color, borderColor: row.color, color: '#fff' }}
-      >
-        {row.icon}
+    <div className="group-row" style={{ '--i': index } as React.CSSProperties}>
+      <span className="metric-icon" style={{ color: row.color }}>
+        <row.Icon size={20} />
       </span>
       <span className="grow">
         <span className="title">{row.label}</span>
         {status && (
-          <span className="sub" style={{ display: 'block' }}>
-            {STATUS_TEXT[status]}
+          <span style={{ display: 'block', marginTop: 3 }}>
+            <span className={`status ${status}`}>{STATUS_TEXT[status]}</span>
           </span>
         )}
       </span>
       <span style={{ textAlign: 'right' }}>
-        <span style={{ fontWeight: 700 }}>
-          {value}
+        <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+          {shown}
           <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-mute)' }}>
             {row.unit ? ` ${row.unit}` : ''}
           </span>
@@ -425,10 +429,11 @@ function MetricRow({ row, now, was }: { row: Row; now: BodyMetric; was?: BodyMet
               display: 'block',
               fontSize: 12,
               fontWeight: 600,
+              fontVariantNumeric: 'tabular-nums',
               color: good ? 'var(--success)' : 'var(--danger)',
             }}
           >
-            {diff > 0 ? '↗' : '↘'} {Math.abs(diff)}
+            {diff > 0 ? '↑' : '↓'} {Math.abs(diff)}
           </span>
         )}
       </span>

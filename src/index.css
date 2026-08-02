@@ -1,21 +1,155 @@
+/* =====================================================================
+   Палитра. Нейтрали уведены в холодный сине-зелёный — тон спортзала и
+   медицинских данных, а не бытового серого. Компоненты обращаются только
+   к токенам, поэтому тема переключается без правок в разметке.
+   ===================================================================== */
+
 :root {
-  --bg: #0b0d10;
-  --bg-elev: #14171c;
-  --bg-elev-2: #1b1f26;
-  --line: #262b34;
-  --text: #f2f4f7;
-  --text-dim: #8b94a3;
-  --text-mute: #5d6675;
+  /* Тёмная тема — база. */
+  --bg: #0c0f13;
+  --bg-elev: #14181e;
+  --bg-elev-2: #1c212a;
+  --line: #262d38;
+  --line-soft: #1e242e;
+  --text: #eef2f7;
+  --text-dim: #929cad;
+  --text-mute: #626d7d;
   --accent: #5b8cff;
+  --accent-strong: #7ea4ff;
   --accent-dim: #2f4a8f;
+  --accent-wash: rgba(91, 140, 255, 0.14);
   --success: #34d399;
+  --success-wash: rgba(52, 211, 153, 0.14);
   --warn: #fbbf24;
+  --warn-wash: rgba(251, 191, 36, 0.14);
   --danger: #f87171;
+  --danger-wash: rgba(248, 113, 113, 0.14);
   --pr: #f0b429;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  --overlay: rgba(0, 0, 0, 0.6);
+  --glass: rgba(16, 19, 24, 0.86);
+  --on-success: #06241a;
+
+  /* Цвета состава тела — общие для тем, различаются только светлотой. */
+  --c-muscle: #2e8f88;
+  --c-protein: #edb64a;
+  --c-minerals: #2bc4c9;
+  --c-water: #6cb8ea;
+  --c-fat: #f0762b;
+
   --radius: 14px;
+  --radius-lg: 18px;
   --tabbar-h: 56px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
+
+  /* Кривая с лёгким перелётом — движение читается как отклик, а не как задержка. */
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur: 0.24s;
+
+  color-scheme: dark;
+}
+
+/* Светлая тема подобрана отдельно: фон тёплый-нейтральный, а не белый,
+   акцент притемнён, чтобы держать контраст на светлом. */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f6f7f9;
+    --bg-elev: #ffffff;
+    --bg-elev-2: #f0f2f6;
+    --line: #dfe3ea;
+    --line-soft: #e9ecf1;
+    --text: #131922;
+    --text-dim: #5a6575;
+    --text-mute: #8b95a4;
+    --accent: #2f62e8;
+    --accent-strong: #1e4bc4;
+    --accent-dim: #b9cbfb;
+    --accent-wash: rgba(47, 98, 232, 0.09);
+    --success: #0f9d6b;
+    --success-wash: rgba(15, 157, 107, 0.1);
+    --warn: #b7791f;
+    --warn-wash: rgba(183, 121, 31, 0.11);
+    --danger: #d64545;
+    --danger-wash: rgba(214, 69, 69, 0.09);
+    --pr: #b7791f;
+    --shadow: 0 8px 24px rgba(19, 25, 34, 0.1);
+    --overlay: rgba(19, 25, 34, 0.32);
+    --glass: rgba(255, 255, 255, 0.86);
+    --on-success: #ffffff;
+
+    --c-muscle: #1f6f69;
+    --c-protein: #c9901f;
+    --c-minerals: #159aa0;
+    --c-water: #3d95d1;
+    --c-fat: #d95c14;
+
+    color-scheme: light;
+  }
+}
+
+/* Ручной выбор темы перекрывает системный в обе стороны. */
+:root[data-theme='light'] {
+  --bg: #f6f7f9;
+  --bg-elev: #ffffff;
+  --bg-elev-2: #f0f2f6;
+  --line: #dfe3ea;
+  --line-soft: #e9ecf1;
+  --text: #131922;
+  --text-dim: #5a6575;
+  --text-mute: #8b95a4;
+  --accent: #2f62e8;
+  --accent-strong: #1e4bc4;
+  --accent-dim: #b9cbfb;
+  --accent-wash: rgba(47, 98, 232, 0.09);
+  --success: #0f9d6b;
+  --success-wash: rgba(15, 157, 107, 0.1);
+  --warn: #b7791f;
+  --warn-wash: rgba(183, 121, 31, 0.11);
+  --danger: #d64545;
+  --danger-wash: rgba(214, 69, 69, 0.09);
+  --pr: #b7791f;
+  --shadow: 0 8px 24px rgba(19, 25, 34, 0.1);
+  --overlay: rgba(19, 25, 34, 0.32);
+  --glass: rgba(255, 255, 255, 0.86);
+  --on-success: #ffffff;
+  --c-muscle: #1f6f69;
+  --c-protein: #c9901f;
+  --c-minerals: #159aa0;
+  --c-water: #3d95d1;
+  --c-fat: #d95c14;
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #0c0f13;
+  --bg-elev: #14181e;
+  --bg-elev-2: #1c212a;
+  --line: #262d38;
+  --line-soft: #1e242e;
+  --text: #eef2f7;
+  --text-dim: #929cad;
+  --text-mute: #626d7d;
+  --accent: #5b8cff;
+  --accent-strong: #7ea4ff;
+  --accent-dim: #2f4a8f;
+  --accent-wash: rgba(91, 140, 255, 0.14);
+  --success: #34d399;
+  --success-wash: rgba(52, 211, 153, 0.14);
+  --warn: #fbbf24;
+  --warn-wash: rgba(251, 191, 36, 0.14);
+  --danger: #f87171;
+  --danger-wash: rgba(248, 113, 113, 0.14);
+  --pr: #f0b429;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  --overlay: rgba(0, 0, 0, 0.6);
+  --glass: rgba(16, 19, 24, 0.86);
+  --on-success: #06241a;
+  --c-muscle: #2e8f88;
+  --c-protein: #edb64a;
+  --c-minerals: #2bc4c9;
+  --c-water: #6cb8ea;
+  --c-fat: #f0762b;
   color-scheme: dark;
 }
 
@@ -129,7 +263,7 @@ a {
   height: calc(var(--tabbar-h) + var(--safe-b));
   padding-bottom: var(--safe-b);
   display: flex;
-  background: rgba(16, 19, 24, 0.92);
+  background: var(--glass);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border-top: 1px solid var(--line);
@@ -247,7 +381,7 @@ a {
 .btn.success {
   background: var(--success);
   border-color: var(--success);
-  color: #06241a;
+  color: var(--on-success);
 }
 
 .btn.danger {
@@ -433,7 +567,7 @@ a {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: rgba(11, 13, 16, 0.94);
+  background: var(--glass);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   margin: 0 -16px;
@@ -507,7 +641,7 @@ a {
 
 .cell-input:focus {
   border-color: var(--accent);
-  background: #10141b;
+  background: var(--bg);
 }
 
 .cell-input::placeholder {
@@ -529,7 +663,7 @@ a {
 .check.on {
   background: var(--success);
   border-color: var(--success);
-  color: #06241a;
+  color: var(--on-success);
 }
 
 .check:active {
@@ -568,7 +702,7 @@ a {
   display: flex;
   align-items: center;
   gap: 12px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow);
 }
 
 .rest-time {
@@ -617,7 +751,7 @@ a {
   display: flex;
   align-items: center;
   gap: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow);
 }
 
 /* ------------------------------ модалка ----------------------------- */
@@ -625,7 +759,7 @@ a {
 .sheet-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--overlay);
   z-index: 60;
   display: flex;
   align-items: flex-end;
@@ -757,7 +891,7 @@ a {
   padding: 10px 18px;
   font-size: 14px;
   font-weight: 600;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow);
   animation: fade 0.2s ease;
 }
 
@@ -887,7 +1021,7 @@ button.group-row:active {
 
 .hero .btn.solid {
   background: #fff;
-  color: #23304a;
+  color: var(--accent-strong);
   border-color: #fff;
 }
 
@@ -1040,7 +1174,7 @@ button.group-row:active {
 .checklist-row.done .mark {
   background: var(--success);
   border-color: var(--success);
-  color: #06241a;
+  color: var(--on-success);
 }
 
 .checklist-row.done .title {
@@ -1053,4 +1187,180 @@ button.group-row:active {
   height: 7px;
   border-radius: 50%;
   background: currentColor;
+}
+
+/* =====================================================================
+   Движение. Анимации служат ориентации: показывают, что появилось,
+   что изменилось и куда смотреть. Каждая уважает системную настройку
+   «уменьшить движение» — там всё гасится до мгновенного состояния.
+   ===================================================================== */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(0.86);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.04);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes sweep {
+  from {
+    stroke-dashoffset: var(--dash, 1000);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes grow-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+/* Каскад: элементы списка появляются друг за другом, а не все разом.
+   Задержку задаёт inline-переменная --i у элемента. */
+.stagger > * {
+  animation: rise 0.42s var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+.enter {
+  animation: rise 0.42s var(--ease) both;
+}
+
+.enter-pop {
+  animation: pop 0.42s var(--ease) both;
+}
+
+/* Дуга кольца прочерчивается от начала — читается как «замер собрался». */
+.arc-draw {
+  animation: sweep 1s var(--ease) both;
+}
+
+/* Полоса прогресса растёт от левого края. */
+.bar i {
+  transform-origin: left center;
+  animation: grow-x 0.7s var(--ease) both;
+}
+
+/* Столбец графика растёт снизу. */
+.bar-col {
+  transform-origin: bottom center;
+  animation: grow-y 0.55s var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+
+/* Чек подхода: подтверждение должно ощущаться физически. */
+.check.on {
+  animation: pop 0.28s var(--ease);
+}
+
+/* Сегментированный переключатель — нативная замена россыпи чипов. */
+.segmented {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.segmented button {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+.segmented button.on {
+  background: var(--bg-elev);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+/* Статус относительно нормы — чипом, а не цветной плашкой с эмодзи. */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.status.normal {
+  color: var(--success);
+  background: var(--success-wash);
+}
+
+.status.high {
+  color: var(--warn);
+  background: var(--warn-wash);
+}
+
+.status.low {
+  color: var(--accent);
+  background: var(--accent-wash);
+}
+
+/* Цветовой ключ метрики: тонкая полоса вместо заливки всей иконки. */
+.key-dot {
+  width: 4px;
+  align-self: stretch;
+  min-height: 34px;
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+
+.metric-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  /* Подложка берёт оттенок самой метрики — цвет читается как признак
+     показателя, но не заливает строку так, как сплошная плашка. */
+  background: color-mix(in srgb, currentColor 13%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Затухание у края прокручиваемых чипов: обрезка должна читаться как
+   «есть ещё варианты», а не как ошибка вёрстки. */
+.chips.grow {
+  -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent 100%);
+  mask-image: linear-gradient(90deg, #000 88%, transparent 100%);
 }

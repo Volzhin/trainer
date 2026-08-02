@@ -16,6 +16,7 @@ export function Exercises() {
   const [muscle, setMuscle] = useState('Все')
   const [equipment, setEquipment] = useState('Всё')
   const [createOpen, setCreateOpen] = useState(false)
+  const [filterOpen, setFilterOpen] = useState(false)
 
   const exercises = useLiveQuery(() => db.exercises.toArray(), [], [] as Exercise[])
 
@@ -52,51 +53,69 @@ export function Exercises() {
         />
       </div>
 
-      <div className="chips" style={{ marginTop: 12 }}>
-        {['Все', ...MUSCLE_GROUPS].map((m) => (
-          <button key={m} className={`chip${muscle === m ? ' active' : ''}`} onClick={() => setMuscle(m)}>
-            {m}
-          </button>
-        ))}
+      {/* Одно измерение фильтра на виду, второе — за кнопкой: два ряда чипов
+          подряд читались как стена и занимали пол-экрана. */}
+      <div className="row" style={{ marginTop: 12, gap: 8 }}>
+        <div className="chips grow" style={{ margin: 0, padding: 0 }}>
+          {['Все', ...MUSCLE_GROUPS].map((m) => (
+            <button
+              key={m}
+              className={`chip${muscle === m ? ' active' : ''}`}
+              onClick={() => setMuscle(m)}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
+        <button
+          className={`btn sm${equipment !== 'Всё' ? ' primary' : ''}`}
+          style={{ flex: '0 0 auto' }}
+          onClick={() => setFilterOpen(true)}
+        >
+          {equipment === 'Всё' ? 'Инвентарь' : equipment}
+        </button>
       </div>
 
-      <div className="chips" style={{ marginTop: 2 }}>
-        {['Всё', ...EQUIPMENT].map((e) => (
-          <button
-            key={e}
-            className={`chip${equipment === e ? ' active' : ''}`}
-            onClick={() => setEquipment(e)}
-          >
-            {e}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ marginTop: 14 }}>
+      <div className="group stagger" style={{ marginTop: 14 }}>
         {list.length === 0 && (
           <div className="empty">
-            <div className="big">🔍</div>
             Ничего не нашлось. Можно создать своё упражнение.
           </div>
         )}
-        {list.map((ex) => (
+        {list.map((ex, i) => (
           <button
             key={ex.id}
-            className="list-item"
-            style={{ width: '100%', textAlign: 'left' }}
+            className="group-row"
+            style={{ '--i': Math.min(i, 12) } as React.CSSProperties}
             onClick={() => nav(`/exercises/${ex.id}`)}
           >
-            <div className="avatar">{ex.name.slice(0, 1)}</div>
-            <div className="grow">
-              <div className="truncate">{ex.name}</div>
-              <div className="mute-sm">
+            <span className="grow">
+              <span className="title">{ex.name}</span>
+              <span className="sub" style={{ display: 'block' }}>
                 {ex.muscle_group} · {ex.equipment}
-              </div>
-            </div>
+              </span>
+            </span>
             {ex.is_custom === 1 && <span className="badge">своё</span>}
           </button>
         ))}
       </div>
+
+      <Sheet open={filterOpen} title="Инвентарь" onClose={() => setFilterOpen(false)}>
+        <div className="stack">
+          {['Всё', ...EQUIPMENT].map((e) => (
+            <button
+              key={e}
+              className={`btn block${equipment === e ? ' primary' : ''}`}
+              onClick={() => {
+                setEquipment(e)
+                setFilterOpen(false)
+              }}
+            >
+              {e}
+            </button>
+          ))}
+        </div>
+      </Sheet>
 
       <CreateExerciseSheet
         open={createOpen}

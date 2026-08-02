@@ -168,7 +168,11 @@ export interface AppState {
   active_user_id: string
   /** Пройден ли первый запуск. 0 — показываем онбординг. */
   onboarded?: 0 | 1
+  /** Тема оформления. 'auto' — следовать системной настройке. */
+  theme?: ThemePref
 }
+
+export type ThemePref = 'auto' | 'light' | 'dark'
 
 export type LinkStatus = 'PENDING' | 'ACTIVE' | 'PAUSED'
 
@@ -363,6 +367,40 @@ export async function setActiveUser(userId: string) {
   await db.appState.put({ ...state, id: APP_STATE_ID, active_user_id: userId })
 }
 
+/**
+ * Тема применяется атрибутом на <html>, а не классом на приложении:
+ * так её видят и системные элементы вроде цвета скроллбара.
+ */
+export function applyTheme(pref: ThemePref) {
+  const root = document.documentElement
+  if (pref === 'auto') root.removeAttribute('data-theme')
+  else root.setAttribute('data-theme', pref)
+
+  // Цвет статус-бара в установленном приложении должен совпадать с фоном.
+  const dark =
+    pref === 'dark' ||
+    (pref === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+  document
+    .querySelector('meta[name="theme-color"]')
+    ?.setAttribute('content', dark ? '#0c0f13' : '#f6f7f9')
+}
+
+export async function getThemePref(): Promise<ThemePref> {
+  const state = await db.appState.get(APP_STATE_ID)
+  return state?.theme ?? 'auto'
+}
+
+export async function setThemePref(theme: ThemePref) {
+  const state = await db.appState.get(APP_STATE_ID)
+  await db.appState.put({
+    id: APP_STATE_ID,
+    active_user_id: state?.active_user_id ?? activeUserId,
+    onboarded: state?.onboarded,
+    theme,
+  })
+  applyTheme(theme)
+}
+
 export async function isOnboarded(): Promise<boolean> {
   const state = await db.appState.get(APP_STATE_ID)
   return state?.onboarded === 1
@@ -373,6 +411,7 @@ export async function markOnboarded() {
   await db.appState.put({
     id: APP_STATE_ID,
     active_user_id: state?.active_user_id ?? activeUserId,
+    theme: state?.theme,
     onboarded: 1,
   })
 }

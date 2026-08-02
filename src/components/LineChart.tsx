@@ -44,7 +44,15 @@ export function LineChart({ data, color = 'var(--accent)', unit = '', height = 1
       {!single && (
         <>
           <path d={area} fill={color} opacity={0.12} />
-          <path d={path} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />
+          <path
+            className="arc-draw"
+            d={path}
+            fill="none"
+            stroke={color}
+            strokeWidth={2}
+            strokeLinejoin="round"
+            style={{ strokeDasharray: 1400, '--dash': 1400 } as React.CSSProperties}
+          />
         </>
       )}
       {data.map((d, i) => (
@@ -77,12 +85,15 @@ export function BarChart({ data, labels }: { data: number[]; labels: string[] })
       {data.map((v, i) => (
         <div key={i} style={{ flex: 1, textAlign: 'center' }}>
           <div
-            style={{
-              height: `${Math.max(2, (v / max) * 100)}px`,
-              background: v > 0 ? 'var(--accent)' : 'var(--line)',
-              borderRadius: 5,
-              transition: 'height 0.3s',
-            }}
+            className="bar-col"
+            style={
+              {
+                height: `${Math.max(2, (v / max) * 100)}px`,
+                background: v > 0 ? 'var(--accent)' : 'var(--line)',
+                borderRadius: 5,
+                '--i': i,
+              } as React.CSSProperties
+            }
             title={`${Math.round(v)} кг`}
           />
           <div className="mute-sm" style={{ marginTop: 5, fontSize: 10 }}>

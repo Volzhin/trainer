@@ -8,7 +8,7 @@ import { registerSW } from 'virtual:pwa-register'
 import App from './App'
 import { AppProvider } from './store/app'
 import { seedIfEmpty } from './db/seed'
-import { loadActiveUser } from './db/db'
+import { applyTheme, getThemePref, loadActiveUser } from './db/db'
 import './index.css'
 
 // Service worker есть не везде (например, при раздаче одним файлом) —
@@ -23,6 +23,9 @@ try {
 // поднимаем до первого рендера — иначе экраны стартуют не от того профиля.
 seedIfEmpty()
   .then(loadActiveUser)
+  // Тему применяем до рендера, иначе экран моргнёт чужим фоном.
+  .then(getThemePref)
+  .then(applyTheme)
   .finally(() => {
     createRoot(document.getElementById('root')!).render(
       <StrictMode>
