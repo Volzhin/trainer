@@ -117,7 +117,9 @@ function extractPairs(lines: Item[][]): Pair[] {
         const label = normalizeLabel(buffer.map((b) => b.text))
         const value = toNumber(t.text)
         if (label && value !== undefined) {
-          pairs.push({ label, value, x: buffer[0]?.x ?? t.x, y: t.y })
+          // Колонку определяем по координате значения: в метку могло попасть
+          // хвостовое слово соседней колонки («кг» перед «Висцеральный жир»).
+          pairs.push({ label, value, x: t.x, y: t.y })
         }
         buffer = []
       } else {
