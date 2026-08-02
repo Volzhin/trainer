@@ -6,7 +6,7 @@ import { deleteSession } from '../db/repo'
 import { feedbackForSession, markFeedbackRead, trainerOfClient } from '../db/coach'
 import { VideoUploader } from '../components/ExerciseVideo'
 import { ExerciseTechniqueSheet } from '../components/ExerciseTechnique'
-import { IconBack, IconChat, IconTrash } from '../components/Icons'
+import { IconBack, IconChat, IconTrash, IconVideo } from '../components/Icons'
 import { formatDateTime, formatDuration, formatWeight, plural, totalVolume } from '../lib/calc'
 import { useApp } from '../store/app'
 
@@ -24,6 +24,11 @@ export function SessionDetail() {
   )
   const exercises = useLiveQuery(() => db.exercises.toArray(), [], [] as Exercise[])
   const comments = useLiveQuery(() => feedbackForSession(id), [id], [])
+  const attachments = useLiveQuery(
+    () => db.attachments.where('session_id').equals(id).toArray(),
+    [id],
+    [],
+  )
   const hasTrainer = !!useLiveQuery(() => trainerOfClient(), [])
 
   // Открыв тренировку, клиент прочитал комментарий — снимаем отметку у тренера.
@@ -101,6 +106,22 @@ export function SessionDetail() {
               </div>
             ))}
         </>
+      )}
+
+      {/* Видео чаще снимают в зале, а раскладывают по упражнениям уже дома.
+          Подсказка нужна, чтобы человек знал: тренировка закрыта, но отчёт
+          ещё можно дослать. */}
+      {hasTrainer && (attachments ?? []).length === 0 && (
+        <div className="card" style={{ marginTop: 12 }}>
+          <div className="row" style={{ marginBottom: 4 }}>
+            <IconVideo size={16} />
+            <span style={{ fontWeight: 600 }}>Видеоотчёт</span>
+          </div>
+          <div className="mute-sm">
+            Тренировка уже сохранена. Ролики можно прикрепить к любому упражнению
+            ниже — хоть сейчас, хоть вечером.
+          </div>
+        </div>
       )}
 
       <div className="section-title">Упражнения</div>

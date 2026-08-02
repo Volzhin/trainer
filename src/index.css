@@ -2008,3 +2008,23 @@ button.group-row:active {
 .group-row.danger .title {
   color: var(--danger);
 }
+
+/* Разбор видеоотчёта в окне завершения. Каждое упражнение — отдельная
+   карточка: список из одинаковых строк с кнопками сливается в кашу, а
+   человек в этот момент уже устал и хочет закончить. */
+.finish-videos {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.finish-video {
+  background: var(--surface-2);
+  border-radius: var(--r-md, 12px);
+  padding: 10px 12px 12px;
+}
+
+.finish-video .title {
+  font-weight: 600;
+  font-size: 14px;
+}

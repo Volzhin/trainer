@@ -71,12 +71,15 @@ export function LiveSession() {
     return map
   }, [sets?.length, id])
 
+  // Секундомер останавливается в момент нажатия «Завершить», а не когда
+  // человек закончит возиться с видео: иначе разбор роликов на десять минут
+  // припишется к длительности тренировки.
   useEffect(() => {
-    if (!session) return
+    if (!session || finishOpen) return
     const t = setInterval(() => setElapsed(Date.now() - session.start_time), 1000)
     setElapsed(Date.now() - session.start_time)
     return () => clearInterval(t)
-  }, [session])
+  }, [session, finishOpen])
 
   const blocks: Block[] = useMemo(() => {
     const exMap = new Map((exercises ?? []).map((e) => [e.id, e]))
@@ -102,6 +105,19 @@ export function LiveSession() {
 
   const doneCount = (sets ?? []).filter((s) => s.is_done).length
   const volume = totalVolume(sets ?? [])
+
+  /**
+   * Упражнения, которые человек действительно сделал. В окне завершения
+   * показываем только их: предлагать снять технику того, к чему он даже не
+   * подошёл, — лишний шум в момент, когда хочется уже закончить.
+   */
+  const doneBlocks = useMemo(
+    () =>
+      blocks
+        .map((b) => ({ exercise: b.exercise, done: b.sets.filter((s) => s.is_done).length }))
+        .filter((b) => b.done > 0 && b.exercise.id),
+    [blocks],
+  )
 
   if (!session) {
     return (
@@ -316,7 +332,33 @@ export function LiveSession() {
             <div className="label">тоннаж</div>
           </div>
         </div>
-        <div className="field" style={{ marginBottom: 14 }}>
+        {/* Видеоотчёт собирается здесь, а не по ходу тренировки: снимать и
+            тут же прикреплять между подходами некогда. Ролики уже лежат в
+            галерее — остаётся разложить их по упражнениям. */}
+        {hasTrainer && doneBlocks.length > 0 && (
+          <>
+            <div className="field-group-title">Видеоотчёт тренеру</div>
+            <div className="mute-sm" style={{ marginBottom: 10 }}>
+              Необязательно. Можно пропустить и прикрепить позже — тренировка
+              останется в истории.
+            </div>
+            <div className="finish-videos">
+              {doneBlocks.map((block) => (
+                <div className="finish-video" key={block.exercise.id}>
+                  <div className="row between">
+                    <span className="title truncate">{block.exercise.name}</span>
+                    <span className="mute-sm">
+                      {block.done} {plural(block.done, ['подход', 'подхода', 'подходов'])}
+                    </span>
+                  </div>
+                  <VideoUploader sessionId={id} exerciseId={block.exercise.id} compact />
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        <div className="field" style={{ marginTop: 14, marginBottom: 14 }}>
           <label>Заметка к тренировке</label>
           <textarea
             className="textarea"

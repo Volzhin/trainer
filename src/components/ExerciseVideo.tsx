@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Attachment } from '../db/db'
 import { addAttachment, deleteAttachment } from '../db/coach'
 import { attachmentUrl } from '../lib/backend'
-import { IconTrash, IconVideo } from './Icons'
+import { IconGallery, IconTrash, IconVideo } from './Icons'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
 
@@ -80,6 +80,7 @@ export function VideoUploader({
 }) {
   const { toast, userId } = useApp()
   const inputRef = useRef<HTMLInputElement>(null)
+  const galleryRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
 
   const items = useLiveQuery(
@@ -103,17 +104,32 @@ export function VideoUploader({
       toast(e instanceof Error ? e.message : 'Не удалось прикрепить файл')
     } finally {
       setBusy(false)
+      // Сбрасываем оба поля: иначе повторный выбор того же файла не
+      // вызовет change и кнопка будет выглядеть сломанной.
       if (inputRef.current) inputRef.current.value = ''
+      if (galleryRef.current) galleryRef.current.value = ''
     }
   }
 
+  const count = (items ?? []).length
+
   return (
     <div style={compact ? undefined : { padding: '0 12px 12px' }}>
+      {/* Два поля вместо одного: с атрибутом capture телефон открывает
+          камеру сразу и в галерею уже не пускает. Снимать прямо в зале
+          удобно не всегда — чаще ролик уже лежит в галерее. */}
       <input
         ref={inputRef}
         type="file"
         accept="video/*,image/*"
         capture="environment"
+        style={{ display: 'none' }}
+        onChange={(e) => upload(e.target.files?.[0])}
+      />
+      <input
+        ref={galleryRef}
+        type="file"
+        accept="video/*,image/*"
         style={{ display: 'none' }}
         onChange={(e) => upload(e.target.files?.[0])}
       />
@@ -129,15 +145,24 @@ export function VideoUploader({
         />
       ))}
 
-      <button
-        className="btn sm block"
-        style={{ marginTop: (items ?? []).length ? 8 : 0 }}
-        disabled={busy}
-        onClick={() => inputRef.current?.click()}
-      >
-        <IconVideo size={15} />
-        {busy ? 'Сохраняю…' : (items ?? []).length ? 'Добавить ещё видео' : 'Снять технику'}
-      </button>
+      <div className="row" style={{ gap: 8, marginTop: count ? 8 : 0 }}>
+        <button
+          className="btn sm grow"
+          disabled={busy}
+          onClick={() => inputRef.current?.click()}
+        >
+          <IconVideo size={15} />
+          {busy ? 'Сохраняю…' : 'Снять'}
+        </button>
+        <button
+          className="btn sm grow"
+          disabled={busy}
+          onClick={() => galleryRef.current?.click()}
+        >
+          <IconGallery size={15} />
+          Из галереи
+        </button>
+      </div>
     </div>
   )
 }

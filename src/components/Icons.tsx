@@ -173,6 +173,14 @@ export const IconVideo = ({ size }: P) => (
   </svg>
 )
 
+export const IconGallery = ({ size }: P) => (
+  <svg {...base(size)}>
+    <rect x="3" y="4" width="18" height="16" rx="3" />
+    <circle cx="8.5" cy="9.5" r="1.6" />
+    <path d="m4 17 5-5 4 4 3-2.5 4 3.5" />
+  </svg>
+)
+
 export const IconClipboard = ({ size }: P) => (
   <svg {...base(size)}>
     <rect x="5" y="4" width="14" height="17" rx="3" />
