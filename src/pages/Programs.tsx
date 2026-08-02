@@ -31,6 +31,12 @@ export function Programs() {
 
   const programs = useLiveQuery(() => db.programs.toArray(), [], [] as Program[])
   const routines = useLiveQuery(() => db.routines.toArray(), [], [])
+  // Персональные программы подписываем именем клиента: без этого список
+  // тренера превращается в набор одинаковых «Программа · …».
+  const clientNames = useLiveQuery(async () => {
+    const rows = await db.profile.toArray()
+    return new Map(rows.map((r) => [r.id, r.name]))
+  }, [], new Map<string, string>())
   const active = useLiveQuery(() => getActiveSession(), [])
   // Когда тренер назначил программу, клиент должен видеть только её:
   // каталог рядом с назначением читается как «можно выбрать другое».
@@ -122,8 +128,10 @@ export function Programs() {
                 <div className="grow">
                   <div style={{ fontWeight: 600, fontSize: 17 }}>{p.name}</div>
                   <div className="mute-sm" style={{ marginTop: 3 }}>
-                    {p.goal} · {p.level} · {days.length}{' '}
-                    {plural(days.length, ['день', 'дня', 'дней'])}
+                    {p.client_id
+                      ? `для ${clientNames.get(p.client_id) ?? 'клиента'} · `
+                      : `${p.goal} · ${p.level} · `}
+                    {days.length} {plural(days.length, ['день', 'дня', 'дней'])}
                   </div>
                 </div>
                 {p.author_id === currentUserId() && (

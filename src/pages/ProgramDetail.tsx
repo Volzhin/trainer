@@ -22,6 +22,10 @@ export function ProgramDetail() {
   )
   const items = useLiveQuery(() => db.templateItems.toArray(), [], [] as WorkoutTemplateItem[])
   const exercises = useLiveQuery(() => db.exercises.toArray(), [], [] as Exercise[])
+  const clientName = useLiveQuery(
+    async () => (program?.client_id ? (await db.profile.get(program.client_id))?.name : undefined),
+    [program?.client_id],
+  )
 
   if (!program) return <div className="screen">Загрузка…</div>
 
@@ -46,7 +50,28 @@ export function ProgramDetail() {
         </div>
       </div>
 
-      {program.description && <div className="card muted">{program.description}</div>}
+      {/* Персональная программа собирается из карточки клиента — держим
+          обратный путь на виду, иначе тренер теряет контекст. */}
+      {program.client_id && (
+        <div className="card" style={{ borderColor: 'var(--accent)' }}>
+          <div className="row between">
+            <div className="grow">
+              <div className="mute-sm">Программа для клиента</div>
+              <div style={{ fontWeight: 600, marginTop: 2 }}>{clientName ?? '—'}</div>
+            </div>
+            <button
+              className="btn sm"
+              onClick={() => nav(`/trainer/clients/${program.client_id}`)}
+            >
+              К клиенту
+            </button>
+          </div>
+        </div>
+      )}
+
+      {program.description && !program.client_id && (
+        <div className="card muted">{program.description}</div>
+      )}
 
       {(routines ?? []).map((routine) => {
         const dayItems = (items ?? [])

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Program, type WorkoutSession } from '../../db/db'
 import {
@@ -20,7 +20,7 @@ import { BodyCompositionView } from '../../components/BodyCompositionView'
 import { Sheet } from '../../components/Sheet'
 import { Group, Row } from '../../components/Group'
 import { SessionReview } from '../../components/SessionReview'
-import { IconBack, IconPlus, IconTrash } from '../../components/Icons'
+import { IconBack, IconCheck, IconPlus, IconTrash } from '../../components/Icons'
 import { formatDate, formatDuration, plural, totalVolume } from '../../lib/calc'
 import { useApp } from '../../store/app'
 
@@ -29,7 +29,9 @@ export function TrainerClientDetail() {
   const nav = useNavigate()
   const { toast, userId } = useApp()
   const [tab, setTab] = useState<'overview' | 'body' | 'history' | 'notes'>('overview')
-  const [assignOpen, setAssignOpen] = useState(false)
+  // Из списка клиентов можно попасть сразу к назначению программы.
+  const [params, setParams] = useSearchParams()
+  const [assignOpen, setAssignOpen] = useState(params.get('assign') === '1')
   const [noteOpen, setNoteOpen] = useState(false)
   const [reviewing, setReviewing] = useState<WorkoutSession | null>(null)
 
@@ -170,30 +172,32 @@ export function TrainerClientDetail() {
               </>
             ) : (
               <>
-                <div className="muted">Программа не назначена.</div>
+                <div style={{ fontWeight: 600 }}>Программа не назначена</div>
+                <div className="muted" style={{ marginTop: 4 }}>
+                  Клиент не увидит план тренировок, пока вы не назначите программу.
+                </div>
                 <button
                   className="btn primary block"
-                  style={{ marginTop: 12 }}
+                  style={{ marginTop: 14 }}
                   onClick={() => setAssignOpen(true)}
                 >
-                  Назначить готовую программу
+                  <IconPlus size={17} /> Назначить программу
                 </button>
               </>
             )}
-            <button
-              className="btn block"
-              style={{ marginTop: 8 }}
-              onClick={async () => {
-                const programId = await createPersonalProgram({
-                  clientId: id,
-                  trainerId: userId,
-                })
-                toast('Персональная программа создана')
-                nav(`/programs/${programId}`)
-              }}
-            >
-              <IconPlus size={16} /> Собрать персональную программу
-            </button>
+          </div>
+
+          <div className="stat-grid" style={{ marginTop: 16 }}>
+            <div className="stat">
+              <div className="value">{sessions.length}</div>
+              <div className="label">тренировок</div>
+            </div>
+            <div className="stat">
+              <div className="value">
+                {lastSession ? formatDate(lastSession.start_time) : '—'}
+              </div>
+              <div className="label">последняя</div>
+            </div>
           </div>
 
           {(personal ?? []).length > 0 && (
@@ -317,7 +321,11 @@ export function TrainerClientDetail() {
       <AssignSheet
         open={assignOpen}
         clientId={id}
-        onClose={() => setAssignOpen(false)}
+        clientName={client.name}
+        onClose={() => {
+          setAssignOpen(false)
+          if (params.get('assign')) setParams({}, { replace: true })
+        }}
         onDone={() => toast('Программа назначена')}
       />
 
@@ -368,83 +376,176 @@ function SessionFeedback({ sessionId }: { sessionId: string }) {
 function AssignSheet({
   open,
   clientId,
+  clientName,
   onClose,
   onDone,
 }: {
   open: boolean
   clientId: string
+  clientName: string
   onClose: () => void
   onDone: () => void
 }) {
-  const { userId } = useApp()
+  const nav = useNavigate()
+  const { userId, toast } = useApp()
+  const [mode, setMode] = useState<'ready' | 'new'>('ready')
   const [programId, setProgramId] = useState('')
   const [target, setTarget] = useState(3)
   const [note, setNote] = useState('')
+  const [newName, setNewName] = useState('')
+  const [busy, setBusy] = useState(false)
 
   // Тренер назначает свои программы и готовые сплиты платформы.
   const programs = useLiveQuery(
-    () =>
-      db.programs
-        .filter((p) => p.author_id === userId || p.author_id === 'system')
-        .toArray(),
+    () => db.programs.filter((p) => p.author_id === userId || p.author_id === 'system').toArray(),
     [userId],
     [] as Program[],
   )
+  const routines = useLiveQuery(() => db.routines.toArray(), [], [])
 
-  const submit = async () => {
-    const id = programId || programs?.[0]?.id
-    if (!id) return
-    await assignProgram({ clientId, programId: id, weeklyTarget: target, note, trainerId: userId })
-    setNote('')
-    onDone()
-    onClose()
+  const chosen = programId || programs?.[0]?.id || ''
+
+  const assignReady = async () => {
+    if (!chosen) return
+    setBusy(true)
+    try {
+      await assignProgram({
+        clientId,
+        programId: chosen,
+        weeklyTarget: target,
+        note,
+        trainerId: userId,
+      })
+      setNote('')
+      onDone()
+      onClose()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Новая программа сразу назначается и открывается на наполнение:
+  // иначе тренер остаётся с пустым шаблоном и без понятного следующего шага.
+  const createAndOpen = async () => {
+    setBusy(true)
+    try {
+      const id = await createPersonalProgram({
+        clientId,
+        name: newName,
+        weeklyTarget: target,
+        trainerId: userId,
+      })
+      toast('Программа создана и назначена')
+      onClose()
+      nav(`/programs/${id}`)
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
-    <Sheet open={open} title="Назначить программу" onClose={onClose}>
-      <div className="stack">
-        <div className="field">
-          <label>Программа</label>
-          <select
-            className="select"
-            value={programId || programs?.[0]?.id || ''}
-            onChange={(e) => setProgramId(e.target.value)}
-          >
-            {(programs ?? []).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-                {p.author_id === userId ? ' (моя)' : ''}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="field">
-          <label>Тренировок в неделю</label>
-          <select
-            className="select"
-            value={target}
-            onChange={(e) => setTarget(Number(e.target.value))}
-          >
-            {[2, 3, 4, 5, 6].map((v) => (
-              <option key={v} value={v}>
-                {v}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="field">
-          <label>Комментарий для клиента</label>
-          <textarea
-            className="textarea"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Например: первые две недели работаем в лёгком темпе"
-          />
-        </div>
-        <button className="btn primary block" disabled={!programs?.length} onClick={submit}>
-          Назначить
+    <Sheet open={open} title={`Программа для ${clientName}`} onClose={onClose}>
+      <div className="segmented" style={{ marginBottom: 14 }}>
+        <button className={mode === 'ready' ? 'on' : ''} onClick={() => setMode('ready')}>
+          Готовая
+        </button>
+        <button className={mode === 'new' ? 'on' : ''} onClick={() => setMode('new')}>
+          Своя с нуля
         </button>
       </div>
+
+      {mode === 'ready' ? (
+        <div className="stack">
+          <div className="group">
+            {(programs ?? []).map((p) => {
+              const days = (routines ?? []).filter((r) => r.program_id === p.id).length
+              return (
+                <button
+                  key={p.id}
+                  className="group-row"
+                  onClick={() => setProgramId(p.id)}
+                  style={
+                    p.id === chosen
+                      ? { background: 'var(--accent-soft)' }
+                      : undefined
+                  }
+                >
+                  <span className="grow">
+                    <span className="title">{p.name}</span>
+                    <span className="sub" style={{ display: 'block' }}>
+                      {p.goal} · {days} {plural(days, ['день', 'дня', 'дней'])}
+                      {p.author_id === userId ? ' · моя' : ''}
+                    </span>
+                  </span>
+                  {p.id === chosen && (
+                    <span className="chevron" style={{ color: 'var(--accent-ink)' }}>
+                      <IconCheck size={17} />
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="field">
+            <label>Тренировок в неделю</label>
+            <div className="segmented">
+              {[2, 3, 4, 5, 6].map((v) => (
+                <button key={v} className={target === v ? 'on' : ''} onClick={() => setTarget(v)}>
+                  {v}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="field">
+            <label>Комментарий клиенту</label>
+            <textarea
+              className="textarea"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Например: первые две недели работаем в лёгком темпе"
+            />
+          </div>
+
+          <button
+            className="btn primary block"
+            disabled={busy || !chosen}
+            onClick={assignReady}
+          >
+            Назначить программу
+          </button>
+        </div>
+      ) : (
+        <div className="stack">
+          <div className="muted">
+            Создадим пустую программу под этого клиента и сразу её назначим — останется добавить
+            упражнения.
+          </div>
+          <div className="field">
+            <label>Название</label>
+            <input
+              className="input"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder={`Программа · ${clientName}`}
+            />
+          </div>
+          <div className="field">
+            <label>Тренировок в неделю</label>
+            <div className="segmented">
+              {[2, 3, 4, 5, 6].map((v) => (
+                <button key={v} className={target === v ? 'on' : ''} onClick={() => setTarget(v)}>
+                  {v}
+                </button>
+              ))}
+            </div>
+          </div>
+          <button className="btn primary block" disabled={busy} onClick={createAndOpen}>
+            Создать и наполнить
+          </button>
+        </div>
+      )}
     </Sheet>
   )
 }

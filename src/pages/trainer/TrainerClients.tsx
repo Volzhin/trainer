@@ -146,22 +146,37 @@ export function TrainerClients() {
                 </div>
               </div>
 
-              <div style={{ marginTop: 10 }}>
-                <div className="row between mute-sm" style={{ marginBottom: 4 }}>
-                  <span>{c.assignedProgramName ?? 'Программа не назначена'}</span>
-                  <span>
-                    {c.sessionsThisWeek} / {c.weeklyTarget} за неделю
-                  </span>
+              {c.assignedProgramName ? (
+                <div style={{ marginTop: 10 }}>
+                  <div className="row between mute-sm" style={{ marginBottom: 4 }}>
+                    <span className="truncate">{c.assignedProgramName}</span>
+                    <span style={{ flex: '0 0 auto' }}>
+                      {c.sessionsThisWeek} / {c.weeklyTarget} за неделю
+                    </span>
+                  </div>
+                  <div className="bar">
+                    <i
+                      style={{
+                        width: `${progress}%`,
+                        background: progress >= 100 ? 'var(--ok)' : 'var(--accent)',
+                      }}
+                    />
+                  </div>
                 </div>
-                <div className="rest-progress">
-                  <i
-                    style={{
-                      width: `${progress}%`,
-                      background: progress >= 100 ? 'var(--success)' : 'var(--accent)',
-                    }}
-                  />
-                </div>
-              </div>
+              ) : (
+                /* Клиент без программы — главное, что требует действия тренера,
+                   поэтому призыв стоит прямо в строке, а не внутри карточки. */
+                <button
+                  className="btn sm primary block"
+                  style={{ marginTop: 12 }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    nav(`/trainer/clients/${c.client.id}?assign=1`)
+                  }}
+                >
+                  <IconPlus size={15} /> Назначить программу
+                </button>
+              )}
             </div>
           )
         })
