@@ -116,7 +116,7 @@ export function LiveSession() {
       return
     }
     if (!set.weight_kg && !set.reps_completed) {
-      toast('Заполните вес или повторения')
+      toast('Укажите вес или повторения')
       return
     }
 
@@ -143,7 +143,7 @@ export function LiveSession() {
     const saved = await finishSession(id, notes.trim() || undefined)
     stopRest()
     haptics.success()
-    toast(saved ? 'Тренировка сохранена' : 'Пустая тренировка удалена')
+    toast(saved ? 'Тренировка завершена' : 'Тренировка отменена — ни одного подхода')
     nav('/', { replace: true })
   }
 
@@ -170,7 +170,7 @@ export function LiveSession() {
             </div>
           </div>
           <button className="btn success sm" onClick={() => setFinishOpen(true)}>
-            Готово
+            Завершить
           </button>
         </div>
       </div>
@@ -269,7 +269,7 @@ export function LiveSession() {
         }}
       />
 
-      <Sheet open={finishOpen} title="Завершить тренировку?" onClose={() => setFinishOpen(false)}>
+      <Sheet open={finishOpen} title="Завершить тренировку" onClose={() => setFinishOpen(false)}>
         <div className="stat-grid" style={{ marginBottom: 14 }}>
           <div className="stat">
             <div className="value">{formatDuration(elapsed)}</div>
@@ -291,14 +291,14 @@ export function LiveSession() {
         </div>
         <div className="stack">
           <button className="btn success block" onClick={onFinish}>
-            Сохранить тренировку
+            Завершить тренировку
           </button>
           <button className="btn ghost danger block" onClick={onDiscard}>
-            Удалить без сохранения
+            Отменить тренировку
           </button>
         </div>
         <div className="mute-sm" style={{ marginTop: 10, textAlign: 'center' }}>
-          Незаполненные подходы в статистику не попадут.
+          Неотмеченные подходы не попадут в статистику.
         </div>
       </Sheet>
     </div>

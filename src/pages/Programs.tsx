@@ -13,6 +13,7 @@ import {
 } from '../db/repo'
 import { IconClipboard, IconPlay, IconPlus, IconTrash } from '../components/Icons'
 import { Sheet } from '../components/Sheet'
+import { activeAssignmentFor } from '../db/coach'
 import { useApp, useProfile } from '../store/app'
 import { haptics } from '../lib/native'
 import { plural } from '../lib/calc'
@@ -31,12 +32,16 @@ export function Programs() {
   const programs = useLiveQuery(() => db.programs.toArray(), [], [] as Program[])
   const routines = useLiveQuery(() => db.routines.toArray(), [], [])
   const active = useLiveQuery(() => getActiveSession(), [])
+  // Когда тренер назначил программу, клиент должен видеть только её:
+  // каталог рядом с назначением читается как «можно выбрать другое».
+  const assigned = useLiveQuery(() => activeAssignmentFor(currentUserId()), [])
 
   const visible = useMemo(() => {
+    if (assigned) return (programs ?? []).filter((p) => p.id === assigned.program.id)
     return (programs ?? [])
       .filter((p) => (tab === 'mine' ? p.author_id === currentUserId() : p.author_id === 'system'))
       .filter((p) => (goal === 'Все' ? true : p.goal === goal))
-  }, [programs, goal, tab])
+  }, [programs, goal, tab, assigned?.program.id])
 
   const myCount = (programs ?? []).filter((p) => p.author_id === currentUserId()).length
 
@@ -57,14 +62,21 @@ export function Programs() {
     <div className={`screen${active ? ' with-banner' : ''}`}>
       <div className="header">
         <div>
-          <h1>Программы</h1>
-          <div className="sub">Готовые сплиты и свои шаблоны</div>
+          <h1>{assigned ? 'Моя программа' : 'Программы'}</h1>
+          <div className="sub">
+            {assigned
+              ? `От тренера${assigned.trainer ? ` · ${assigned.trainer.name}` : ''}`
+              : 'Готовые сплиты и свои шаблоны'}
+          </div>
         </div>
-        <button className="icon-btn" onClick={() => setCreateOpen(true)} aria-label="Создать программу">
-          <IconPlus size={18} />
-        </button>
+        {!assigned && (
+          <button className="icon-btn" onClick={() => setCreateOpen(true)} aria-label="Создать программу">
+            <IconPlus size={18} />
+          </button>
+        )}
       </div>
 
+      {!assigned && (
       <div className="chips">
         <button
           className={`chip${tab === 'catalog' ? ' active' : ''}`}
@@ -76,8 +88,9 @@ export function Programs() {
           Мои ({myCount})
         </button>
       </div>
+      )}
 
-      {tab === 'catalog' && (
+      {!assigned && tab === 'catalog' && (
         <div className="chips" style={{ marginTop: 6 }}>
           {GOALS.map((g) => (
             <button key={g} className={`chip${goal === g ? ' active' : ''}`} onClick={() => setGoal(g)}>
@@ -93,7 +106,11 @@ export function Programs() {
             <div className="big">
               <IconClipboard size={34} />
             </div>
-            {tab === 'mine' ? 'Создайте свою первую программу' : 'В этой категории пусто'}
+            {assigned
+              ? 'Программа от тренера скоро появится'
+              : tab === 'mine'
+                ? 'Создайте свою первую программу'
+                : 'В этой категории пусто'}
           </div>
         )}
 
@@ -155,7 +172,7 @@ export function Programs() {
         })}
       </div>
 
-      {profile?.plan === 'FREE' && tab === 'mine' && (
+      {!assigned && profile?.plan === 'FREE' && tab === 'mine' && (
         <div className="card" style={{ marginTop: 16 }}>
           <div className="row between">
             <div className="grow">

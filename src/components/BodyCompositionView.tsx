@@ -70,7 +70,7 @@ const TEXT = {
     emptyTitle: 'Загрузите отчёт InBody',
     emptyHint:
       'PDF из приложения DDX Fitness или распечатку InBody. Разберём состав, нормы и сегментарный анализ — и покажем динамику между замерами.',
-    uploadFirst: 'Загрузить PDF отчёт',
+    uploadFirst: 'Загрузить отчёт InBody',
     uploadMore: 'Загрузить новый замер',
     privacy: 'Файл никуда не отправляется — разбор идёт прямо на устройстве.',
   },
@@ -78,7 +78,7 @@ const TEXT = {
     emptyTitle: 'Замеров InBody пока нет',
     emptyHint:
       'Клиент может загрузить отчёт сам — или загрузите его PDF здесь: состав, нормы и сегментарный анализ появятся и в приложении клиента.',
-    uploadFirst: 'Загрузить PDF отчёт клиента',
+    uploadFirst: 'Загрузить отчёт клиента',
     uploadMore: 'Загрузить новый замер клиента',
     privacy: 'Файл никуда не отправляется — разбор идёт прямо на устройстве.',
   },
@@ -334,10 +334,10 @@ export function BodyCompositionView({
         disabled={busy}
         onClick={() => fileRef.current?.click()}
       >
-        {busy ? 'Читаю PDF…' : latest ? t.uploadMore : t.uploadFirst}
+        {busy ? 'Читаю отчёт…' : latest ? t.uploadMore : t.uploadFirst}
       </button>
 
-      <Sheet open={!!pending} title="Проверьте данные" onClose={() => setPending(null)}>
+      <Sheet open={!!pending} title="Данные из отчёта" onClose={() => setPending(null)}>
         {pending && (
           <div className="stack">
             <div className="muted">
@@ -353,7 +353,7 @@ export function BodyCompositionView({
               ))}
             </div>
             <button className="btn primary block" onClick={confirmImport}>
-              Сохранить замер
+              Добавить замер
             </button>
             <div className="mute-sm" style={{ textAlign: 'center' }}>
               {t.privacy}

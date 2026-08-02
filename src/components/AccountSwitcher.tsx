@@ -101,10 +101,10 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
         ) : (
           <div className="row" style={{ gap: 8 }}>
             <button className="btn grow" onClick={() => setCreating('CLIENT')}>
-              + Клиент
+              Новый клиент
             </button>
             <button className="btn grow" onClick={() => setCreating('TRAINER')}>
-              + Тренер
+              Новый тренер
             </button>
           </div>
         )}

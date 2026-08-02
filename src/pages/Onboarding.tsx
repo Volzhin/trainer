@@ -176,10 +176,10 @@ export function Onboarding({ onDone }: Props) {
         ) : (
           <>
             <button className="btn primary block" disabled={busy} onClick={() => finish(true)}>
-              {busy ? 'Готовлю…' : 'Да, с демо-данными'}
+              {busy ? 'Заполняю…' : 'Заполнить примером'}
             </button>
             <button className="btn block" disabled={busy} onClick={() => finish(false)}>
-              Начать с чистого листа
+              Начать с нуля
             </button>
           </>
         )}

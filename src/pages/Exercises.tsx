@@ -48,7 +48,7 @@ export function Exercises() {
             {list.length} {plural(list.length, ['упражнение', 'упражнения', 'упражнений'])} в каталоге
           </div>
         </div>
-        <button className="icon-btn" onClick={() => setCreateOpen(true)} aria-label="Создать своё">
+        <button className="icon-btn" onClick={() => setCreateOpen(true)} aria-label="Создать упражнение">
           <IconPlus size={18} />
         </button>
       </div>

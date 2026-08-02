@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, currentUserId } from '../db/db'
 import { Sheet } from '../components/Sheet'
@@ -13,6 +14,7 @@ import { Group, Row } from '../components/Group'
 import { ThemePicker } from '../components/ThemePicker'
 
 export function Profile() {
+  const nav = useNavigate()
   const { toast, online } = useApp()
   const profile = useProfile()
   const [authOpen, setAuthOpen] = useState(false)
@@ -57,7 +59,7 @@ export function Profile() {
     a.download = `trainer-history-${new Date().toISOString().slice(0, 10)}.csv`
     a.click()
     URL.revokeObjectURL(url)
-    toast('Файл выгружен')
+    toast('Файл сохранён')
   }
 
   const loadDemo = async () => {
@@ -65,7 +67,7 @@ export function Profile() {
     try {
       const res = await generateDemoData()
       haptics.success()
-      toast(`Загружено ${res.sessions} тренировок`)
+      toast(`Добавлено ${res.sessions} тренировок`)
       setDemoOpen(false)
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Не удалось сгенерировать данные')
@@ -118,8 +120,8 @@ export function Profile() {
           chevron
         />
         <Row
-          title="Войти и синхронизировать"
-          sub="Без аккаунта всё работает локально"
+          title="Войти в аккаунт"
+          sub="Чтобы данные не потерялись при смене телефона"
           onClick={() => setAuthOpen(true)}
           chevron
         />
@@ -142,6 +144,22 @@ export function Profile() {
           </div>
         </div>
       )}
+
+      <Group title="Мои данные">
+        <Row
+          title="История тренировок"
+          sub="Все завершённые тренировки"
+          onClick={() => nav('/history')}
+          chevron
+        />
+        <Row
+          title="Состав тела"
+          sub="Замеры и отчёты InBody"
+          onClick={() => nav('/body')}
+          chevron
+        />
+        <Row title="Прогресс" sub="Тоннаж, рекорды и объём" onClick={() => nav('/progress')} chevron />
+      </Group>
 
       <Group title="Оформление">
         <div className="group-row" style={{ display: 'block' }}>
@@ -198,7 +216,7 @@ export function Profile() {
           sub={`${isStandalone() ? 'Приложение' : 'Браузер'} · ${online ? 'онлайн' : 'оффлайн'}`}
           value={`${counts?.queue ?? 0} в очереди`}
         />
-        <Row title="Экспорт истории в CSV" onClick={exportCsv} chevron />
+        <Row title="Выгрузить историю в CSV" onClick={exportCsv} chevron />
         <Row
           title="Демо-режим"
           sub="Заполнить дневник примером за 10 недель"
@@ -227,7 +245,7 @@ export function Profile() {
               <button
                 key={label}
                 className="btn block"
-                onClick={() => toast('В прототипе провайдеры не подключены')}
+                onClick={() => toast('Вход появится в рабочей версии')}
               >
                 {label}
               </button>
@@ -284,7 +302,7 @@ export function Profile() {
             программы не пострадают.
           </div>
           <button className="btn primary block" disabled={demoBusy} onClick={loadDemo}>
-            {demoBusy ? 'Генерирую…' : 'Заполнить демо-данными'}
+            {demoBusy ? 'Генерирую…' : 'Заполнить дневник'}
           </button>
         </div>
       </Sheet>

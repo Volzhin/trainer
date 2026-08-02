@@ -190,7 +190,7 @@ function InviteSheet({
     try {
       const code = await createInvite(userId)
       haptics.success()
-      onToast(`Код ${code} создан`)
+      onToast(`Код ${code} готов — передайте клиенту`)
     } catch (e) {
       onToast(e instanceof Error ? e.message : 'Не удалось создать код')
     } finally {
@@ -229,7 +229,7 @@ function InviteSheet({
               </div>
             </div>
             <button className="btn sm" onClick={() => copy(i.code)}>
-              Копировать
+              Скопировать
             </button>
             <button className="icon-btn" onClick={() => revokeInvite(i.code)} aria-label="Отозвать">
               <IconTrash size={16} />

@@ -12,6 +12,7 @@ import { Exercises } from './pages/Exercises'
 import { ExerciseDetail } from './pages/ExerciseDetail'
 import { LiveSession } from './pages/LiveSession'
 import { SessionDetail } from './pages/SessionDetail'
+import { History } from './pages/History'
 import { Progress } from './pages/Progress'
 import { BodyComposition } from './pages/BodyComposition'
 import { Chat } from './pages/Chat'
@@ -68,6 +69,7 @@ export default function App() {
             <Route path="/exercises" element={<Exercises />} />
             <Route path="/exercises/:id" element={<ExerciseDetail />} />
             <Route path="/session/:id" element={<LiveSession />} />
+            <Route path="/history" element={<History />} />
             <Route path="/history/:id" element={<SessionDetail />} />
             <Route path="/progress" element={<Progress />} />
             <Route path="/body" element={<BodyComposition />} />

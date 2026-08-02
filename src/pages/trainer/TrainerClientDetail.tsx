@@ -73,7 +73,7 @@ export function TrainerClientDetail() {
   const unlink = async () => {
     if (!link) return
     await removeLink(link.id)
-    toast('Клиент отвязан')
+    toast('Работа с клиентом завершена')
     nav('/trainer', { replace: true })
   }
 
@@ -155,13 +155,13 @@ export function TrainerClientDetail() {
                 )}
                 <div className="row" style={{ marginTop: 12, gap: 8 }}>
                   <button className="btn sm grow" onClick={() => setAssignOpen(true)}>
-                    Заменить
+                    Заменить программу
                   </button>
                   <button
                     className="btn sm ghost danger"
                     onClick={async () => {
                       await cancelAssignment(assignment.id)
-                      toast('Назначение отменено')
+                      toast('Программа снята с клиента')
                     }}
                   >
                     Снять
@@ -241,7 +241,7 @@ export function TrainerClientDetail() {
             Прекратить работу с клиентом
           </button>
           <div className="mute-sm" style={{ textAlign: 'center', marginTop: 8 }}>
-            История тренировок останется у клиента — вы просто потеряете к ней доступ.
+            История тренировок останется у клиента, вы потеряете к ней доступ.
           </div>
         </>
       )}

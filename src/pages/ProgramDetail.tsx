@@ -148,7 +148,7 @@ export function ProgramDetail() {
             toast('День добавлен')
           }}
         >
-          <IconPlus size={17} /> Добавить тренировочный день
+          <IconPlus size={17} /> Добавить день
         </button>
       )}
 

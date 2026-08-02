@@ -101,7 +101,7 @@ export function WorkoutCalendar() {
   const repeat = async (sessionId: string) => {
     haptics.impact()
     const id = await repeatSession(sessionId)
-    toast('Тренировка скопирована')
+    toast('Тренировка создана по образцу')
     nav(`/session/${id}`)
   }
 
@@ -228,7 +228,7 @@ export function WorkoutCalendar() {
                     void repeat(s.id)
                   }}
                 >
-                  <IconRepeat size={15} /> Повторить тренировку
+                  <IconRepeat size={15} /> Повторить эту тренировку
                 </span>
               </button>
             )
@@ -244,12 +244,12 @@ export function WorkoutCalendar() {
               <div className="grow">
                 <div style={{ fontWeight: 600 }}>{plan.program.name}</div>
                 <div className="mute-sm" style={{ marginTop: 2 }}>
-                  {plan.doneThisWeek} из {plan.assignment.weekly_target} на этой неделе
+                  План на неделю
                 </div>
               </div>
-              <button className="btn sm primary" onClick={startToday}>
-                <IconPlay size={14} /> Начать
-              </button>
+              <span className="badge pro">
+                {plan.doneThisWeek} / {plan.assignment.weekly_target}
+              </span>
             </div>
           </div>
         </>

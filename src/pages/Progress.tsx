@@ -1,30 +1,19 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, currentUserId, type BodyMetric, type ExerciseSet } from '../db/db'
+import { db, type ExerciseSet } from '../db/db'
 import { listMySessions, logBodyMetric } from '../db/repo'
-import { BarChart, LineChart } from '../components/LineChart'
+import { BarChart } from '../components/LineChart'
 import { Sheet } from '../components/Sheet'
-import { Group, Row } from '../components/Group'
-import { BodyCompositionCard } from '../components/BodyCompositionCard'
 import { estimate1RM, plural, startOfDay } from '../lib/calc'
 import { useApp } from '../store/app'
 
-const WEEK_DAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
-
 export function Progress() {
-  const nav = useNavigate()
   const { toast } = useApp()
   const [metricOpen, setMetricOpen] = useState(false)
 
   const sessions = useLiveQuery(() => listMySessions(), [], [])
   const sets = useLiveQuery(() => db.sets.toArray(), [], [] as ExerciseSet[])
   const exercises = useLiveQuery(() => db.exercises.toArray(), [], [])
-  const metrics = useLiveQuery(
-    () => db.bodyMetrics.where('user_id').equals(currentUserId()).sortBy('logged_at'),
-    [],
-    [] as BodyMetric[],
-  )
 
   const sessionIds = useMemo(() => new Set((sessions ?? []).map((s) => s.id)), [sessions])
   const doneSets = useMemo(
@@ -90,21 +79,6 @@ export function Progress() {
       .slice(0, 6)
   }, [doneSets, exercises])
 
-  /** Календарь тренировок за последние 5 недель. */
-  const calendar = useMemo(() => {
-    const days = new Set((sessions ?? []).map((s) => startOfDay(s.start_time)))
-    const today = startOfDay(Date.now())
-    const dow = (new Date(today).getDay() + 6) % 7
-    const start = today - (dow + 28) * 86400_000
-    return Array.from({ length: 35 }, (_, i) => {
-      const ts = start + i * 86400_000
-      return { ts, hit: days.has(ts), today: ts === today, future: ts > today }
-    })
-  }, [sessions])
-
-  const weightPoints = (metrics ?? [])
-    .filter((m) => m.weight_kg != null)
-    .map((m) => ({ x: m.logged_at, y: m.weight_kg! }))
 
   return (
     <div className="screen">
@@ -123,28 +97,6 @@ export function Progress() {
         <BarChart data={weekly.buckets} labels={weekly.labels} />
         <div className="mute-sm" style={{ marginTop: 8, textAlign: 'center' }}>
           Вес × повторения × подходы за неделю
-        </div>
-      </div>
-
-      <div className="section-title">Календарь</div>
-      <div className="card">
-        <div className="calendar" style={{ marginBottom: 6 }}>
-          {WEEK_DAYS.map((d) => (
-            <div className="cal-head" key={d}>
-              {d}
-            </div>
-          ))}
-        </div>
-        <div className="calendar">
-          {calendar.map((c) => (
-            <div
-              key={c.ts}
-              className={`cal-cell${c.hit ? ' hit' : ''}${c.today ? ' today' : ''}`}
-              style={{ opacity: c.future ? 0.35 : 1 }}
-            >
-              {new Date(c.ts).getDate()}
-            </div>
-          ))}
         </div>
       </div>
 
@@ -186,20 +138,6 @@ export function Progress() {
           </div>
         ))
       )}
-
-      <div className="section-title">Тело</div>
-      <div className="card">
-        <LineChart data={weightPoints} unit=" кг" color="var(--success)" />
-        <div className="mute-sm" style={{ textAlign: 'center', marginTop: 4 }}>
-          Вес
-        </div>
-      </div>
-      <div style={{ marginTop: 10 }}>
-        <BodyCompositionCard userId={currentUserId()} onOpen={() => nav('/body')} />
-      </div>
-      <Group>
-        <Row title="Записать замер" sub="Вес, процент жира, объёмы" onClick={() => setMetricOpen(true)} chevron />
-      </Group>
 
       <BodyMetricSheet
         open={metricOpen}
