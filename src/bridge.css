@@ -62,9 +62,9 @@
 @media (prefers-color-scheme: light) {
   :root:not([data-theme='dark']) {
     --bg: #f4f5f2;
-    --bg-elev: #ffffff;
-    --surface: #ffffff;
-    --surface-2: #ecefe8;
+    --bg-elev: rgba(255, 255, 255, 0.92);
+    --surface: rgba(255, 255, 255, 0.9);
+    --surface-2: rgba(232, 236, 228, 0.86);
     --border: #e2e5dd;
     --border-strong: #c8cec1;
     --text: #12151a;
@@ -106,4 +106,45 @@
   --glow-2: #b9a4ff;
   --glow-3: #7fe3d4;
   --glow-4: #ffb0c6;
+}
+
+/* =====================================================================
+   Второй акцент: сине-фиолетовый из Nocturne. Тон достаточно тёмный,
+   чтобы читаться и заливкой под светлый текст, и как цвет текста на
+   светлом фоне — отдельная притемнённая версия ему не нужна.
+   ===================================================================== */
+
+:root[data-accent='indigo'] {
+  --accent: #9184d9;
+  --accent-press: #7972a9;
+  /* Тёмная подпись на светлом фиолетовом: белая даёт 3.2 против нужных 4.5. */
+  --on-accent: #1a1526;
+  --accent-soft: rgba(145, 132, 217, 0.16);
+  --accent-ink: #9184d9;
+  --c-muscle: #9184d9;
+}
+
+:root[data-accent='indigo'][data-theme='light'],
+:root[data-accent='indigo'] {
+  --accent-dim: #9184d9;
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-accent='indigo']:not([data-theme='dark']) {
+    --accent: #5d5294;
+    --accent-press: #423a6a;
+    --on-accent: #ffffff;
+    --accent-soft: rgba(93, 82, 148, 0.14);
+    --accent-ink: #5d5294;
+    --c-muscle: #5d5294;
+  }
+}
+
+:root[data-accent='indigo'][data-theme='light'] {
+  --accent: #5d5294;
+  --accent-press: #423a6a;
+  --on-accent: #ffffff;
+  --accent-soft: rgba(93, 82, 148, 0.14);
+  --accent-ink: #5d5294;
+  --c-muscle: #5d5294;
 }

@@ -8,7 +8,7 @@ import { registerSW } from 'virtual:pwa-register'
 import App from './App'
 import { AppProvider } from './store/app'
 import { seedIfEmpty } from './db/seed'
-import { applyTheme, getThemePref, loadActiveUser } from './db/db'
+import { applyAccent, applyTheme, getAccentPref, getThemePref, loadActiveUser } from './db/db'
 import './index.css'
 
 // Service worker есть не везде (например, при раздаче одним файлом) —
@@ -23,9 +23,11 @@ try {
 // поднимаем до первого рендера — иначе экраны стартуют не от того профиля.
 seedIfEmpty()
   .then(loadActiveUser)
-  // Тему применяем до рендера, иначе экран моргнёт чужим фоном.
-  .then(getThemePref)
-  .then(applyTheme)
+  // Тему и акцент применяем до рендера, иначе экран моргнёт чужим цветом.
+  .then(async () => {
+    applyTheme(await getThemePref())
+    applyAccent(await getAccentPref())
+  })
   .finally(() => {
     createRoot(document.getElementById('root')!).render(
       <StrictMode>

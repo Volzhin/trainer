@@ -8,6 +8,7 @@ import {
   type WorkoutSession,
 } from './db'
 import { estimate1RM, startOfDay } from '../lib/calc'
+import type { BodyMetric } from './db'
 import type { InBodyReport } from '../lib/inbody'
 
 /* ------------------------------- сессии ------------------------------- */
@@ -370,6 +371,35 @@ export async function saveInBodyReport(
       await db.profile.update(userId, { height_cm, updated_at: now() })
     }
   }
+  return { replaced: !!existing }
+}
+
+/**
+ * Ручной замер состава тела. Нужен там, где нет отчёта InBody: домашние
+ * весы с биоимпедансом, замер в другом зале или просто взвешивание.
+ * Хранится рядом с импортированными и участвует в тех же графиках.
+ */
+export async function saveManualMeasurement(
+  input: Partial<Omit<BodyMetric, 'id' | 'user_id' | 'logged_at' | 'updated_at' | 'source'>> & {
+    logged_at?: number
+  },
+  userId = currentUserId(),
+) {
+  const { logged_at, ...fields } = input
+  const at = logged_at ?? now()
+
+  // Замер за тот же день перезаписываем: два взвешивания подряд — это
+  // уточнение, а не две точки тренда.
+  const existing = await db.bodyMetrics
+    .where('user_id')
+    .equals(userId)
+    .and((m) => startOfDay(m.logged_at) === startOfDay(at) && m.source !== 'inbody')
+    .first()
+
+  const payload = { ...fields, user_id: userId, logged_at: at, source: 'manual' as const, updated_at: now() }
+  if (existing) await db.bodyMetrics.update(existing.id, payload)
+  else await db.bodyMetrics.add({ id: uid(), ...payload })
+
   return { replaced: !!existing }
 }
 

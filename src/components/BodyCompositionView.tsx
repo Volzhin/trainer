@@ -1,7 +1,12 @@
 import { useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { BodyMetric } from '../db/db'
-import { deleteBodyMetric, listBodyMetrics, saveInBodyReport } from '../db/repo'
+import {
+  deleteBodyMetric,
+  listBodyMetrics,
+  saveInBodyReport,
+  saveManualMeasurement,
+} from '../db/repo'
 import { parseInBodyPdf, statusFor, type InBodyReport, type NormStatus } from '../lib/inbody'
 import { LineChart } from './LineChart'
 import { BodyDonut, BodySegments, useCountUp, type DonutPart } from './BodyDonut'
@@ -100,6 +105,7 @@ export function BodyCompositionView({
   const t = TEXT[subject]
 
   const [pending, setPending] = useState<{ report: InBodyReport; fileName: string } | null>(null)
+  const [manualOpen, setManualOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [segTab, setSegTab] = useState<'muscle' | 'fat'>('muscle')
   const [trendKey, setTrendKey] = useState<keyof BodyMetric>('weight_kg')
@@ -337,6 +343,19 @@ export function BodyCompositionView({
         {busy ? 'Читаю отчёт…' : latest ? t.uploadMore : t.uploadFirst}
       </button>
 
+      {/* Отчёт InBody есть не у всех: домашние весы, замер в другом зале или
+          просто взвешивание тоже должны попадать в тренд. */}
+      <button className="btn block" style={{ marginTop: 8 }} onClick={() => setManualOpen(true)}>
+        Ввести замер вручную
+      </button>
+
+      <ManualMeasurementSheet
+        open={manualOpen}
+        userId={userId}
+        onClose={() => setManualOpen(false)}
+        onSaved={(replaced) => toast(replaced ? 'Замер обновлён' : 'Замер добавлен')}
+      />
+
       <Sheet open={!!pending} title="Данные из отчёта" onClose={() => setPending(null)}>
         {pending && (
           <div className="stack">
@@ -486,4 +505,110 @@ function metricRows(m: Partial<BodyMetric>): [string, string][] {
   return rows
     .filter(([, , v]) => v != null)
     .map(([label, unit, v]) => [label, `${v}${unit ? ` ${unit}` : ''}`])
+}
+
+
+/** Ручной ввод замера. Обязателен только вес — остальное по возможности. */
+function ManualMeasurementSheet({
+  open,
+  userId,
+  onClose,
+  onSaved,
+}: {
+  open: boolean
+  userId: string
+  onClose: () => void
+  onSaved: (replaced: boolean) => void
+}) {
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [values, setValues] = useState<Record<string, string>>({})
+  const [busy, setBusy] = useState(false)
+
+  const fields: { key: string; label: string; unit: string; hint?: string }[] = [
+    { key: 'weight_kg', label: 'Вес', unit: 'кг' },
+    { key: 'body_fat_pct', label: 'Жир', unit: '%' },
+    { key: 'skeletal_muscle_kg', label: 'Мышцы', unit: 'кг' },
+    { key: 'body_water_l', label: 'Вода', unit: 'л' },
+    { key: 'protein_kg', label: 'Белок', unit: 'кг' },
+    { key: 'minerals_kg', label: 'Минералы', unit: 'кг' },
+    { key: 'visceral_fat', label: 'Висцеральный жир', unit: '' },
+    { key: 'waist_cm', label: 'Талия', unit: 'см' },
+  ]
+
+  const num = (key: string) => {
+    const raw = values[key]
+    if (!raw) return undefined
+    const n = parseFloat(raw.replace(',', '.'))
+    return Number.isFinite(n) ? n : undefined
+  }
+
+  const submit = async () => {
+    const weight = num('weight_kg')
+    if (!weight && !num('body_fat_pct')) return
+    setBusy(true)
+    try {
+      const payload: Record<string, number | undefined> = {}
+      for (const f of fields) payload[f.key] = num(f.key)
+
+      // Жировую массу считаем сами, если известны вес и процент: она нужна
+      // кольцу состава, а вручную её никто не вводит.
+      if (weight && num('body_fat_pct')) {
+        payload.body_fat_kg = Math.round(((weight * num('body_fat_pct')!) / 100) * 10) / 10
+        payload.fat_free_mass_kg = Math.round((weight - payload.body_fat_kg) * 10) / 10
+      }
+
+      const at = new Date(`${date}T12:00:00`).getTime()
+      const res = await saveManualMeasurement({ ...payload, logged_at: at }, userId)
+      setValues({})
+      onSaved(res.replaced)
+      onClose()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Sheet open={open} title="Замер вручную" onClose={onClose}>
+      <div className="stack">
+        <div className="field">
+          <label>Дата</label>
+          <input
+            className="input"
+            type="date"
+            value={date}
+            max={new Date().toISOString().slice(0, 10)}
+            onChange={(e) => setDate(e.target.value)}
+          />
+        </div>
+
+        {fields.map((f) => (
+          <div className="field" key={f.key}>
+            <label>
+              {f.label}
+              {f.unit ? `, ${f.unit}` : ''}
+            </label>
+            <input
+              className="input"
+              inputMode="decimal"
+              value={values[f.key] ?? ''}
+              onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
+              placeholder="—"
+              style={{ fontFamily: 'var(--font-num)' }}
+            />
+          </div>
+        ))}
+
+        <button
+          className="btn primary block"
+          disabled={busy || (!values.weight_kg && !values.body_fat_pct)}
+          onClick={submit}
+        >
+          Сохранить замер
+        </button>
+        <div className="mute-sm" style={{ textAlign: 'center' }}>
+          Достаточно веса — остальные поля заполняйте, если знаете.
+        </div>
+      </div>
+    </Sheet>
+  )
 }

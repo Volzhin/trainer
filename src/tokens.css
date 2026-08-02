@@ -2,7 +2,7 @@
    Подключить первым импортом в src/styles.css */
 :root {
   /* surfaces */
-  --bg:#0b0d10; --bg-elev:#14171c; --surface:#181c22; --surface-2:#20252d;
+  --bg:#0b0d10; --bg-elev:rgba(17,21,27,.86); --surface:rgba(26,31,39,.88); --surface-2:rgba(44,51,62,.78);
   --border:#2a3038; --border-strong:#3b434e;
   /* text */
   --text:#f3f5f7; --text-2:#9aa4b2; --text-3:#69717d;
@@ -34,7 +34,7 @@
 }
 
 [data-theme="light"] {
-  --bg:#f4f5f2; --bg-elev:#ffffff; --surface:#ffffff; --surface-2:#ecefe8;
+  --bg:#f4f5f2; --bg-elev:rgba(255,255,255,.92); --surface:rgba(255,255,255,.9); --surface-2:rgba(232,236,228,.86);
   --border:#e2e5dd; --border-strong:#c8cec1;
   --text:#12151a; --text-2:#5b6470; --text-3:#8b939f;
   --accent:#bce837; --accent-press:#a6d022; --on-accent:#12170a; --accent-soft:rgba(140,190,20,.16);

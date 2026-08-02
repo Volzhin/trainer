@@ -168,9 +168,12 @@ export interface AppState {
   onboarded?: 0 | 1
   /** Тема оформления. 'auto' — следовать системной настройке. */
   theme?: ThemePref
+  /** Акцентный цвет интерфейса. */
+  accent?: AccentPref
 }
 
 export type ThemePref = 'auto' | 'light' | 'dark'
+export type AccentPref = 'lime' | 'indigo'
 
 export type LinkStatus = 'PENDING' | 'ACTIVE' | 'PAUSED'
 
@@ -540,6 +543,34 @@ export function applyTheme(pref: ThemePref) {
     ?.setAttribute('content', dark ? '#0c0f13' : '#f6f7f9')
 }
 
+/**
+ * Акцент выставляется атрибутом на <html> — так же, как тема, и по той же
+ * причине: переменные должны перекрываться до отрисовки, без вспышки
+ * прежнего цвета.
+ */
+export function applyAccent(pref: AccentPref) {
+  const root = document.documentElement
+  if (pref === 'lime') root.removeAttribute('data-accent')
+  else root.setAttribute('data-accent', pref)
+}
+
+export async function getAccentPref(): Promise<AccentPref> {
+  const state = await db.appState.get(APP_STATE_ID)
+  return state?.accent ?? 'lime'
+}
+
+export async function setAccentPref(accent: AccentPref) {
+  const state = await db.appState.get(APP_STATE_ID)
+  await db.appState.put({
+    id: APP_STATE_ID,
+    active_user_id: state?.active_user_id ?? activeUserId,
+    onboarded: state?.onboarded,
+    theme: state?.theme,
+    accent,
+  })
+  applyAccent(accent)
+}
+
 export async function getThemePref(): Promise<ThemePref> {
   const state = await db.appState.get(APP_STATE_ID)
   return state?.theme ?? 'auto'
@@ -551,6 +582,7 @@ export async function setThemePref(theme: ThemePref) {
     id: APP_STATE_ID,
     active_user_id: state?.active_user_id ?? activeUserId,
     onboarded: state?.onboarded,
+    accent: state?.accent,
     theme,
   })
   applyTheme(theme)
@@ -567,6 +599,7 @@ export async function markOnboarded() {
     id: APP_STATE_ID,
     active_user_id: state?.active_user_id ?? activeUserId,
     theme: state?.theme,
+    accent: state?.accent,
     onboarded: 1,
   })
 }
