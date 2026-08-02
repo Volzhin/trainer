@@ -242,6 +242,7 @@ export function BodyCompositionView({
                 (segTab === 'muscle' ? latest.muscle_segments : latest.fat_segments) ?? {}
               }
               kind={segTab}
+              total={segTab === 'muscle' ? latest.skeletal_muscle_kg : latest.body_fat_kg}
             />
           </div>
         </>
