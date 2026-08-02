@@ -1,0 +1,77 @@
+/* =====================================================================
+   Мост между токенами дизайн-системы и именами, на которые уже опирается
+   код приложения. Позволяет перевести всю палитру одним шагом, а разметку
+   переносить на новые имена постепенно, а не одним огромным коммитом.
+   ===================================================================== */
+
+:root,
+[data-theme='light'],
+[data-theme='dark'] {
+  --bg-elev: var(--surface);
+  --bg-elev-2: var(--surface-2);
+  --line: var(--border);
+  --line-soft: var(--border);
+  --text-dim: var(--text-2);
+  --text-mute: var(--text-3);
+
+  --accent-strong: var(--accent-press);
+  --accent-dim: var(--accent);
+  --accent-wash: var(--accent-soft);
+
+  --success: var(--ok);
+  --success-wash: var(--ok-soft);
+  --danger-wash: var(--danger-soft);
+  --warn-wash: var(--warn-soft);
+  /* Рекорд в системе — акцентный, а не золотой. */
+  --pr: var(--accent);
+
+  --shadow: var(--shadow-2);
+  --overlay: rgba(0, 0, 0, 0.6);
+  --glass: var(--bg-elev);
+  /* Текст на акцентной и «успешной» заливке — тёмный: акцент светлый. */
+  --on-success: var(--on-accent);
+
+  --radius: var(--r-lg);
+  --radius-lg: var(--r-xl);
+  --dur: var(--dur-slow);
+
+  /* Цвета состава тела по правилам системы: мышцы — акцент,
+     жир — предупреждение, вода и минералы — информационные. */
+  --c-muscle: var(--accent);
+  --c-protein: var(--warn);
+  --c-minerals: var(--ok);
+  --c-water: var(--info);
+  --c-fat: var(--warn);
+}
+
+/* Светлая тема по системной настройке — тот же набор, что у data-theme. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    --bg: #f4f5f2;
+    --bg-elev: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #ecefe8;
+    --border: #e2e5dd;
+    --border-strong: #c8cec1;
+    --text: #12151a;
+    --text-2: #5b6470;
+    --text-3: #8b939f;
+    --accent: #bce837;
+    --accent-press: #a6d022;
+    --on-accent: #12170a;
+    --accent-soft: rgba(140, 190, 20, 0.16);
+    --ok: #12a06a;
+    --ok-soft: rgba(18, 160, 106, 0.12);
+    --warn: #b8860b;
+    --warn-soft: rgba(184, 134, 11, 0.12);
+    --danger: #dc4436;
+    --danger-soft: rgba(220, 68, 54, 0.12);
+    --info: #0f7fc4;
+    --info-soft: rgba(15, 127, 196, 0.12);
+    --shadow-1: 0 1px 2px rgba(20, 25, 15, 0.06);
+    --shadow-2: 0 12px 32px -14px rgba(20, 25, 15, 0.24);
+    --shadow-sheet: 0 -16px 44px rgba(20, 25, 15, 0.18);
+    --overlay: rgba(20, 25, 15, 0.42);
+    color-scheme: light;
+  }
+}

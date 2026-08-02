@@ -1,156 +1,12 @@
-/* =====================================================================
-   Палитра. Нейтрали уведены в холодный сине-зелёный — тон спортзала и
-   медицинских данных, а не бытового серого. Компоненты обращаются только
-   к токенам, поэтому тема переключается без правок в разметке.
-   ===================================================================== */
+@import './tokens.css';
+@import './bridge.css';
+@import '/fonts.css';
 
+/* Базовые размеры и служебные величины, которых нет в токенах системы. */
 :root {
-  /* Тёмная тема — база. */
-  --bg: #0c0f13;
-  --bg-elev: #14181e;
-  --bg-elev-2: #1c212a;
-  --line: #262d38;
-  --line-soft: #1e242e;
-  --text: #eef2f7;
-  --text-dim: #929cad;
-  --text-mute: #626d7d;
-  --accent: #5b8cff;
-  --accent-strong: #7ea4ff;
-  --accent-dim: #2f4a8f;
-  --accent-wash: rgba(91, 140, 255, 0.14);
-  --success: #34d399;
-  --success-wash: rgba(52, 211, 153, 0.14);
-  --warn: #fbbf24;
-  --warn-wash: rgba(251, 191, 36, 0.14);
-  --danger: #f87171;
-  --danger-wash: rgba(248, 113, 113, 0.14);
-  --pr: #f0b429;
-  --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-  --overlay: rgba(0, 0, 0, 0.6);
-  --glass: rgba(16, 19, 24, 0.86);
-  --on-success: #06241a;
-
-  /* Цвета состава тела — общие для тем, различаются только светлотой. */
-  --c-muscle: #2e8f88;
-  --c-protein: #edb64a;
-  --c-minerals: #2bc4c9;
-  --c-water: #6cb8ea;
-  --c-fat: #f0762b;
-
-  --radius: 14px;
-  --radius-lg: 18px;
   --tabbar-h: 56px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
-
-  /* Кривая с лёгким перелётом — движение читается как отклик, а не как задержка. */
-  --ease: cubic-bezier(0.32, 0.72, 0, 1);
-  --dur: 0.24s;
-
-  color-scheme: dark;
-}
-
-/* Светлая тема подобрана отдельно: фон тёплый-нейтральный, а не белый,
-   акцент притемнён, чтобы держать контраст на светлом. */
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg: #f6f7f9;
-    --bg-elev: #ffffff;
-    --bg-elev-2: #f0f2f6;
-    --line: #dfe3ea;
-    --line-soft: #e9ecf1;
-    --text: #131922;
-    --text-dim: #5a6575;
-    --text-mute: #8b95a4;
-    --accent: #2f62e8;
-    --accent-strong: #1e4bc4;
-    --accent-dim: #b9cbfb;
-    --accent-wash: rgba(47, 98, 232, 0.09);
-    --success: #0f9d6b;
-    --success-wash: rgba(15, 157, 107, 0.1);
-    --warn: #b7791f;
-    --warn-wash: rgba(183, 121, 31, 0.11);
-    --danger: #d64545;
-    --danger-wash: rgba(214, 69, 69, 0.09);
-    --pr: #b7791f;
-    --shadow: 0 8px 24px rgba(19, 25, 34, 0.1);
-    --overlay: rgba(19, 25, 34, 0.32);
-    --glass: rgba(255, 255, 255, 0.86);
-    --on-success: #ffffff;
-
-    --c-muscle: #1f6f69;
-    --c-protein: #c9901f;
-    --c-minerals: #159aa0;
-    --c-water: #3d95d1;
-    --c-fat: #d95c14;
-
-    color-scheme: light;
-  }
-}
-
-/* Ручной выбор темы перекрывает системный в обе стороны. */
-:root[data-theme='light'] {
-  --bg: #f6f7f9;
-  --bg-elev: #ffffff;
-  --bg-elev-2: #f0f2f6;
-  --line: #dfe3ea;
-  --line-soft: #e9ecf1;
-  --text: #131922;
-  --text-dim: #5a6575;
-  --text-mute: #8b95a4;
-  --accent: #2f62e8;
-  --accent-strong: #1e4bc4;
-  --accent-dim: #b9cbfb;
-  --accent-wash: rgba(47, 98, 232, 0.09);
-  --success: #0f9d6b;
-  --success-wash: rgba(15, 157, 107, 0.1);
-  --warn: #b7791f;
-  --warn-wash: rgba(183, 121, 31, 0.11);
-  --danger: #d64545;
-  --danger-wash: rgba(214, 69, 69, 0.09);
-  --pr: #b7791f;
-  --shadow: 0 8px 24px rgba(19, 25, 34, 0.1);
-  --overlay: rgba(19, 25, 34, 0.32);
-  --glass: rgba(255, 255, 255, 0.86);
-  --on-success: #ffffff;
-  --c-muscle: #1f6f69;
-  --c-protein: #c9901f;
-  --c-minerals: #159aa0;
-  --c-water: #3d95d1;
-  --c-fat: #d95c14;
-  color-scheme: light;
-}
-
-:root[data-theme='dark'] {
-  --bg: #0c0f13;
-  --bg-elev: #14181e;
-  --bg-elev-2: #1c212a;
-  --line: #262d38;
-  --line-soft: #1e242e;
-  --text: #eef2f7;
-  --text-dim: #929cad;
-  --text-mute: #626d7d;
-  --accent: #5b8cff;
-  --accent-strong: #7ea4ff;
-  --accent-dim: #2f4a8f;
-  --accent-wash: rgba(91, 140, 255, 0.14);
-  --success: #34d399;
-  --success-wash: rgba(52, 211, 153, 0.14);
-  --warn: #fbbf24;
-  --warn-wash: rgba(251, 191, 36, 0.14);
-  --danger: #f87171;
-  --danger-wash: rgba(248, 113, 113, 0.14);
-  --pr: #f0b429;
-  --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-  --overlay: rgba(0, 0, 0, 0.6);
-  --glass: rgba(16, 19, 24, 0.86);
-  --on-success: #06241a;
-  --c-muscle: #2e8f88;
-  --c-protein: #edb64a;
-  --c-minerals: #2bc4c9;
-  --c-water: #6cb8ea;
-  --c-fat: #f0762b;
-  color-scheme: dark;
 }
 
 * {
@@ -168,12 +24,41 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', Roboto,
-    sans-serif;
-  font-size: 16px;
-  line-height: 1.4;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.55;
   overscroll-behavior-y: none;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Фоновый меш: три размытых пятна, зафиксированных за скроллом. На телефоне
+   статичная версия — движущийся градиент под скроллом заметно греет батарею. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: -10%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 32% at 18% 12%, var(--glow-1, #2f7bff) 0%, transparent 70%),
+    radial-gradient(34% 30% at 84% 24%, var(--glow-2, #7a5cff) 0%, transparent 72%),
+    radial-gradient(40% 34% at 50% 92%, var(--glow-3, #00c2a8) 0%, transparent 74%);
+  opacity: 0.22;
+  filter: blur(70px);
+}
+
+/* Все числовые величины — моноширинным: столбцы весов и повторов должны
+   выравниваться, а цифры не «прыгать» при пересчёте. */
+.t-num,
+.num,
+.metric .num,
+.cell-input,
+.rest-time,
+.value,
+.stat .value {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
 input,
@@ -232,9 +117,8 @@ a {
 }
 
 .header h1 {
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.5px;
+  font: 800 28px/1.15 var(--font-ui);
+  letter-spacing: -0.02em;
   margin: 0;
 }
 
@@ -245,12 +129,11 @@ a {
 }
 
 .section-title {
-  font-size: 13px;
-  font-weight: 600;
+  font: 800 11px/1 var(--font-ui);
   text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--text-mute);
-  margin: 22px 0 10px;
+  letter-spacing: 0.14em;
+  color: var(--text-3);
+  margin: 24px 0 12px;
 }
 
 /* ------------------------------- табы ------------------------------- */
@@ -301,10 +184,10 @@ a {
 /* ------------------------------- карты ------------------------------ */
 
 .card {
-  background: var(--bg-elev);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 18px;
 }
 
 .card + .card {
@@ -359,23 +242,28 @@ a {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border-radius: 12px;
-  padding: 13px 18px;
+  min-height: 52px;
+  border-radius: var(--r-lg);
+  padding: 14px 18px;
   font-weight: 600;
   font-size: 15px;
-  background: var(--bg-elev-2);
-  border: 1px solid var(--line);
-  transition: transform 0.08s, background 0.15s;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  transition: transform var(--dur-fast) var(--ease), background var(--dur) var(--ease);
 }
 
 .btn:active {
-  transform: scale(0.975);
+  transform: scale(0.98);
 }
 
 .btn.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
+}
+
+.btn.primary:active {
+  background: var(--accent-press);
 }
 
 .btn.success {
@@ -386,6 +274,8 @@ a {
 
 .btn.danger {
   color: var(--danger);
+  background: var(--danger-soft);
+  border-color: var(--danger);
 }
 
 .btn.ghost {
@@ -397,9 +287,10 @@ a {
 }
 
 .btn.sm {
-  padding: 8px 12px;
+  min-height: 36px;
+  padding: 8px 14px;
   font-size: 13px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
 }
 
 .btn:disabled {
@@ -453,8 +344,8 @@ a {
 .chip.active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
-  font-weight: 600;
+  color: var(--on-accent);
+  font-weight: 700;
 }
 
 .badge {
@@ -661,9 +552,9 @@ a {
 }
 
 .check.on {
-  background: var(--success);
-  border-color: var(--success);
-  color: var(--on-success);
+  background: var(--ok);
+  border-color: var(--ok);
+  color: var(--bg);
 }
 
 .check:active {
@@ -770,12 +661,13 @@ a {
 .sheet {
   width: min(560px, 100%);
   max-height: 86vh;
-  background: var(--bg-elev);
-  border-radius: 20px 20px 0 0;
+  background: var(--surface);
+  box-shadow: var(--shadow-sheet);
+  border-radius: var(--r-2xl) var(--r-2xl) 0 0;
   border-top: 1px solid var(--line);
   padding: 8px 16px calc(16px + var(--safe-b));
   overflow-y: auto;
-  animation: slideup 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+  animation: slideup var(--dur-slow) var(--ease);
 }
 
 @keyframes slideup {
@@ -785,8 +677,8 @@ a {
 }
 
 .sheet-grip {
-  width: 36px;
-  height: 4px;
+  width: 44px;
+  height: 5px;
   border-radius: 2px;
   background: var(--line);
   margin: 6px auto 12px;
@@ -915,9 +807,9 @@ a {
    ===================================================================== */
 
 .group {
-  background: var(--bg-elev);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
   overflow: hidden;
 }
 
@@ -1424,8 +1316,246 @@ button.group-row:active {
 }
 
 .tag.accent {
-  background: var(--accent-wash);
+  background: var(--accent-soft);
   border-color: transparent;
   color: var(--accent);
-  font-weight: 600;
+  font-weight: 700;
+}
+
+/* =====================================================================
+   Переписка. Экран занимает высоту вьюпорта целиком: список прокручивается
+   сам, а панель ввода остаётся на месте — иначе на телефоне поле уезжает
+   под клавиатуру вместе со страницей.
+   ===================================================================== */
+
+.chat-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.chat-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: calc(var(--safe-t) + 10px) 16px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.chat-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overscroll-behavior: contain;
+}
+
+.chat-day {
+  align-self: center;
+  font-size: 11.5px;
+  color: var(--text-mute);
+  background: var(--bg-elev-2);
+  border-radius: 999px;
+  padding: 3px 12px;
+  margin: 10px auto;
+  width: fit-content;
+}
+
+.bubble-row {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.bubble-row.mine {
+  justify-content: flex-end;
+}
+
+.bubble {
+  max-width: 80%;
+  padding: 9px 12px;
+  border-radius: 16px 16px 16px 4px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  animation: rise 0.28s var(--ease) both;
+}
+
+.bubble.mine {
+  border-radius: 16px 16px 4px 16px;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* Кружок и картинка живут без подложки — рамка мешает форме. */
+.bubble.bare {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.bubble-meta {
+  font-size: 11px;
+  opacity: 0.62;
+  margin-top: 3px;
+}
+
+.bubble.mine .bubble-meta {
+  color: #fff;
+}
+
+/* ----------------------------- голосовое ---------------------------- */
+
+.voice-play {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.bubble.mine .voice-play {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+.wave {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 28px;
+  cursor: pointer;
+}
+
+.wave i {
+  flex: 1;
+  min-width: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: opacity 0.15s;
+}
+
+.bubble.mine .wave i {
+  background: #fff;
+}
+
+/* ------------------------------ кружок ------------------------------ */
+
+.circle-video {
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  overflow: hidden;
+  position: relative;
+  background: #000;
+  border: 2px solid var(--accent-dim);
+  cursor: pointer;
+}
+
+.circle-video video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.circle-play {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  backdrop-filter: blur(4px);
+}
+
+.chat-image {
+  max-width: 230px;
+  border-radius: 12px;
+  display: block;
+}
+
+.file-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--bg-elev-2);
+  flex: 0 0 auto;
+}
+
+.bubble.mine .file-icon {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* --------------------------- панель ввода --------------------------- */
+
+.chat-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px calc(10px + var(--safe-b));
+  border-top: 1px solid var(--line);
+  background: var(--bg-elev);
+}
+
+.chat-input .input {
+  padding: 10px 14px;
+}
+
+.chat-input.recording {
+  background: var(--danger-wash);
+}
+
+.rec-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--danger);
+  animation: blink 1.1s ease-in-out infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.level {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--line);
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.level i {
+  display: block;
+  height: 100%;
+  background: var(--danger);
+  transition: width 0.1s linear;
+}
+
+.circle-preview {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #000;
+  flex: 0 0 auto;
 }

@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db'
+import { useNavigate } from 'react-router-dom'
 import { redeemInvite, removeLink, trainerOfClient } from '../db/coach'
+import { unreadCount } from '../db/chat'
 import { Sheet } from './Sheet'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
 
 /** Блок «Мой тренер» в профиле клиента: привязка по коду и отвязка. */
 export function MyTrainerCard() {
+  const nav = useNavigate()
   const { toast, userId } = useApp()
   const [open, setOpen] = useState(false)
   const [code, setCode] = useState('')
@@ -15,6 +18,12 @@ export function MyTrainerCard() {
 
   const linkVersion = useLiveQuery(() => db.links.count(), [])
   const bond = useLiveQuery(() => trainerOfClient(userId), [userId, linkVersion])
+  const chatVersion = useLiveQuery(() => db.chat.count(), [])
+  const unread = useLiveQuery(
+    async () => (bond ? await unreadCount(bond.trainer.id, userId) : 0),
+    [bond?.trainer.id, userId, chatVersion],
+    0,
+  )
 
   const submit = async () => {
     setBusy(true)
@@ -50,6 +59,18 @@ export function MyTrainerCard() {
                 <div className="mute-sm">{bond.trainer.specialization ?? 'Персональный тренер'}</div>
               </div>
             </div>
+            <button
+              className="btn primary block"
+              style={{ marginTop: 12 }}
+              onClick={() => nav('/chat')}
+            >
+              Написать тренеру
+              {unread > 0 && (
+                <span className="badge" style={{ marginLeft: 6 }}>
+                  {unread}
+                </span>
+              )}
+            </button>
             <div className="mute-sm" style={{ marginTop: 10 }}>
               Тренер видит вашу историю тренировок, прогресс и замеры тела. Личные настройки
               приложения и другие тренеры ему недоступны.

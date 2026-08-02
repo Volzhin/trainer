@@ -1,0 +1,62 @@
+/* Trainer DS — design tokens
+   Подключить первым импортом в src/styles.css */
+:root {
+  /* surfaces */
+  --bg:#0b0d10; --bg-elev:#14171c; --surface:#181c22; --surface-2:#20252d;
+  --border:#2a3038; --border-strong:#3b434e;
+  /* text */
+  --text:#f3f5f7; --text-2:#9aa4b2; --text-3:#69717d;
+  /* accent + status */
+  --accent:#c9f24d; --accent-press:#b1d93c; --on-accent:#121705; --accent-soft:rgba(201,242,77,.14);
+  --ok:#4de3a2; --ok-soft:rgba(77,227,162,.14);
+  --warn:#f2c94d; --warn-soft:rgba(242,201,77,.14);
+  --danger:#ff6f5e; --danger-soft:rgba(255,111,94,.14);
+  --info:#5cc4ff; --info-soft:rgba(92,196,255,.14);
+  /* elevation */
+  --shadow-1:0 1px 2px rgba(0,0,0,.45);
+  --shadow-2:0 10px 30px -12px rgba(0,0,0,.75);
+  --shadow-sheet:0 -16px 48px rgba(0,0,0,.6);
+  /* radii */
+  --r-sm:8px; --r-md:12px; --r-lg:16px; --r-xl:22px; --r-2xl:28px; --r-full:999px;
+  /* spacing */
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px;
+  --space-5:20px; --space-6:24px; --space-8:32px; --space-10:40px; --space-14:56px;
+  /* type */
+  --font-ui:'Manrope',system-ui,-apple-system,sans-serif;
+  --font-num:'JetBrains Mono',ui-monospace,monospace;
+  /* motion */
+  --dur-fast:120ms; --dur:200ms; --dur-slow:340ms;
+  --ease:cubic-bezier(.2,.8,.2,1);
+  /* layers */
+  --z-sticky:10; --z-tabbar:20; --z-sheet:30; --z-toast:40; --z-rest:50;
+  /* touch */
+  --tap-min:48px;
+}
+
+[data-theme="light"] {
+  --bg:#f4f5f2; --bg-elev:#ffffff; --surface:#ffffff; --surface-2:#ecefe8;
+  --border:#e2e5dd; --border-strong:#c8cec1;
+  --text:#12151a; --text-2:#5b6470; --text-3:#8b939f;
+  --accent:#bce837; --accent-press:#a6d022; --on-accent:#12170a; --accent-soft:rgba(140,190,20,.16);
+  --ok:#12a06a; --ok-soft:rgba(18,160,106,.12);
+  --warn:#b8860b; --warn-soft:rgba(184,134,11,.12);
+  --danger:#dc4436; --danger-soft:rgba(220,68,54,.12);
+  --info:#0f7fc4; --info-soft:rgba(15,127,196,.12);
+  --shadow-1:0 1px 2px rgba(20,25,15,.06);
+  --shadow-2:0 12px 32px -14px rgba(20,25,15,.24);
+  --shadow-sheet:0 -16px 44px rgba(20,25,15,.18);
+}
+
+/* Типографическая шкала */
+.t-display{font:800 44px/1.05 var(--font-ui);letter-spacing:-.03em}
+.t-h1{font:800 28px/1.15 var(--font-ui);letter-spacing:-.02em}
+.t-h2{font:700 20px/1.25 var(--font-ui)}
+.t-body-strong{font:600 16px/1.4 var(--font-ui)}
+.t-body{font:400 15px/1.55 var(--font-ui)}
+.t-label{font:600 13px/1.4 var(--font-ui)}
+.t-overline{font:800 11px/1 var(--font-ui);letter-spacing:.14em;text-transform:uppercase}
+.t-num{font:600 var(--num-size,24px)/1 var(--font-num);letter-spacing:-.02em}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}

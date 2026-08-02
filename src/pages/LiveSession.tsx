@@ -178,7 +178,9 @@ export function LiveSession() {
       <div style={{ marginTop: 14 }}>
         {blocks.length === 0 && (
           <div className="empty">
-            <div className="big">➕</div>
+            <div className="big">
+              <IconPlus size={34} />
+            </div>
             Добавьте первое упражнение
           </div>
         )}

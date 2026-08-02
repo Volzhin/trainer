@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Attachment } from '../db/db'
 import { addAttachment, deleteAttachment } from '../db/coach'
-import { IconTrash } from './Icons'
+import { IconTrash, IconVideo } from './Icons'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
 
@@ -126,7 +126,8 @@ export function VideoUploader({
         disabled={busy}
         onClick={() => inputRef.current?.click()}
       >
-        {busy ? 'Сохраняю…' : (items ?? []).length ? 'Добавить ещё видео' : '🎥 Снять технику'}
+        <IconVideo size={15} />
+        {busy ? 'Сохраняю…' : (items ?? []).length ? 'Добавить ещё видео' : 'Снять технику'}
       </button>
     </div>
   )

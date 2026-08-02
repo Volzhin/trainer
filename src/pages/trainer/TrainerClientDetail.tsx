@@ -13,7 +13,10 @@ import {
   personalProgramsFor,
   removeLink,
 } from '../../db/coach'
+import { unreadCount } from '../../db/chat'
 import { BarChart, LineChart } from '../../components/LineChart'
+import { BodyCompositionCard } from '../../components/BodyCompositionCard'
+import { BodyCompositionView } from '../../components/BodyCompositionView'
 import { Sheet } from '../../components/Sheet'
 import { Group, Row } from '../../components/Group'
 import { SessionReview } from '../../components/SessionReview'
@@ -25,7 +28,7 @@ export function TrainerClientDetail() {
   const { id = '' } = useParams()
   const nav = useNavigate()
   const { toast, userId } = useApp()
-  const [tab, setTab] = useState<'overview' | 'history' | 'notes'>('overview')
+  const [tab, setTab] = useState<'overview' | 'body' | 'history' | 'notes'>('overview')
   const [assignOpen, setAssignOpen] = useState(false)
   const [noteOpen, setNoteOpen] = useState(false)
   const [reviewing, setReviewing] = useState<WorkoutSession | null>(null)
@@ -59,6 +62,8 @@ export function TrainerClientDetail() {
     [] as Program[],
   )
   const allSets = useLiveQuery(() => db.sets.toArray(), [], [])
+  const chatVersion = useLiveQuery(() => db.chat.count(), [])
+  const unread = useLiveQuery(() => unreadCount(userId, id), [userId, id, chatVersion], 0)
 
   if (!detail) return <div className="screen">Загрузка…</div>
 
@@ -85,12 +90,17 @@ export function TrainerClientDetail() {
             {client.height_cm ? ` · ${client.height_cm} см` : ''}
           </div>
         </div>
+        <button className="btn sm primary" onClick={() => nav(`/trainer/clients/${id}/chat`)}>
+          Чат
+          {unread > 0 && <span className="badge" style={{ marginLeft: 6 }}>{unread}</span>}
+        </button>
       </div>
 
       <div className="chips">
         {(
           [
             ['overview', 'Сводка'],
+            ['body', 'Тело'],
             ['history', 'Тренировки'],
             ['notes', 'Заметки'],
           ] as const
@@ -119,6 +129,9 @@ export function TrainerClientDetail() {
               <div className="label">последняя</div>
             </div>
           </div>
+
+          <div className="section-title">Тело</div>
+          <BodyCompositionCard userId={id} subject="client" onOpen={() => setTab('body')} />
 
           <div className="section-title">Программа от вас</div>
           <div className="card">
@@ -231,6 +244,12 @@ export function TrainerClientDetail() {
             История тренировок останется у клиента — вы просто потеряете к ней доступ.
           </div>
         </>
+      )}
+
+      {tab === 'body' && (
+        <div style={{ marginTop: 4 }}>
+          <BodyCompositionView userId={id} subject="client" />
+        </div>
       )}
 
       {tab === 'history' && (

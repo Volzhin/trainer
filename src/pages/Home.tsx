@@ -10,13 +10,14 @@ import {
 } from '../db/repo'
 import { activeAssignmentFor } from '../db/coach'
 import { formatDate, formatDuration, formatTonnage, plural, startOfDay, totalVolume } from '../lib/calc'
-import { IconFlame, IconPlay, IconPlus } from '../components/Icons'
+import { BodyCompositionCard } from '../components/BodyCompositionCard'
+import { IconCheck, IconDumbbell, IconFlame, IconPlay, IconPlus } from '../components/Icons'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
 
 export function Home() {
   const nav = useNavigate()
-  const { online, toast } = useApp()
+  const { online, toast, userId } = useApp()
   const profile = useLiveQuery(() => db.profile.get(currentUserId()), [])
   const sessions = useLiveQuery(() => listMySessions(), [])
   const allSets = useLiveQuery(() => db.sets.toArray(), [])
@@ -174,10 +175,15 @@ export function Home() {
         </div>
       </div>
 
+      <div className="section-title">Тело</div>
+      <BodyCompositionCard userId={userId} onOpen={() => nav('/body')} />
+
       <div className="section-title">История</div>
       {(sessions ?? []).length === 0 ? (
         <div className="empty">
-          <div className="big">🏋️</div>
+          <div className="big">
+            <IconDumbbell size={34} />
+          </div>
           Здесь появятся ваши тренировки.
           <br />
           Все данные хранятся на устройстве и доступны без сети.
@@ -193,7 +199,9 @@ export function Home() {
               style={{ width: '100%', textAlign: 'left' }}
               onClick={() => nav(`/history/${s.id}`)}
             >
-              <div className="avatar">✓</div>
+              <div className="avatar">
+                <IconCheck size={16} />
+              </div>
               <div className="grow">
                 <div className="truncate">{s.title}</div>
                 <div className="mute-sm">

@@ -11,6 +11,7 @@ import {
 import { addFeedback, attachmentsForSession, feedbackForSession } from '../db/coach'
 import { AttachmentPlayer } from './ExerciseVideo'
 import { Sheet } from './Sheet'
+import { IconChat } from './Icons'
 import { formatDateTime, formatDuration, formatWeight, plural, totalVolume } from '../lib/calc'
 import { estimate1RM } from '../lib/calc'
 import { useApp } from '../store/app'
@@ -255,7 +256,8 @@ function ExerciseReview({
         </div>
       ) : (
         <button className="btn sm block" style={{ marginTop: 8 }} onClick={() => setOpen(true)}>
-          {videos.length ? '💬 Разобрать технику' : '💬 Комментарий к упражнению'}
+          <IconChat size={15} />
+          {videos.length ? 'Разобрать технику' : 'Комментарий к упражнению'}
         </button>
       )}
     </div>

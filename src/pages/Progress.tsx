@@ -6,6 +6,7 @@ import { listMySessions, logBodyMetric } from '../db/repo'
 import { BarChart, LineChart } from '../components/LineChart'
 import { Sheet } from '../components/Sheet'
 import { Group, Row } from '../components/Group'
+import { BodyCompositionCard } from '../components/BodyCompositionCard'
 import { estimate1RM, plural, startOfDay } from '../lib/calc'
 import { useApp } from '../store/app'
 
@@ -193,14 +194,11 @@ export function Progress() {
           Вес
         </div>
       </div>
+      <div style={{ marginTop: 10 }}>
+        <BodyCompositionCard userId={currentUserId()} onOpen={() => nav('/body')} />
+      </div>
       <Group>
         <Row title="Записать замер" sub="Вес, процент жира, объёмы" onClick={() => setMetricOpen(true)} chevron />
-        <Row
-          title="Состав тела"
-          sub="Импорт отчёта InBody и динамика по мышцам и жиру"
-          onClick={() => nav('/body')}
-          chevron
-        />
       </Group>
 
       <BodyMetricSheet

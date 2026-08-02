@@ -10,7 +10,7 @@ import {
   type ClientSummary,
 } from '../../db/coach'
 import { Sheet } from '../../components/Sheet'
-import { IconPlus, IconFlame, IconTrash } from '../../components/Icons'
+import { IconPlus, IconFlame, IconTrash, IconUsers, IconChat } from '../../components/Icons'
 import { plural } from '../../lib/calc'
 import { useApp, useProfile } from '../../store/app'
 import { haptics } from '../../lib/native'
@@ -98,7 +98,9 @@ export function TrainerClients() {
 
       {(clients ?? []).length === 0 ? (
         <div className="empty">
-          <div className="big">👥</div>
+          <div className="big">
+            <IconUsers size={34} />
+          </div>
           Пока нет клиентов.
           <br />
           Выпустите код приглашения и передайте его клиенту.
@@ -124,7 +126,15 @@ export function TrainerClients() {
                     <span style={{ fontWeight: 600 }} className="truncate">
                       {c.client.name}
                     </span>
-                    {c.recentPRs > 0 && <span className="badge pr">{c.recentPRs} PR</span>}
+                    <span className="row" style={{ gap: 6 }}>
+                      {c.unreadChat > 0 && (
+                        <span className="badge" style={{ background: 'var(--accent)', color: '#fff', borderColor: 'var(--accent)' }}>
+                          {c.unreadChat}
+                          <IconChat size={11} />
+                        </span>
+                      )}
+                      {c.recentPRs > 0 && <span className="badge pr">{c.recentPRs} PR</span>}
+                    </span>
                   </div>
                   <div className="mute-sm" style={{ color: stale ? 'var(--danger)' : undefined }}>
                     {c.daysSinceLast == null

@@ -3,6 +3,18 @@ import { markOnboarded, type Role } from '../db/db'
 import { createAccount } from '../db/coach'
 import { generateDemoData, seedTrainerDemo } from '../db/demo'
 import { haptics } from '../lib/native'
+import {
+  IconChat,
+  IconCloudOff,
+  IconClipboard,
+  IconDumbbell,
+  IconMuscle,
+  IconSparkles,
+  IconTeacher,
+  IconTrend,
+  IconUsers,
+  IconZap,
+} from '../components/Icons'
 import { useApp } from '../store/app'
 
 /**
@@ -13,16 +25,18 @@ import { useApp } from '../store/app'
 
 type Props = { onDone: () => void }
 
-const CLIENT_POINTS = [
-  ['⚡', 'Логирование в два касания', 'Вес и повторения подставляются из прошлой тренировки — вспоминать ничего не нужно.'],
-  ['📶', 'Работает без интернета', 'В подвальном зале приложение открывается и пишет данные как обычно.'],
-  ['📈', 'Прогресс виден сразу', 'Тоннаж, рекорды и расчётный максимум считаются автоматически.'],
+type Point = [(p: { size?: number }) => JSX.Element, string, string]
+
+const CLIENT_POINTS: Point[] = [
+  [IconZap, 'Логирование в два касания', 'Вес и повторения подставляются из прошлой тренировки — вспоминать ничего не нужно.'],
+  [IconCloudOff, 'Работает без интернета', 'В подвальном зале приложение открывается и пишет данные как обычно.'],
+  [IconTrend, 'Прогресс виден сразу', 'Тоннаж, рекорды и расчётный максимум считаются автоматически.'],
 ]
 
-const TRAINER_POINTS = [
-  ['👥', 'Все клиенты на одном экране', 'Сразу видно, кто выпал из графика, а кто выполняет план.'],
-  ['📋', 'Программы по коду', 'Выпускаете код, клиент вводит его — и получает вашу программу.'],
-  ['💬', 'Обратная связь по тренировке', 'Комментарий прилетает клиенту прямо в карточку тренировки.'],
+const TRAINER_POINTS: Point[] = [
+  [IconUsers, 'Все клиенты на одном экране', 'Сразу видно, кто выпал из графика, а кто выполняет план.'],
+  [IconClipboard, 'Программы по коду', 'Выпускаете код, клиент вводит его — и получает вашу программу.'],
+  [IconChat, 'Обратная связь по тренировке', 'Комментарий прилетает клиенту прямо в карточку тренировки.'],
 ]
 
 export function Onboarding({ onDone }: Props) {
@@ -67,7 +81,9 @@ export function Onboarding({ onDone }: Props) {
 
       {step === 0 && (
         <div className="body">
-          <div className="glyph">🏋️</div>
+          <div className="glyph">
+            <IconDumbbell size={44} />
+          </div>
           <h2>Как вы будете пользоваться приложением?</h2>
           <p style={{ marginBottom: 24 }}>
             От этого зависят экраны — их можно переключить позже в профиле.
@@ -80,7 +96,9 @@ export function Onboarding({ onDone }: Props) {
                 setRole('CLIENT')
               }}
             >
-              <span className="ico">💪</span>
+              <span className="ico">
+                <IconMuscle size={22} />
+              </span>
               <span className="grow">
                 <span style={{ fontWeight: 600, display: 'block' }}>Я тренируюсь</span>
                 <span className="mute-sm">Дневник тренировок, программы и прогресс</span>
@@ -93,7 +111,9 @@ export function Onboarding({ onDone }: Props) {
                 setRole('TRAINER')
               }}
             >
-              <span className="ico">🧑‍🏫</span>
+              <span className="ico">
+                <IconTeacher size={22} />
+              </span>
               <span className="grow">
                 <span style={{ fontWeight: 600, display: 'block' }}>Я тренер</span>
                 <span className="mute-sm">Кабинет с клиентами, программы и обратная связь</span>
@@ -107,9 +127,11 @@ export function Onboarding({ onDone }: Props) {
         <div className="body">
           <h2>{role === 'TRAINER' ? 'Что вы получаете' : 'Что вы получаете'}</h2>
           <div className="stack" style={{ marginTop: 22, gap: 18 }}>
-            {points.map(([glyph, title, text]) => (
+            {points.map(([Glyph, title, text]) => (
               <div className="row" key={title} style={{ alignItems: 'flex-start' }}>
-                <span style={{ fontSize: 24, lineHeight: 1.2 }}>{glyph}</span>
+                <span className="metric-icon" style={{ color: 'var(--accent)' }}>
+                  <Glyph size={20} />
+                </span>
                 <span className="grow">
                   <span style={{ fontWeight: 600, display: 'block' }}>{title}</span>
                   <span className="muted">{text}</span>
@@ -122,7 +144,9 @@ export function Onboarding({ onDone }: Props) {
 
       {step === 2 && (
         <div className="body">
-          <div className="glyph">🎬</div>
+          <div className="glyph">
+            <IconSparkles size={44} />
+          </div>
           <h2>Показать на примере?</h2>
           <p>
             {role === 'TRAINER'

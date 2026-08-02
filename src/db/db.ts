@@ -258,6 +258,39 @@ export interface Feedback {
   updated_at: number
 }
 
+export type ChatKind = 'text' | 'voice' | 'circle' | 'file' | 'image'
+
+/**
+ * Сообщение переписки тренера и клиента. Медиа хранится Blob-ом рядом с
+ * сообщением: прототип работает без сервера, а голосовое должно оставаться
+ * доступным офлайн так же, как и текст.
+ */
+export interface ChatMessage {
+  id: string
+  /** Ключ диалога — пара тренер+клиент, чтобы выбирать одним индексом. */
+  thread_id: string
+  trainer_id: string
+  client_id: string
+  author_id: string
+  author_role: Role
+  kind: ChatKind
+  text?: string
+  blob?: Blob
+  mime?: string
+  size?: number
+  /** Длительность голосового или кружка в секундах. */
+  duration?: number
+  file_name?: string
+  /** Огибающая громкости для отрисовки голосового без перечитывания файла. */
+  waveform?: number[]
+  created_at: number
+  is_read: 0 | 1
+  updated_at: number
+}
+
+/** Идентификатор диалога строится из пары участников. */
+export const threadId = (trainerId: string, clientId: string) => `${trainerId}::${clientId}`
+
 /**
  * Видео техники, снятое клиентом. Файл лежит в IndexedDB как Blob —
  * это работает офлайн и не требует загрузки на сервер в прототипе.
@@ -304,6 +337,7 @@ class TrainerDB extends Dexie {
   trainerNotes!: Table<TrainerNote, string>
   feedback!: Table<Feedback, string>
   attachments!: Table<Attachment, string>
+  chat!: Table<ChatMessage, string>
 
   constructor() {
     super('trainer_db')
@@ -340,6 +374,11 @@ class TrainerDB extends Dexie {
           })
         await tx.table<AppState>('appState').put({ id: 'state', active_user_id: LOCAL_USER_ID })
       })
+
+    // v4 — переписка тренера и клиента с голосовыми, кружками и файлами.
+    this.version(4).stores({
+      chat: 'id, thread_id, created_at, [thread_id+created_at], [thread_id+is_read]',
+    })
 
     // v3 — видео техники и покомментарийный разбор упражнений.
     this.version(3).stores({

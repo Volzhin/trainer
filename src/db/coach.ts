@@ -8,6 +8,7 @@ import {
   type Attachment,
   type Feedback,
   type Role,
+  threadId,
   type TrainerLink,
   type UserProfile,
   type WorkoutSession,
@@ -178,6 +179,7 @@ export type ClientSummary = {
   /** Рекорды за последние 14 дней. */
   recentPRs: number
   unreadFeedback: number
+  unreadChat: number
 }
 
 function weekStart(ts: number) {
@@ -229,6 +231,14 @@ export async function loadClientSummaries(trainerId = currentUserId()): Promise<
       .and((f) => f.is_read === 0)
       .count()
 
+    // Непрочитанные сообщения клиента — тренеру важно ответить, а не только
+    // посмотреть тренировки, поэтому счётчик едет в ту же сводку.
+    const unreadChat = await db.chat
+      .where('thread_id')
+      .equals(threadId(trainerId, client.id))
+      .and((m) => m.is_read === 0 && m.author_id !== trainerId)
+      .count()
+
     out.push({
       link,
       client,
@@ -243,6 +253,7 @@ export async function loadClientSummaries(trainerId = currentUserId()): Promise<
       assignedProgramName: assignment ? programMap.get(assignment.program_id)?.name : undefined,
       recentPRs,
       unreadFeedback: unread,
+      unreadChat,
     })
   }
 

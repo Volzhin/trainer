@@ -14,6 +14,7 @@ import { LiveSession } from './pages/LiveSession'
 import { SessionDetail } from './pages/SessionDetail'
 import { Progress } from './pages/Progress'
 import { BodyComposition } from './pages/BodyComposition'
+import { Chat } from './pages/Chat'
 import { Profile } from './pages/Profile'
 import { TrainerClients } from './pages/trainer/TrainerClients'
 import { TrainerClientDetail } from './pages/trainer/TrainerClientDetail'
@@ -27,6 +28,8 @@ export default function App() {
   const profile = useProfile()
   const location = useLocation()
   const inSession = location.pathname.startsWith('/session/')
+  // Чат занимает экран целиком: таб-бар перекрыл бы поле ввода.
+  const inChat = location.pathname.endsWith('/chat')
   const isTrainer = profile?.role === 'TRAINER'
 
   const onboarded = useLiveQuery(() => isOnboarded(), [])
@@ -50,6 +53,7 @@ export default function App() {
             <Route path="/trainer" element={<TrainerClients />} />
             <Route path="/trainer/clients/:id" element={<TrainerClientDetail />} />
             <Route path="/trainer/profile" element={<TrainerProfile />} />
+            <Route path="/trainer/clients/:id/chat" element={<Chat />} />
             <Route path="/programs" element={<Programs />} />
             <Route path="/programs/:id" element={<ProgramDetail />} />
             <Route path="/exercises" element={<Exercises />} />
@@ -67,15 +71,16 @@ export default function App() {
             <Route path="/history/:id" element={<SessionDetail />} />
             <Route path="/progress" element={<Progress />} />
             <Route path="/body" element={<BodyComposition />} />
+            <Route path="/chat" element={<Chat />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </>
         )}
       </Routes>
 
-      {!inSession && !isTrainer && <ActiveSessionBanner />}
-      <RestTimer />
-      <TabBar />
+      {!inSession && !inChat && !isTrainer && <ActiveSessionBanner />}
+      {!inChat && <RestTimer />}
+      {!inChat && <TabBar />}
 
       {toasts.map((t, i) => (
         <div

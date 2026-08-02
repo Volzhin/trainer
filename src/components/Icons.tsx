@@ -6,7 +6,7 @@ const base = (size = 22) => ({
   viewBox: '0 0 24 24',
   fill: 'none',
   stroke: 'currentColor',
-  strokeWidth: 1.8,
+  strokeWidth: 1.75,
   strokeLinecap: 'round' as const,
   strokeLinejoin: 'round' as const,
 })
@@ -125,5 +125,111 @@ export const IconPlay = ({ size }: P) => (
 export const IconFlame = ({ size }: P) => (
   <svg {...base(size)}>
     <path d="M12 3s5 4.5 5 9a5 5 0 0 1-10 0c0-1.5.7-2.8 1.5-3.7.3 1.2 1 2 1.9 2.2C10 8.5 12 6 12 3z" />
+  </svg>
+)
+
+/* Набор в стиле Lucide: контур, штрих 1.75, цвет наследуется. Эмодзи в
+   интерфейсе не используем — они рисуются шрифтом системы, ломают
+   выравнивание и по-разному выглядят на разных платформах. */
+
+export const IconPause = ({ size }: P) => (
+  <svg {...base(size)}>
+    <path d="M9 5v14M15 5v14" />
+  </svg>
+)
+
+export const IconMic = ({ size }: P) => (
+  <svg {...base(size)}>
+    <rect x="9" y="2.5" width="6" height="11" rx="3" />
+    <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6" />
+  </svg>
+)
+
+export const IconCircleDot = ({ size }: P) => (
+  <svg {...base(size)}>
+    <circle cx="12" cy="12" r="8.5" />
+    <circle cx="12" cy="12" r="3.2" fill="currentColor" stroke="none" />
+  </svg>
+)
+
+export const IconPaperclip = ({ size }: P) => (
+  <svg {...base(size)}>
+    <path d="M20 11.5 12 19.5a5 5 0 0 1-7-7l8.5-8.5a3.4 3.4 0 0 1 4.8 4.8l-8.4 8.4a1.8 1.8 0 0 1-2.5-2.5l7.8-7.8" />
+  </svg>
+)
+
+export const IconImage = ({ size }: P) => (
+  <svg {...base(size)}>
+    <rect x="3" y="4.5" width="18" height="15" rx="3" />
+    <circle cx="8.6" cy="10" r="1.6" />
+    <path d="m4 17 5-4.5 4.5 4 3-2.5L20 18" />
+  </svg>
+)
+
+export const IconVideo = ({ size }: P) => (
+  <svg {...base(size)}>
+    <rect x="2.5" y="6" width="13" height="12" rx="3" />
+    <path d="m15.5 11 6-3.2v8.4l-6-3.2z" />
+  </svg>
+)
+
+export const IconClipboard = ({ size }: P) => (
+  <svg {...base(size)}>
+    <rect x="5" y="4" width="14" height="17" rx="3" />
+    <path d="M9 4V3h6v1M9 10h6M9 14h4" />
+  </svg>
+)
+
+export const IconZap = ({ size }: P) => (
+  <svg {...base(size)}>
+    <path d="M13 2.5 5 13.5h6l-1 8 8-11h-6z" />
+  </svg>
+)
+
+export const IconCloudOff = ({ size }: P) => (
+  <svg {...base(size)}>
+    <path d="M6.5 18.5h10a4 4 0 0 0 .8-7.9A6 6 0 0 0 8 8.2" />
+    <path d="M3 3l18 18" />
+  </svg>
+)
+
+export const IconTrend = ({ size }: P) => (
+  <svg {...base(size)}>
+    <path d="M3 16.5 9 10l4 4 8-8.5" />
+    <path d="M16 5.5h5v5" />
+  </svg>
+)
+
+export const IconSparkles = ({ size }: P) => (
+  <svg {...base(size)}>
+    <path d="M12 3.5 13.6 8 18 9.5 13.6 11 12 15.5 10.4 11 6 9.5 10.4 8z" />
+    <path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z" />
+  </svg>
+)
+
+export const IconArrowUpRight = ({ size }: P) => (
+  <svg {...base(size)} strokeWidth={2.2}>
+    <path d="M7 17 17 7M8 7h9v9" />
+  </svg>
+)
+
+export const IconArrowDownRight = ({ size }: P) => (
+  <svg {...base(size)} strokeWidth={2.2}>
+    <path d="M7 7l10 10M17 8v9H8" />
+  </svg>
+)
+
+export const IconMuscle = ({ size }: P) => (
+  <svg {...base(size)}>
+    <path d="M3.5 13c0-4 2.5-6.5 6-6.5 2.8 0 4.5 1.6 5.2 3.6l1.8 5c.5 1.4-.4 2.9-1.9 2.9H8.5" />
+    <path d="M3.5 13c0 3 1.8 5 4.5 5.2" />
+  </svg>
+)
+
+export const IconTeacher = ({ size }: P) => (
+  <svg {...base(size)}>
+    <circle cx="9" cy="7" r="3.2" />
+    <path d="M3 20a6 6 0 0 1 12 0" />
+    <path d="M16.5 5.5h5v7h-5z" />
   </svg>
 )

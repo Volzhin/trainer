@@ -11,7 +11,7 @@ import {
   startSessionFromRoutine,
   getActiveSession,
 } from '../db/repo'
-import { IconPlay, IconPlus, IconTrash } from '../components/Icons'
+import { IconClipboard, IconPlay, IconPlus, IconTrash } from '../components/Icons'
 import { Sheet } from '../components/Sheet'
 import { useApp, useProfile } from '../store/app'
 import { haptics } from '../lib/native'
@@ -90,7 +90,9 @@ export function Programs() {
       <div style={{ marginTop: 14 }} className="stack">
         {visible.length === 0 && (
           <div className="empty">
-            <div className="big">📋</div>
+            <div className="big">
+              <IconClipboard size={34} />
+            </div>
             {tab === 'mine' ? 'Создайте свою первую программу' : 'В этой категории пусто'}
           </div>
         )}
