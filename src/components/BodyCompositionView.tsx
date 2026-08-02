@@ -9,7 +9,8 @@ import {
 } from '../db/repo'
 import { parseInBodyPdf, statusFor, type InBodyReport, type NormStatus } from '../lib/inbody'
 import { LineChart } from './LineChart'
-import { BodyDonut, BodySegments, useCountUp, type DonutPart } from './BodyDonut'
+import { BodyDonut, useCountUp, type DonutPart } from './BodyDonut'
+import { BodySegmentsFigure } from './BodySegmentsFigure'
 import {
   IcoApple, IcoBmi, IcoBone, IcoFat, IcoFlame, IcoLean, IcoMuscle,
   IcoProtein, IcoTarget, IcoVisceral, IcoWater, IcoWeight,
@@ -235,11 +236,11 @@ export function BodyCompositionView({
             </button>
           </div>
           <div className="card">
-            <BodySegments
+            <BodySegmentsFigure
               segments={
                 (segTab === 'muscle' ? latest.muscle_segments : latest.fat_segments) ?? {}
               }
-              color={segTab === 'muscle' ? C.muscle : C.fat}
+              kind={segTab}
             />
           </div>
         </>

@@ -1751,3 +1751,100 @@ button.group-row:active {
   border-radius: var(--r-md);
   box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.35);
 }
+
+/* ==================== сегментарный анализ тела ======================== */
+
+.segments {
+  display: grid;
+  grid-template-columns: 132px 1fr;
+  gap: 18px;
+  align-items: center;
+}
+
+.segments-figure {
+  width: 100%;
+  display: block;
+}
+
+/* Сегменты появляются снизу вверх с задержкой: фигура собирается по частям,
+   а не мигает целиком. */
+.seg {
+  animation: riseIn 0.5s var(--ease) both;
+  transform-origin: center;
+}
+
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+}
+
+/* Пульсирует только худший сегмент — один акцент внимания на карточку. */
+.seg.worst rect {
+  animation: segPulse 2.4s var(--ease) infinite;
+}
+
+@keyframes segPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.62;
+  }
+}
+
+.segments-values {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.seg-value {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.seg-value:last-child {
+  border-bottom: none;
+}
+
+.seg-value .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.seg-value .name {
+  font-size: 13px;
+  display: block;
+}
+
+.seg-value .pct {
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: var(--font-num);
+}
+
+.seg-value .kg {
+  font-family: var(--font-num);
+  font-weight: 700;
+  font-size: 14px;
+  flex: 0 0 auto;
+}
+
+.seg-value.worst .name {
+  font-weight: 600;
+}
+
+@media (max-width: 380px) {
+  .segments {
+    grid-template-columns: 108px 1fr;
+    gap: 12px;
+  }
+}
