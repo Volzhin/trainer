@@ -16,6 +16,8 @@ import { History } from './pages/History'
 import { Progress } from './pages/Progress'
 import { BodyComposition } from './pages/BodyComposition'
 import { Chat } from './pages/Chat'
+import { Nutrition } from './pages/Nutrition'
+import { NutritionSettings } from './pages/NutritionSettings'
 import { Profile } from './pages/Profile'
 import { TrainerClients } from './pages/trainer/TrainerClients'
 import { TrainerClientDetail } from './pages/trainer/TrainerClientDetail'
@@ -74,6 +76,8 @@ export default function App() {
             <Route path="/progress" element={<Progress />} />
             <Route path="/body" element={<BodyComposition />} />
             <Route path="/chat" element={<Chat />} />
+            <Route path="/nutrition" element={<Nutrition />} />
+            <Route path="/nutrition/settings" element={<NutritionSettings />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </>

@@ -252,3 +252,10 @@ export const IconCalendar = ({ size }: P) => (
     <path d="M3 10h18M8 3v4M16 3v4" />
   </svg>
 )
+
+export const IconApple = ({ size }: P) => (
+  <svg {...base(size)}>
+    <path d="M12 8.2c-3.4-2-6.8.4-6.8 4.4 0 4 2.9 8.4 6.8 8.4s6.8-4.4 6.8-8.4c0-4-3.4-6.4-6.8-4.4z" />
+    <path d="M12 8.2V5.6C12 4.2 13.1 3 14.6 3" />
+  </svg>
+)

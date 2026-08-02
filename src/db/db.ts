@@ -255,6 +255,82 @@ export interface Feedback {
   updated_at: number
 }
 
+/* ------------------------------- питание ------------------------------ */
+
+export type NutritionGoal = 'lose' | 'maintain' | 'gain'
+export type MealSlot = 'breakfast' | 'lunch' | 'dinner' | 'snack'
+
+/** Значения нутриентов на порцию. Всё в граммах, энергия в ккал. */
+export interface Nutrients {
+  kcal: number
+  protein: number
+  fat: number
+  carbs: number
+  fiber?: number
+  sugar?: number
+  sodium?: number
+}
+
+/** Настройки питания пользователя. Отдельно от профиля: они меняются чаще. */
+export interface NutritionProfile {
+  id: string
+  goal: NutritionGoal
+  /** Коэффициент активности для стартовой оценки, пока нет своих данных. */
+  activity: number
+  /** Доли белка/жира/углеводов от калорийности, в сумме единица. */
+  macro_split: { protein: number; fat: number; carbs: number }
+  /** Расход, рассчитанный алгоритмом. Пока данных мало — оценка по формуле. */
+  current_tdee?: number
+  /** Ручная поправка расхода для тех, кто ведёт счёт сам. */
+  manual_offset?: number
+  /** Скорость изменения веса, кг в неделю: сколько дефицита или профицита держим. */
+  weekly_change_kg?: number
+  updated_at: number
+}
+
+/**
+ * Запись съеденного. Нутриенты сохраняются слепком: производители меняют
+ * рецептуры, и подтягивать их заново означало бы задним числом менять
+ * историю пользователя и ломать расчёт расхода.
+ */
+export interface FoodLog {
+  id: string
+  user_id: string
+  /** Локальная дата пользователя, YYYY-MM-DD — по ней собирается день. */
+  date: string
+  /** Часовой пояс на момент записи: без него перелёт смещает дни. */
+  timezone: string
+  slot: MealSlot
+  food_id?: string
+  name: string
+  brand?: string
+  /** Сколько граммов или миллилитров съедено. */
+  amount: number
+  unit: 'г' | 'мл' | 'шт'
+  /** Слепок нутриентов на съеденное количество, не на 100 г. */
+  nutrients: Nutrients
+  logged_at: number
+  updated_at: number
+}
+
+/** Кеш продуктов: найденное однажды должно открываться и без сети. */
+export interface FoodItem {
+  id: string
+  name: string
+  brand?: string
+  barcode?: string
+  /** Нутриенты на 100 г или 100 мл. */
+  per100: Nutrients
+  unit: 'г' | 'мл'
+  /** Типичная порция, если поставщик её указал. */
+  serving_size?: number
+  serving_label?: string
+  source: 'off' | 'manual'
+  image_url?: string
+  used_at: number
+  updated_at: number
+}
+
 export type ChatKind = 'text' | 'voice' | 'circle' | 'file' | 'image'
 
 /**
@@ -335,6 +411,9 @@ class TrainerDB extends Dexie {
   feedback!: Table<Feedback, string>
   attachments!: Table<Attachment, string>
   chat!: Table<ChatMessage, string>
+  nutritionProfile!: Table<NutritionProfile, string>
+  foodLogs!: Table<FoodLog, string>
+  foods!: Table<FoodItem, string>
 
   constructor() {
     super('trainer_db')
@@ -371,6 +450,13 @@ class TrainerDB extends Dexie {
           })
         await tx.table<AppState>('appState').put({ id: 'state', active_user_id: LOCAL_USER_ID })
       })
+
+    // v5 — модуль питания: дневник, кеш продуктов и настройки расхода.
+    this.version(5).stores({
+      nutritionProfile: 'id',
+      foodLogs: 'id, user_id, date, [user_id+date], logged_at',
+      foods: 'id, barcode, name, used_at',
+    })
 
     // v4 — переписка тренера и клиента с голосовыми, кружками и файлами.
     this.version(4).stores({

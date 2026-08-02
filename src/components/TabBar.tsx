@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { IconChart, IconDumbbell, IconHome, IconList, IconUser, IconUsers } from './Icons'
+import { IconApple, IconDumbbell, IconHome, IconList, IconUser, IconUsers } from './Icons'
 import { haptics } from '../lib/native'
 import { useRole } from '../store/app'
 
@@ -7,7 +7,7 @@ const CLIENT_TABS = [
   { to: '/', label: 'Главная', Icon: IconHome, end: true },
   { to: '/programs', label: 'Программы', Icon: IconDumbbell, end: false },
   { to: '/exercises', label: 'Упражнения', Icon: IconList, end: false },
-  { to: '/progress', label: 'Прогресс', Icon: IconChart, end: false },
+  { to: '/nutrition', label: 'Питание', Icon: IconApple, end: false },
   { to: '/profile', label: 'Профиль', Icon: IconUser, end: false },
 ]
 
