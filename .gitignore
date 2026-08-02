@@ -5,3 +5,9 @@ dist-ssr
 .DS_Store
 .vite
 .github/
+
+# Доступы к серверу — не место в репозитории
+ssh.md
+*.pem
+*_key
+tsconfig.tsbuildinfo

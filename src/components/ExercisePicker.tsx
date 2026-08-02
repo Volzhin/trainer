@@ -14,7 +14,13 @@ type Props = {
   preferMuscle?: string
 }
 
-export function ExercisePicker({ open, title = 'Выбрать упражнение', onClose, onPick, preferMuscle }: Props) {
+export function ExercisePicker({
+  open,
+  title = 'Выбрать упражнение',
+  onClose,
+  onPick,
+  preferMuscle,
+}: Props) {
   const [q, setQ] = useState('')
   const [muscle, setMuscle] = useState<string>(preferMuscle ?? 'Все')
   const exercises = useLiveQuery(() => db.exercises.toArray(), [], [] as Exercise[])

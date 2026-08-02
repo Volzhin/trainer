@@ -67,7 +67,12 @@ const NEUTRAL = {
 export function BodyFigure({ tone, fill, worst }: Props) {
   return (
     <svg viewBox="0 0 200 360" className="body-figure" aria-hidden>
-      <g fill="var(--surface-2)" stroke="var(--border)" strokeWidth="1.6" strokeLinejoin="round">
+      <g
+        fill="var(--surface-2)"
+        stroke="var(--border)"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      >
         <path d={NEUTRAL.head} />
         <path d={NEUTRAL.neck} />
         {NEUTRAL.headFacets.map((d, i) => (

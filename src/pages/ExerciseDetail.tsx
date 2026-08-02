@@ -18,10 +18,15 @@ export function ExerciseDetail() {
     const done = sets.filter((s) => s.is_done && s.weight_kg && s.reps_completed)
     if (!done.length) return []
 
-    const sessions = await db.sessions.bulkGet([...new Set(done.map((s) => s.workout_session_id))])
+    const sessions = await db.sessions.bulkGet([
+      ...new Set(done.map((s) => s.workout_session_id)),
+    ])
     const byId = new Map(sessions.filter(Boolean).map((s) => [s!.id, s!]))
 
-    const grouped = new Map<string, { date: number; best: number; sets: number; volume: number }>()
+    const grouped = new Map<
+      string,
+      { date: number; best: number; sets: number; volume: number }
+    >()
     for (const s of done) {
       const session = byId.get(s.workout_session_id)
       if (!session || session.is_completed !== 1) continue
@@ -138,7 +143,9 @@ export function ExerciseDetail() {
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontWeight: 600 }}>{formatWeight(Math.round(h.best * 10) / 10)}</div>
+              <div style={{ fontWeight: 600 }}>
+                {formatWeight(Math.round(h.best * 10) / 10)}
+              </div>
               <div className="mute-sm">1ПМ</div>
             </div>
           </div>

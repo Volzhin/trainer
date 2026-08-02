@@ -12,8 +12,18 @@ import { LineChart } from './LineChart'
 import { BodyDonut, useCountUp, type DonutPart } from './BodyDonut'
 import { BodySegmentsFigure } from './BodySegmentsFigure'
 import {
-  IcoApple, IcoBmi, IcoBone, IcoFat, IcoFlame, IcoLean, IcoMuscle,
-  IcoProtein, IcoTarget, IcoVisceral, IcoWater, IcoWeight,
+  IcoApple,
+  IcoBmi,
+  IcoBone,
+  IcoFat,
+  IcoFlame,
+  IcoLean,
+  IcoMuscle,
+  IcoProtein,
+  IcoTarget,
+  IcoVisceral,
+  IcoWater,
+  IcoWeight,
 } from './MetricIcons'
 import { Sheet } from './Sheet'
 import { IconTrash } from './Icons'
@@ -52,19 +62,75 @@ type Row = {
 }
 
 const MAIN: Row[] = [
-  { key: 'weight_kg', label: 'Вес', unit: 'кг', color: C.muscle, Icon: IcoWeight, better: 'down' },
+  {
+    key: 'weight_kg',
+    label: 'Вес',
+    unit: 'кг',
+    color: C.muscle,
+    Icon: IcoWeight,
+    better: 'down',
+  },
   { key: 'body_fat_pct', label: 'Жир', unit: '%', color: C.fat, Icon: IcoFat, better: 'down' },
-  { key: 'skeletal_muscle_kg', label: 'Мышцы', unit: 'кг', color: C.muscle, Icon: IcoMuscle, better: 'up' },
-  { key: 'body_water_l', label: 'Вода', unit: 'л', color: C.water, Icon: IcoWater, better: 'up' },
-  { key: 'protein_kg', label: 'Белок', unit: 'кг', color: C.protein, Icon: IcoProtein, better: 'up' },
-  { key: 'minerals_kg', label: 'Минералы', unit: 'кг', color: C.minerals, Icon: IcoBone, better: 'up' },
+  {
+    key: 'skeletal_muscle_kg',
+    label: 'Мышцы',
+    unit: 'кг',
+    color: C.muscle,
+    Icon: IcoMuscle,
+    better: 'up',
+  },
+  {
+    key: 'body_water_l',
+    label: 'Вода',
+    unit: 'л',
+    color: C.water,
+    Icon: IcoWater,
+    better: 'up',
+  },
+  {
+    key: 'protein_kg',
+    label: 'Белок',
+    unit: 'кг',
+    color: C.protein,
+    Icon: IcoProtein,
+    better: 'up',
+  },
+  {
+    key: 'minerals_kg',
+    label: 'Минералы',
+    unit: 'кг',
+    color: C.minerals,
+    Icon: IcoBone,
+    better: 'up',
+  },
 ]
 
 const OTHER: Row[] = [
-  { key: 'visceral_fat', label: 'Висцеральный жир', unit: '', color: C.fat, Icon: IcoVisceral, better: 'down' },
+  {
+    key: 'visceral_fat',
+    label: 'Висцеральный жир',
+    unit: '',
+    color: C.fat,
+    Icon: IcoVisceral,
+    better: 'down',
+  },
   { key: 'bmi', label: 'ИМТ', unit: '', color: C.neutral, Icon: IcoBmi, better: 'down' },
-  { key: 'fat_free_mass_kg', label: 'Безжировая масса', unit: 'кг', color: C.muscle, Icon: IcoLean, better: 'up' },
-  { key: 'bmr_kcal', label: 'Основной обмен веществ', unit: 'ккал', color: C.protein, Icon: IcoFlame, better: 'up' },
+  {
+    key: 'fat_free_mass_kg',
+    label: 'Безжировая масса',
+    unit: 'кг',
+    color: C.muscle,
+    Icon: IcoLean,
+    better: 'up',
+  },
+  {
+    key: 'bmr_kcal',
+    label: 'Основной обмен веществ',
+    unit: 'ккал',
+    color: C.protein,
+    Icon: IcoFlame,
+    better: 'up',
+  },
 ]
 
 const TRACKABLE = [...MAIN, ...OTHER]
@@ -106,7 +172,9 @@ export function BodyCompositionView({
   const fileRef = useRef<HTMLInputElement>(null)
   const t = TEXT[subject]
 
-  const [pending, setPending] = useState<{ report: InBodyReport; fileName: string } | null>(null)
+  const [pending, setPending] = useState<{ report: InBodyReport; fileName: string } | null>(
+    null,
+  )
   const [manualOpen, setManualOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [segTab, setSegTab] = useState<'muscle' | 'fat'>('muscle')
@@ -139,7 +207,10 @@ export function BodyCompositionView({
     [scans],
   )
   const composedPrev = useMemo(
-    () => scans.filter((m) => m !== composed && (m.skeletal_muscle_kg != null || m.body_water_l != null))[0],
+    () =>
+      scans.filter(
+        (m) => m !== composed && (m.skeletal_muscle_kg != null || m.body_water_l != null),
+      )[0],
     [scans, composed],
   )
   const segmented = useMemo(() => scans.find((m) => m.muscle_segments), [scans])
@@ -169,10 +240,34 @@ export function BodyCompositionView({
 
   const donutParts: DonutPart[] = composed
     ? ([
-        { key: 'muscle', label: 'Мышцы', value: composed.skeletal_muscle_kg, unit: 'кг', color: C.muscle },
-        { key: 'protein', label: 'Белок', value: composed.protein_kg, unit: 'кг', color: C.protein },
-        { key: 'minerals', label: 'Минералы', value: composed.minerals_kg, unit: 'кг', color: C.minerals },
-        { key: 'water', label: 'Вода', value: composed.body_water_l, unit: 'л', color: C.water },
+        {
+          key: 'muscle',
+          label: 'Мышцы',
+          value: composed.skeletal_muscle_kg,
+          unit: 'кг',
+          color: C.muscle,
+        },
+        {
+          key: 'protein',
+          label: 'Белок',
+          value: composed.protein_kg,
+          unit: 'кг',
+          color: C.protein,
+        },
+        {
+          key: 'minerals',
+          label: 'Минералы',
+          value: composed.minerals_kg,
+          unit: 'кг',
+          color: C.minerals,
+        },
+        {
+          key: 'water',
+          label: 'Вода',
+          value: composed.body_water_l,
+          unit: 'л',
+          color: C.water,
+        },
         { key: 'fat', label: 'Жир', value: composed.body_fat_kg, unit: 'кг', color: C.fat },
       ].filter((p) => typeof p.value === 'number') as DonutPart[])
     : []
@@ -241,8 +336,16 @@ export function BodyCompositionView({
               <MetricRow
                 key={String(row.key)}
                 row={row}
-                now={row.key === 'weight_kg' || row.key === 'body_fat_pct' ? latest : composed ?? latest}
-                was={row.key === 'weight_kg' || row.key === 'body_fat_pct' ? previous : composedPrev}
+                now={
+                  row.key === 'weight_kg' || row.key === 'body_fat_pct'
+                    ? latest
+                    : (composed ?? latest)
+                }
+                was={
+                  row.key === 'weight_kg' || row.key === 'body_fat_pct'
+                    ? previous
+                    : composedPrev
+                }
                 index={i}
               />
             ))}
@@ -273,7 +376,10 @@ export function BodyCompositionView({
         <>
           <div className="section-title">Анализ тела по сегментам</div>
           <div className="segmented" style={{ marginBottom: 12 }}>
-            <button className={segTab === 'muscle' ? 'on' : ''} onClick={() => setSegTab('muscle')}>
+            <button
+              className={segTab === 'muscle' ? 'on' : ''}
+              onClick={() => setSegTab('muscle')}
+            >
               Мышцы
             </button>
             <button className={segTab === 'fat' ? 'on' : ''} onClick={() => setSegTab('fat')}>
@@ -397,7 +503,11 @@ export function BodyCompositionView({
 
       {/* Отчёт InBody есть не у всех: домашние весы, замер в другом зале или
           просто взвешивание тоже должны попадать в тренд. */}
-      <button className="btn block" style={{ marginTop: 8 }} onClick={() => setManualOpen(true)}>
+      <button
+        className="btn block"
+        style={{ marginTop: 8 }}
+        onClick={() => setManualOpen(true)}
+      >
         Ввести замер вручную
       </button>
 
@@ -559,7 +669,6 @@ function metricRows(m: Partial<BodyMetric>): [string, string][] {
     .map(([label, unit, v]) => [label, `${v}${unit ? ` ${unit}` : ''}`])
 }
 
-
 /**
  * Ручной ввод замера. Обхваты важнее отдельных показателей: по ним
  * считается процент жира и производный состав, поэтому измерительная лента
@@ -664,12 +773,18 @@ function ManualMeasurementSheet({
     ['Жир', derived.bodyFatPct != null ? `${derived.bodyFatPct} %` : undefined],
     ['Жировая масса', derived.fatMassKg != null ? `${derived.fatMassKg} кг` : undefined],
     ['Безжировая масса', derived.leanMassKg != null ? `${derived.leanMassKg} кг` : undefined],
-    ['Скелетные мышцы', derived.skeletalMuscleKg != null ? `${derived.skeletalMuscleKg} кг` : undefined],
+    [
+      'Скелетные мышцы',
+      derived.skeletalMuscleKg != null ? `${derived.skeletalMuscleKg} кг` : undefined,
+    ],
     ['Вода', derived.bodyWaterL != null ? `${derived.bodyWaterL} л` : undefined],
     ['Белок', derived.proteinKg != null ? `${derived.proteinKg} кг` : undefined],
     ['Минералы', derived.mineralsKg != null ? `${derived.mineralsKg} кг` : undefined],
     ['ИМТ', derived.bmi != null ? String(derived.bmi) : undefined],
-    ['Талия к росту', derived.waistToHeight != null ? String(derived.waistToHeight) : undefined],
+    [
+      'Талия к росту',
+      derived.waistToHeight != null ? String(derived.waistToHeight) : undefined,
+    ],
     ['Талия к бёдрам', derived.waistToHip != null ? String(derived.waistToHip) : undefined],
   ]
   const shown = rows.filter(([, v]) => v)
@@ -731,7 +846,12 @@ function ManualMeasurementSheet({
                 value={values[f.key] ?? ''}
                 onChange={set(f.key)}
                 placeholder="—"
-                style={{ width: 84, textAlign: 'center', fontFamily: 'var(--font-num)', padding: '9px 8px' }}
+                style={{
+                  width: 84,
+                  textAlign: 'center',
+                  fontFamily: 'var(--font-num)',
+                  padding: '9px 8px',
+                }}
               />
             </div>
           ))}
@@ -762,8 +882,8 @@ function ManualMeasurementSheet({
               ))}
             </div>
             <div className="mute-sm">
-              Оценка по методике ВМФ США: погрешность около трёх процентов.
-              Отчёт биоимпеданса точнее — если он есть, загрузите его.
+              Оценка по методике ВМФ США: погрешность около трёх процентов. Отчёт биоимпеданса
+              точнее — если он есть, загрузите его.
             </div>
           </>
         )}

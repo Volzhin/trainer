@@ -33,10 +33,14 @@ export function Programs() {
   const routines = useLiveQuery(() => db.routines.toArray(), [], [])
   // Персональные программы подписываем именем клиента: без этого список
   // тренера превращается в набор одинаковых «Программа · …».
-  const clientNames = useLiveQuery(async () => {
-    const rows = await db.profile.toArray()
-    return new Map(rows.map((r) => [r.id, r.name]))
-  }, [], new Map<string, string>())
+  const clientNames = useLiveQuery(
+    async () => {
+      const rows = await db.profile.toArray()
+      return new Map(rows.map((r) => [r.id, r.name]))
+    },
+    [],
+    new Map<string, string>(),
+  )
   const active = useLiveQuery(() => getActiveSession(), [])
   // Когда тренер назначил программу, клиент должен видеть только её:
   // каталог рядом с назначением читается как «можно выбрать другое».
@@ -45,7 +49,9 @@ export function Programs() {
   const visible = useMemo(() => {
     if (assigned) return (programs ?? []).filter((p) => p.id === assigned.program.id)
     return (programs ?? [])
-      .filter((p) => (tab === 'mine' ? p.author_id === currentUserId() : p.author_id === 'system'))
+      .filter((p) =>
+        tab === 'mine' ? p.author_id === currentUserId() : p.author_id === 'system',
+      )
       .filter((p) => (goal === 'Все' ? true : p.goal === goal))
   }, [programs, goal, tab, assigned?.program.id])
 
@@ -76,30 +82,41 @@ export function Programs() {
           </div>
         </div>
         {!assigned && (
-          <button className="icon-btn" onClick={() => setCreateOpen(true)} aria-label="Создать программу">
+          <button
+            className="icon-btn"
+            onClick={() => setCreateOpen(true)}
+            aria-label="Создать программу"
+          >
             <IconPlus size={18} />
           </button>
         )}
       </div>
 
       {!assigned && (
-      <div className="chips">
-        <button
-          className={`chip${tab === 'catalog' ? ' active' : ''}`}
-          onClick={() => setTab('catalog')}
-        >
-          Каталог
-        </button>
-        <button className={`chip${tab === 'mine' ? ' active' : ''}`} onClick={() => setTab('mine')}>
-          Мои ({myCount})
-        </button>
-      </div>
+        <div className="chips">
+          <button
+            className={`chip${tab === 'catalog' ? ' active' : ''}`}
+            onClick={() => setTab('catalog')}
+          >
+            Каталог
+          </button>
+          <button
+            className={`chip${tab === 'mine' ? ' active' : ''}`}
+            onClick={() => setTab('mine')}
+          >
+            Мои ({myCount})
+          </button>
+        </div>
       )}
 
       {!assigned && tab === 'catalog' && (
         <div className="chips" style={{ marginTop: 6 }}>
           {GOALS.map((g) => (
-            <button key={g} className={`chip${goal === g ? ' active' : ''}`} onClick={() => setGoal(g)}>
+            <button
+              key={g}
+              className={`chip${goal === g ? ' active' : ''}`}
+              onClick={() => setGoal(g)}
+            >
               {g}
             </button>
           ))}
@@ -188,12 +205,16 @@ export function Programs() {
                 PRO <span className="badge pro">безлимит</span>
               </div>
               <div className="mute-sm" style={{ marginTop: 3 }}>
-                Бесплатно доступно {FREE_PROGRAM_LIMIT} своих программы. В PRO — без ограничений,
-                расширенная аналитика и графики 1ПМ.
+                Бесплатно доступно {FREE_PROGRAM_LIMIT} своих программы. В PRO — без
+                ограничений, расширенная аналитика и графики 1ПМ.
               </div>
             </div>
           </div>
-          <button className="btn primary block" style={{ marginTop: 12 }} onClick={() => nav('/profile')}>
+          <button
+            className="btn primary block"
+            style={{ marginTop: 12 }}
+            onClick={() => nav('/profile')}
+          >
             Подробнее о PRO
           </button>
         </div>

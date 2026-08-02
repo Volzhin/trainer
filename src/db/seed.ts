@@ -1,4 +1,4 @@
-import { db, uid, now, LOCAL_USER_ID, type Exercise } from './db'
+import { db, now, LOCAL_USER_ID, type Exercise } from './db'
 
 /** Запись импортируемой базы: формат выгрузки внешнего справочника. */
 type ImportedExercise = {
@@ -57,7 +57,10 @@ type ProgramSpec = {
   description: string
   goal: 'Гипертрофия' | 'Сила' | 'Похудение' | 'Дом' | 'Кроссфит'
   level: 'Новичок' | 'Средний' | 'Продвинутый'
-  days: { name: string; items: [string, number, number | undefined, number][] }[]
+  days: {
+    name: string
+    items: [string, number, number | undefined, number][]
+  }[]
 }
 
 const PROGRAMS: ProgramSpec[] = [
@@ -223,8 +226,7 @@ const PROGRAMS: ProgramSpec[] = [
   },
   {
     name: 'Дома без оборудования',
-    description:
-      'Тренировки с собственным весом. Нужен только коврик и двадцать пять минут.',
+    description: 'Тренировки с собственным весом. Нужен только коврик и двадцать пять минут.',
     goal: 'Дом',
     level: 'Новичок',
     days: [
@@ -287,6 +289,95 @@ async function pruneBuiltInCatalog() {
 }
 
 /** Идемпотентно наполняет пустую базу. Вызывается при старте приложения. */
+/** Устойчивый идентификатор строки каталога: одинаков на всех устройствах. */
+const catalogId = (prefix: string, ...parts: number[]) => `${prefix}-${parts.join('-')}`
+
+/** Собирает программы каталога. Вынесено, чтобы их можно было пересобрать. */
+async function buildCatalogPrograms(byName: Map<string, string>, ts: number) {
+  for (const [specIndex, spec] of PROGRAMS.entries()) {
+    // Идентификаторы каталога выводятся из его состава, а не выдаются
+    // случайно. Каталог одинаков у всех и наверх не уезжает, поэтому
+    // случайные идентификаторы означали бы, что назначенная тренером
+    // программа ссылается у клиента в пустоту.
+    const programId = catalogId('prog', specIndex)
+    await db.programs.add({
+      id: programId,
+      name: spec.name,
+      description: spec.description,
+      goal: spec.goal,
+      level: spec.level,
+      author_id: 'system',
+      is_public: 1,
+      updated_at: ts,
+    })
+
+    for (const [dayIndex, day] of spec.days.entries()) {
+      const routineId = catalogId('rt', specIndex, dayIndex)
+      await db.routines.add({
+        id: routineId,
+        program_id: programId,
+        name: day.name,
+        day_order: dayIndex + 1,
+        updated_at: ts,
+      })
+      await db.templateItems.bulkAdd(
+        day.items.map(([exName, sets, reps, rest], i) => ({
+          id: catalogId('ti', specIndex, dayIndex, i),
+          routine_id: routineId,
+          exercise_id: byName.get(normName(exName))!,
+          sequence_order: i,
+          target_sets: sets,
+          target_reps: reps,
+          rest_seconds: rest,
+          updated_at: ts,
+        })),
+      )
+    }
+  }
+}
+
+/**
+ * Чинит идентификаторы каталога на устройствах, где он собирался раньше со
+ * случайными. Без этого назначенная тренером программа у клиента не
+ * открывается: ссылка ведёт на строку, которой у него нет.
+ */
+export async function repairCatalogIds() {
+  const already = await db.programs.get('prog-0')
+  if (already) return
+
+  const legacy = await db.programs.where('author_id').equals('system').toArray()
+  if (!legacy.length) return
+
+  const ids = new Set(legacy.map((p) => p.id))
+  const routines = await db.routines.filter((r) => ids.has(r.program_id)).toArray()
+  const routineIds = new Set(routines.map((r) => r.id))
+
+  await db.templateItems.filter((t) => routineIds.has(t.routine_id)).delete()
+  await db.routines.bulkDelete([...routineIds])
+  await db.programs.bulkDelete([...ids])
+
+  const exercises = await db.exercises.toArray()
+  const byName = new Map(exercises.map((e) => [normName(e.name), e.id]))
+  await buildCatalogPrograms(byName, now())
+
+  // Назначения ссылались на прежние программы — переводим их по названию.
+  const byOldId = new Map(legacy.map((p) => [p.id, p.name]))
+  const fresh = await db.programs.where('author_id').equals('system').toArray()
+  const byNameNew = new Map(fresh.map((p) => [p.name, p.id]))
+
+  const assignments = await db.assignments.toArray()
+  for (const a of assignments) {
+    const name = byOldId.get(a.program_id)
+    const next = name ? byNameNew.get(name) : undefined
+    if (next && next !== a.program_id) {
+      await db.assignments.update(a.id, {
+        program_id: next,
+        updated_at: now(),
+      })
+    }
+  }
+}
+
 export async function seedIfEmpty() {
   const count = await db.exercises.count()
   if (count > 0) {
@@ -301,42 +392,7 @@ export async function seedIfEmpty() {
   const byName = new Map(exercises.map((e) => [normName(e.name), e.id]))
   const ts = now()
 
-  for (const spec of PROGRAMS) {
-    const programId = uid()
-    await db.programs.add({
-      id: programId,
-      name: spec.name,
-      description: spec.description,
-      goal: spec.goal,
-      level: spec.level,
-      author_id: 'system',
-      is_public: 1,
-      updated_at: ts,
-    })
-
-    for (const [dayIndex, day] of spec.days.entries()) {
-      const routineId = uid()
-      await db.routines.add({
-        id: routineId,
-        program_id: programId,
-        name: day.name,
-        day_order: dayIndex + 1,
-        updated_at: ts,
-      })
-      await db.templateItems.bulkAdd(
-        day.items.map(([exName, sets, reps, rest], i) => ({
-          id: uid(),
-          routine_id: routineId,
-          exercise_id: byName.get(normName(exName))!,
-          sequence_order: i,
-          target_sets: sets,
-          target_reps: reps,
-          rest_seconds: rest,
-          updated_at: ts,
-        })),
-      )
-    }
-  }
+  await buildCatalogPrograms(byName, ts)
 
   const hasProfile = await db.profile.get(LOCAL_USER_ID)
   if (!hasProfile) {

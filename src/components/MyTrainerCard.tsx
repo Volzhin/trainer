@@ -1,16 +1,14 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db'
-import { useNavigate } from 'react-router-dom'
 import { redeemInvite, removeLink, trainerOfClient } from '../db/coach'
-import { unreadCount } from '../db/chat'
+import { ContactLinks } from './ContactLinks'
 import { Sheet } from './Sheet'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
 
 /** Блок «Мой тренер» в профиле клиента: привязка по коду и отвязка. */
 export function MyTrainerCard() {
-  const nav = useNavigate()
   const { toast, userId } = useApp()
   const [open, setOpen] = useState(false)
   const [code, setCode] = useState('')
@@ -18,12 +16,6 @@ export function MyTrainerCard() {
 
   const linkVersion = useLiveQuery(() => db.links.count(), [])
   const bond = useLiveQuery(() => trainerOfClient(userId), [userId, linkVersion])
-  const chatVersion = useLiveQuery(() => db.chat.count(), [])
-  const unread = useLiveQuery(
-    async () => (bond ? await unreadCount(bond.trainer.id, userId) : 0),
-    [bond?.trainer.id, userId, chatVersion],
-    0,
-  )
 
   const submit = async () => {
     setBusy(true)
@@ -56,26 +48,27 @@ export function MyTrainerCard() {
               <div className="avatar">{bond.trainer.name.slice(0, 1)}</div>
               <div className="grow">
                 <div style={{ fontWeight: 600 }}>{bond.trainer.name}</div>
-                <div className="mute-sm">{bond.trainer.specialization ?? 'Персональный тренер'}</div>
+                <div className="mute-sm">
+                  {bond.trainer.specialization ?? 'Персональный тренер'}
+                </div>
               </div>
             </div>
-            <button
-              className="btn primary block"
-              style={{ marginTop: 12 }}
-              onClick={() => nav('/chat')}
-            >
-              Написать тренеру
-              {unread > 0 && (
-                <span className="badge" style={{ marginLeft: 6 }}>
-                  {unread}
-                </span>
-              )}
-            </button>
+            <div style={{ marginTop: 14 }}>
+              <ContactLinks
+                profile={bond.trainer}
+                title="Написать"
+                emptyHint="Тренер ещё не указал, где с ним связаться."
+              />
+            </div>
             <div className="mute-sm" style={{ marginTop: 10 }}>
               Тренер видит вашу историю тренировок, прогресс и замеры тела. Личные настройки
               приложения и другие тренеры ему недоступны.
             </div>
-            <button className="btn ghost danger block" style={{ marginTop: 12 }} onClick={unlink}>
+            <button
+              className="btn ghost danger block"
+              style={{ marginTop: 12 }}
+              onClick={unlink}
+            >
               Отключить тренера
             </button>
           </>
@@ -85,7 +78,11 @@ export function MyTrainerCard() {
               Есть код от тренера? Введите его — тренер сможет назначать вам программы и
               комментировать тренировки.
             </div>
-            <button className="btn primary block" style={{ marginTop: 12 }} onClick={() => setOpen(true)}>
+            <button
+              className="btn primary block"
+              style={{ marginTop: 12 }}
+              onClick={() => setOpen(true)}
+            >
               Ввести код тренера
             </button>
           </>
@@ -106,7 +103,11 @@ export function MyTrainerCard() {
               style={{ letterSpacing: 4, fontWeight: 700, textAlign: 'center', fontSize: 22 }}
             />
           </div>
-          <button className="btn primary block" disabled={busy || code.length < 6} onClick={submit}>
+          <button
+            className="btn primary block"
+            disabled={busy || code.length < 6}
+            onClick={submit}
+          >
             {busy ? 'Проверяю…' : 'Подключить'}
           </button>
           <div className="mute-sm" style={{ textAlign: 'center' }}>

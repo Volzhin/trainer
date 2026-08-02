@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, currentUserId } from '../db/db'
+import { db, currentUserId, type Contact, type ContactKind } from '../db/db'
+import { ContactEditor } from '../components/ContactLinks'
 import { Sheet } from '../components/Sheet'
+import { AccountSection } from '../components/AccountSection'
 import { useApp, useProfile } from '../store/app'
 import { isStandalone, ensureNotificationPermission, haptics } from '../lib/native'
 import { seedIfEmpty } from '../db/seed'
@@ -17,7 +19,6 @@ export function Profile() {
   const nav = useNavigate()
   const { toast, online } = useApp()
   const profile = useProfile()
-  const [authOpen, setAuthOpen] = useState(false)
   const [payOpen, setPayOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [demoOpen, setDemoOpen] = useState(false)
@@ -117,12 +118,6 @@ export function Profile() {
             profile?.height_cm ? ` · ${profile.height_cm} см` : ''
           }`}
           onClick={() => setEditOpen(true)}
-          chevron
-        />
-        <Row
-          title="Войти в аккаунт"
-          sub="Чтобы данные не потерялись при смене телефона"
-          onClick={() => setAuthOpen(true)}
           chevron
         />
       </Group>
@@ -237,30 +232,13 @@ export function Profile() {
         <Row title="Очистить историю тренировок" onClick={resetAll} danger />
       </Group>
 
+      <AccountSection />
+
       <div className="mute-sm" style={{ textAlign: 'center', marginTop: 20 }}>
         Прототип v0.2 · офлайн-первое хранилище IndexedDB
       </div>
 
       <HelpSheet open={helpOpen} onClose={() => setHelpOpen(false)} />
-
-      <Sheet open={authOpen} title="Вход" onClose={() => setAuthOpen(false)}>
-        <div className="stack">
-          {['Войти через VK ID', 'Войти через Яндекс ID', 'Apple ID', 'Google', 'Email и пароль'].map(
-            (label) => (
-              <button
-                key={label}
-                className="btn block"
-                onClick={() => toast('Вход появится в рабочей версии')}
-              >
-                {label}
-              </button>
-            ),
-          )}
-          <div className="mute-sm" style={{ textAlign: 'center' }}>
-            После входа локальная база сольётся с облаком по стратегии Last-Write-Wins.
-          </div>
-        </div>
-      </Sheet>
 
       <Sheet open={payOpen} title="Оплата подписки" onClose={() => setPayOpen(false)}>
         <div className="stack">
@@ -270,7 +248,9 @@ export function Profile() {
               <strong>499 ₽</strong>
             </div>
             <div className="row between" style={{ marginTop: 8 }}>
-              <span>Год <span className="badge">−40%</span></span>
+              <span>
+                Год <span className="badge">−40%</span>
+              </span>
               <strong>3 590 ₽</strong>
             </div>
           </div>
@@ -318,11 +298,23 @@ export function Profile() {
 /** Справка вместо тура: объяснения доступны всегда, а не только при первом запуске. */
 function HelpSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const items: [string, string][] = [
-    ['Тренировка', 'Нажмите «Начать» на главной. Вес и повторения подставятся из прошлого раза — останется подтвердить подход галочкой.'],
-    ['Таймер отдыха', 'Запускается автоматически после подхода. Время берётся из программы, иначе из настроек.'],
-    ['Замена упражнения', 'Тренажёр занят — нажмите иконку замены в шапке упражнения. Введённые подходы сохранятся.'],
+    [
+      'Тренировка',
+      'Нажмите «Начать» на главной. Вес и повторения подставятся из прошлого раза — останется подтвердить подход галочкой.',
+    ],
+    [
+      'Таймер отдыха',
+      'Запускается автоматически после подхода. Время берётся из программы, иначе из настроек.',
+    ],
+    [
+      'Замена упражнения',
+      'Тренажёр занят — нажмите иконку замены в шапке упражнения. Введённые подходы сохранятся.',
+    ],
     ['Без интернета', 'Всё пишется на устройство. Появится сеть — данные уйдут в облако сами.'],
-    ['Тренер', 'Получите код у тренера и введите его в разделе «Тренер». Он сможет назначать программы и комментировать тренировки.'],
+    [
+      'Тренер',
+      'Получите код у тренера и введите его в разделе «Тренер». Он сможет назначать программы и комментировать тренировки.',
+    ],
   ]
   return (
     <Sheet open={open} title="Как это работает" onClose={onClose}>
@@ -395,6 +387,15 @@ function EditProfileSheet({ open, onClose }: { open: boolean; onClose: () => voi
   const [height, setHeight] = useState('')
   const [goal, setGoal] = useState('')
   const [experience, setExperience] = useState('Новичок')
+  const [contacts, setContacts] = useState<Contact[]>([])
+  const [preferred, setPreferred] = useState<ContactKind | undefined>()
+  const [loaded, setLoaded] = useState(false)
+
+  if (profile && !loaded) {
+    setContacts(profile.contacts ?? [])
+    setPreferred(profile.preferred_contact)
+    setLoaded(true)
+  }
 
   const submit = async () => {
     await db.profile.update(currentUserId(), {
@@ -402,6 +403,8 @@ function EditProfileSheet({ open, onClose }: { open: boolean; onClose: () => voi
       height_cm: height ? Number(height) : profile?.height_cm,
       goal_weight_kg: goal ? Number(goal) : profile?.goal_weight_kg,
       experience: experience as never,
+      contacts,
+      preferred_contact: preferred,
       updated_at: Date.now(),
     })
     onClose()
@@ -441,12 +444,30 @@ function EditProfileSheet({ open, onClose }: { open: boolean; onClose: () => voi
         </div>
         <div className="field">
           <label>Опыт тренировок</label>
-          <select className="select" value={experience} onChange={(e) => setExperience(e.target.value)}>
+          <select
+            className="select"
+            value={experience}
+            onChange={(e) => setExperience(e.target.value)}
+          >
             {['Новичок', 'Средний', 'Продвинутый'].map((v) => (
               <option key={v}>{v}</option>
             ))}
           </select>
         </div>
+        <div className="divider" />
+        <div className="field-group-title">Где с вами связаться</div>
+        <div className="mute-sm" style={{ marginBottom: 10 }}>
+          Тренер напишет вам туда, где вам удобно отвечать.
+        </div>
+        <ContactEditor
+          contacts={contacts}
+          preferred={preferred}
+          onChange={(next, pref) => {
+            setContacts(next)
+            setPreferred(pref)
+          }}
+        />
+
         <button className="btn primary block" onClick={submit}>
           Сохранить
         </button>

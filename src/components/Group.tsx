@@ -15,7 +15,14 @@ export function Group({ title, children }: { title?: string; children: ReactNode
 }
 
 const Chevron = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
     <path d="m9 5 7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 )
@@ -40,7 +47,11 @@ export function Row({ icon, title, sub, value, onClick, chevron, danger, childre
         <span className="title" style={danger ? { color: 'var(--danger)' } : undefined}>
           {title}
         </span>
-        {sub && <span className="sub" style={{ display: 'block' }}>{sub}</span>}
+        {sub && (
+          <span className="sub" style={{ display: 'block' }}>
+            {sub}
+          </span>
+        )}
       </span>
       {value != null && <span className="value">{value}</span>}
       {children}
@@ -74,7 +85,15 @@ export function Metric({ num, cap, accent }: { num: ReactNode; cap: string; acce
   )
 }
 
-export function Bar({ value, max, onAccent }: { value: number; max: number; onAccent?: boolean }) {
+export function Bar({
+  value,
+  max,
+  onAccent,
+}: {
+  value: number
+  max: number
+  onAccent?: boolean
+}) {
   const pct = Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100))
   return (
     <div className={`bar${onAccent ? ' on-accent' : ''}`}>

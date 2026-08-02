@@ -5,10 +5,7 @@ import { Component, type ReactNode } from 'react'
  * в компоненте гасит всё приложение до белого экрана, и человек не понимает,
  * сломалось приложение или просто нет данных.
  */
-export class ErrorBoundary extends Component<
-  { children: ReactNode },
-  { error: Error | null }
-> {
+export class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state: { error: Error | null } = { error: null }
 
   static getDerivedStateFromError(error: Error) {
@@ -42,7 +39,11 @@ export class ErrorBoundary extends Component<
         >
           Попробовать снова
         </button>
-        <button className="btn block" style={{ marginTop: 8 }} onClick={() => location.reload()}>
+        <button
+          className="btn block"
+          style={{ marginTop: 8 }}
+          onClick={() => location.reload()}
+        >
           Перезагрузить приложение
         </button>
       </div>

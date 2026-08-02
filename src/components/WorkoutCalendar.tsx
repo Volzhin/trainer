@@ -16,8 +16,18 @@ import { useApp } from '../store/app'
 
 const WEEK_DAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
 const MONTHS = [
-  'январь', 'февраль', 'март', 'апрель', 'май', 'июнь',
-  'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь',
+  'январь',
+  'февраль',
+  'март',
+  'апрель',
+  'май',
+  'июнь',
+  'июль',
+  'август',
+  'сентябрь',
+  'октябрь',
+  'ноябрь',
+  'декабрь',
 ]
 
 const DAY = 86400_000
@@ -60,7 +70,11 @@ export function WorkoutCalendar() {
       return Array.from({ length: 7 }, (_, i) => start + i * DAY)
     }
     // Месяц показываем целыми неделями, иначе сетка «рвётся» по краям.
-    const first = new Date(new Date(anchor).getFullYear(), new Date(anchor).getMonth(), 1).getTime()
+    const first = new Date(
+      new Date(anchor).getFullYear(),
+      new Date(anchor).getMonth(),
+      1,
+    ).getTime()
     const gridStart = mondayOf(first)
     const lastDay = new Date(
       new Date(anchor).getFullYear(),
@@ -180,7 +194,9 @@ export function WorkoutCalendar() {
               }}
             >
               <span className="d-num">{new Date(ts).getDate()}</span>
-              {mode === 'week' && <span className="d-wd">{WEEK_DAYS[(new Date(ts).getDay() + 6) % 7]}</span>}
+              {mode === 'week' && (
+                <span className="d-wd">{WEEK_DAYS[(new Date(ts).getDay() + 6) % 7]}</span>
+              )}
               {list.length > 0 ? (
                 <span className="d-dot" />
               ) : (
@@ -212,7 +228,11 @@ export function WorkoutCalendar() {
             <div className="muted">Нет тренировок в этот день</div>
           )}
           {selected >= today && (
-            <button className="btn primary block" style={{ marginTop: 14 }} onClick={startToday}>
+            <button
+              className="btn primary block"
+              style={{ marginTop: 14 }}
+              onClick={startToday}
+            >
               <IconPlay size={17} />{' '}
               {plannedToday ? `Начать: ${plannedToday.routine.name}` : 'Начать тренировку'}
             </button>
@@ -226,7 +246,14 @@ export function WorkoutCalendar() {
               <button
                 key={s.id}
                 className="card tap"
-                style={{ width: '100%', textAlign: 'left', marginBottom: 10, '--i': i } as React.CSSProperties}
+                style={
+                  {
+                    width: '100%',
+                    textAlign: 'left',
+                    marginBottom: 10,
+                    '--i': i,
+                  } as React.CSSProperties
+                }
                 onClick={() => nav(`/history/${s.id}`)}
               >
                 <div className="row between">

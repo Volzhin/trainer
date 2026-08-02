@@ -54,7 +54,9 @@ export function CustomFoodForm({
   const computedKcal = Math.round(num(protein) * 4 + num(fat) * 9 + num(carbs) * 4)
   const kcalValue = kcal.trim() ? Math.round(num(kcal)) : computedKcal
   const mismatch =
-    kcal.trim() && computedKcal > 0 && Math.abs(kcalValue - computedKcal) > Math.max(20, computedKcal * 0.2)
+    kcal.trim() &&
+    computedKcal > 0 &&
+    Math.abs(kcalValue - computedKcal) > Math.max(20, computedKcal * 0.2)
 
   const macroSum = num(protein) + num(fat) + num(carbs)
   const tooMuch = macroSum > 100

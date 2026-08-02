@@ -1,20 +1,28 @@
 import {
   db,
+  enqueue,
   uid,
   now,
   currentUserId,
   setActiveUser,
   type Assignment,
   type Attachment,
+  type Contact,
+  type ContactKind,
   type Feedback,
   type Role,
   type ScheduleSlot,
-  threadId,
   type TrainerLink,
   type UserProfile,
   type WorkoutSession,
 } from './db'
 import { estimate1RM, startOfDay } from '../lib/calc'
+import {
+  createInvite as remoteCreateInvite,
+  deleteRemoteAttachment,
+  isAuthed,
+  redeemInvite as remoteRedeemInvite,
+} from '../lib/backend'
 
 /**
  * Операции кабинета тренера и связки тренер↔клиент.
@@ -58,6 +66,15 @@ export async function switchAccount(userId: string) {
 
 /* ------------------------- приглашения и связь ------------------------ */
 
+/**
+ * Идентификатор связи выводится из пары, а не выдаётся случайно.
+ *
+ * Связь заводят обе стороны — клиент кодом приглашения, тренер при обмене с
+ * сервером. Со случайными идентификаторами это две разные строки об одном и
+ * том же, и клиент видел бы одного тренера дважды.
+ */
+export const linkId = (trainerId: string, clientId: string) => `link-${trainerId}-${clientId}`
+
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // без похожих символов
 const INVITE_TTL_MS = 7 * 86400_000
 
@@ -69,7 +86,13 @@ function makeCode(): string {
   return out
 }
 
-/** Тренер выпускает код приглашения; клиент вводит его у себя в профиле. */
+/**
+ * Тренер выпускает код приглашения; клиент вводит его у себя в профиле.
+ *
+ * Код обязан уехать на сервер сразу: клиент вводит его на другом телефоне и
+ * в локальной базе тренера ничего найти не может. Пока связи с сервером нет,
+ * код остаётся только здесь — и об этом честно сообщается вызывающему коду.
+ */
 export async function createInvite(trainerId = currentUserId()): Promise<string> {
   const trainer = await db.profile.get(trainerId)
   if (trainer?.role !== 'TRAINER') throw new Error('Приглашения выпускает только тренер')
@@ -83,6 +106,12 @@ export async function createInvite(trainerId = currentUserId()): Promise<string>
     created_at: now(),
     expires_at: now() + INVITE_TTL_MS,
   })
+
+  if (isAuthed()) {
+    await remoteCreateInvite(code, trainerId).catch(() => {
+      throw new Error('Код не сохранился на сервере — проверьте связь и попробуйте снова')
+    })
+  }
   return code
 }
 
@@ -102,7 +131,44 @@ export async function revokeInvite(code: string) {
  * клиент сам ввёл код, то есть согласие уже выражено.
  */
 export async function redeemInvite(code: string, clientId = currentUserId()) {
-  const invite = await db.invites.get(code.trim().toUpperCase())
+  const clean = code.trim().toUpperCase()
+  let invite = await db.invites.get(clean)
+
+  // Код гасит сервер: список приглашений закрыт, и найти чужой код по
+  // перебору нельзя. В ответ приезжает карточка тренера — имя и способы
+  // связи, без которых клиенту не с кем разговаривать.
+  if (!invite && isAuthed()) {
+    const trainer = await remoteRedeemInvite(clean)
+    invite = {
+      code: clean,
+      trainer_id: trainer.id,
+      created_at: now(),
+      expires_at: now() + INVITE_TTL_MS,
+    }
+    await db.invites.put(invite)
+
+    const known = await db.profile.get(trainer.id)
+    const card = {
+      name: trainer.name?.trim() || 'Тренер',
+      contacts: trainer.contacts as Contact[] | undefined,
+      preferred_contact: trainer.preferred_contact as ContactKind | undefined,
+      updated_at: now(),
+    }
+    if (known) {
+      await db.profile.update(trainer.id, card)
+    } else {
+      await db.profile.add({
+        id: trainer.id,
+        role: 'TRAINER',
+        plan: 'PRO',
+        default_rest_seconds: 90,
+        haptics_enabled: 1,
+        sound_enabled: 1,
+        ...card,
+      })
+    }
+  }
+
   if (!invite) throw new Error('Код не найден')
   if (invite.used_by) throw new Error('Код уже использован')
   if (invite.expires_at < now()) throw new Error('Срок действия кода истёк')
@@ -112,14 +178,15 @@ export async function redeemInvite(code: string, clientId = currentUserId()) {
     .where('[trainer_id+client_id]')
     .equals([invite.trainer_id, clientId])
     .first()
-  if (existing && existing.status !== 'PAUSED') throw new Error('Вы уже работаете с этим тренером')
+  if (existing && existing.status !== 'PAUSED')
+    throw new Error('Вы уже работаете с этим тренером')
 
   const ts = now()
   if (existing) {
     await db.links.update(existing.id, { status: 'ACTIVE', updated_at: ts })
   } else {
     await db.links.add({
-      id: uid(),
+      id: linkId(invite.trainer_id, clientId),
       trainer_id: invite.trainer_id,
       client_id: clientId,
       status: 'ACTIVE',
@@ -148,7 +215,10 @@ export async function removeLink(linkId: string) {
     .and((a) => a.trainer_id === link.trainer_id && a.status === 'ACTIVE')
     .toArray()
   for (const a of assignments) {
-    await db.assignments.update(a.id, { status: 'CANCELLED', updated_at: now() })
+    await db.assignments.update(a.id, {
+      status: 'CANCELLED',
+      updated_at: now(),
+    })
   }
   await db.links.delete(linkId)
 }
@@ -180,7 +250,6 @@ export type ClientSummary = {
   /** Рекорды за последние 14 дней. */
   recentPRs: number
   unreadFeedback: number
-  unreadChat: number
 }
 
 function weekStart(ts: number) {
@@ -189,7 +258,9 @@ function weekStart(ts: number) {
 }
 
 /** Сводка по всем клиентам тренера — основа списка и дашборда. */
-export async function loadClientSummaries(trainerId = currentUserId()): Promise<ClientSummary[]> {
+export async function loadClientSummaries(
+  trainerId = currentUserId(),
+): Promise<ClientSummary[]> {
   const links = await db.links.where('trainer_id').equals(trainerId).toArray()
   if (!links.length) return []
 
@@ -232,14 +303,6 @@ export async function loadClientSummaries(trainerId = currentUserId()): Promise<
       .and((f) => f.is_read === 0)
       .count()
 
-    // Непрочитанные сообщения клиента — тренеру важно ответить, а не только
-    // посмотреть тренировки, поэтому счётчик едет в ту же сводку.
-    const unreadChat = await db.chat
-      .where('thread_id')
-      .equals(threadId(trainerId, client.id))
-      .and((m) => m.is_read === 0 && m.author_id !== trainerId)
-      .count()
-
     out.push({
       link,
       client,
@@ -254,7 +317,6 @@ export async function loadClientSummaries(trainerId = currentUserId()): Promise<
       assignedProgramName: assignment ? programMap.get(assignment.program_id)?.name : undefined,
       recentPRs,
       unreadFeedback: unread,
-      unreadChat,
     })
   }
 
@@ -349,7 +411,10 @@ export async function assignProgram(input: {
     .and((a) => a.trainer_id === trainerId && a.status === 'ACTIVE')
     .toArray()
   for (const a of active) {
-    await db.assignments.update(a.id, { status: 'CANCELLED', updated_at: now() })
+    await db.assignments.update(a.id, {
+      status: 'CANCELLED',
+      updated_at: now(),
+    })
   }
 
   const id = uid()
@@ -426,7 +491,9 @@ export async function plannedDates(
   })
 
   const begin = Math.max(startOfDay(from), weekStart(assignment.start_at))
-  const finish = assignment.end_at ? Math.min(startOfDay(to), assignment.end_at - 86400_000) : startOfDay(to)
+  const finish = assignment.end_at
+    ? Math.min(startOfDay(to), assignment.end_at - 86400_000)
+    : startOfDay(to)
 
   for (let d = begin; d <= finish; d += 86400_000) {
     const name = nameByWeekday.get((new Date(d).getDay() + 6) % 7)
@@ -492,7 +559,10 @@ export async function deletePersonalProgram(programId: string) {
   const assignments = await db.assignments.where('program_id').equals(programId).toArray()
   for (const a of assignments) {
     if (a.status === 'ACTIVE') {
-      await db.assignments.update(a.id, { status: 'CANCELLED', updated_at: now() })
+      await db.assignments.update(a.id, {
+        status: 'CANCELLED',
+        updated_at: now(),
+      })
     }
   }
 
@@ -506,7 +576,10 @@ export async function deletePersonalProgram(programId: string) {
 }
 
 export async function cancelAssignment(assignmentId: string) {
-  await db.assignments.update(assignmentId, { status: 'CANCELLED', updated_at: now() })
+  await db.assignments.update(assignmentId, {
+    status: 'CANCELLED',
+    updated_at: now(),
+  })
 }
 
 /** Активное назначение клиента — показывается у него на главной. */
@@ -596,7 +669,15 @@ export async function attachmentsForSession(sessionId: string): Promise<Attachme
 }
 
 export async function deleteAttachment(id: string) {
+  const row = await db.attachments.get(id)
   await db.attachments.delete(id)
+
+  // Файл на сервере надо снести отдельно: иначе видео, которое человек у
+  // себя удалил, продолжит лежать в хранилище и показываться тренеру.
+  if (row?.remote_id && isAuthed()) {
+    await deleteRemoteAttachment(row.remote_id).catch(() => {})
+    await enqueue('attachments', id, 'delete', row)
+  }
 }
 
 export async function feedbackForSession(sessionId: string): Promise<Feedback[]> {
@@ -613,7 +694,11 @@ export async function markFeedbackRead(sessionId: string) {
 
 /* ------------------------- заметки о клиенте --------------------------- */
 
-export async function addTrainerNote(clientId: string, text: string, trainerId = currentUserId()) {
+export async function addTrainerNote(
+  clientId: string,
+  text: string,
+  trainerId = currentUserId(),
+) {
   await db.trainerNotes.add({
     id: uid(),
     trainer_id: trainerId,

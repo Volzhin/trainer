@@ -61,7 +61,8 @@ export function ProgressView({
         <div>
           <h1>Прогресс</h1>
           <div className="sub">
-            {report.sessions} {plural(report.sessions, ['тренировка', 'тренировки', 'тренировок'])} за{' '}
+            {report.sessions}{' '}
+            {plural(report.sessions, ['тренировка', 'тренировки', 'тренировок'])} за{' '}
             {periodLabel}
           </div>
         </div>
@@ -99,7 +100,10 @@ export function ProgressView({
       </div>
 
       {report.plan ? (
-        <PlanCard plan={report.plan} onOpen={() => nav(`/programs/${report.plan!.program.id}`)} />
+        <PlanCard
+          plan={report.plan}
+          onOpen={() => nav(`/programs/${report.plan!.program.id}`)}
+        />
       ) : (
         <>
           <div className="section-title">Программа</div>
@@ -109,7 +113,11 @@ export function ProgressView({
               С программой прогресс считается по плану: видно, какие тренировки вы пропустили и
               какие упражнения растут, а какие стоят.
             </div>
-            <button className="btn block" style={{ marginTop: 12 }} onClick={() => nav('/programs')}>
+            <button
+              className="btn block"
+              style={{ marginTop: 12 }}
+              onClick={() => nav('/programs')}
+            >
               Выбрать программу
             </button>
           </div>
@@ -141,14 +149,21 @@ export function ProgressView({
       ) : (
         <div className="stack" style={{ gap: 8 }}>
           {shown.map((e) => (
-            <ExerciseRow key={e.exercise.id} row={e} onOpen={() => nav(`/exercises/${e.exercise.id}`)} />
+            <ExerciseRow
+              key={e.exercise.id}
+              row={e}
+              onOpen={() => nav(`/exercises/${e.exercise.id}`)}
+            />
           ))}
         </div>
       )}
 
       <div className="section-title">Нагрузка по неделям</div>
       <div className="card">
-        <BarChart data={report.weekly.map((w) => w.value)} labels={report.weekly.map((w) => w.label)} />
+        <BarChart
+          data={report.weekly.map((w) => w.value)}
+          labels={report.weekly.map((w) => w.label)}
+        />
         <div className="mute-sm" style={{ marginTop: 8, textAlign: 'center' }}>
           Вес × повторения за неделю. Всего за {periodLabel} — {formatTonnage(report.volume)}
         </div>
@@ -301,7 +316,8 @@ function PlanCard({ plan, onOpen }: { plan: PlanProgress; onOpen: () => void }) 
                   <i
                     style={{
                       width: `${planned ? Math.min(100, (done / planned) * 100) : 0}%`,
-                      background: done >= planned && planned > 0 ? 'var(--ok)' : 'var(--accent)',
+                      background:
+                        done >= planned && planned > 0 ? 'var(--ok)' : 'var(--accent)',
                     }}
                   />
                 </div>
@@ -349,7 +365,12 @@ function ExerciseRow({ row, onOpen }: { row: ExerciseProgress; onOpen: () => voi
       <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
         <div className="t-num" style={{ fontSize: 15 }}>
           {lastWeight != null ? `${formatWeight(lastWeight)} кг` : '—'}
-          {lastReps ? <span className="mute-sm" style={{ fontSize: 12 }}> × {lastReps}</span> : null}
+          {lastReps ? (
+            <span className="mute-sm" style={{ fontSize: 12 }}>
+              {' '}
+              × {lastReps}
+            </span>
+          ) : null}
         </div>
         {deltaKg != null && deltaKg !== 0 && (
           <div
@@ -386,7 +407,13 @@ function Spark({ points, up }: { points: { x: number; y: number }[]; up: boolean
     .join(' ')
 
   return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden style={{ flex: '0 0 auto' }}>
+    <svg
+      width={w}
+      height={h}
+      viewBox={`0 0 ${w} ${h}`}
+      aria-hidden
+      style={{ flex: '0 0 auto' }}
+    >
       <path
         d={d}
         fill="none"

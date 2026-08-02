@@ -46,7 +46,11 @@ export function ThemePicker() {
     <>
       <div className="segmented">
         {OPTIONS.map(([value, label]) => (
-          <button key={value} className={pref === value ? 'on' : ''} onClick={() => pick(value)}>
+          <button
+            key={value}
+            className={pref === value ? 'on' : ''}
+            onClick={() => pick(value)}
+          >
             {label}
           </button>
         ))}

@@ -110,7 +110,8 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
         )}
 
         <div className="mute-sm" style={{ textAlign: 'center' }}>
-          Все аккаунты живут в одной локальной базе — так связку тренер↔клиент видно без сервера.
+          Все аккаунты живут в одной локальной базе — так связку тренер↔клиент видно без
+          сервера.
         </div>
       </div>
     </Sheet>

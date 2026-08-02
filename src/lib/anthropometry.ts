@@ -96,8 +96,7 @@ export function deriveComposition(input: {
   }
 
   const pct =
-    input.knownBodyFatPct ??
-    (heightCm ? bodyFatFromGirths(girths, heightCm, sex) : undefined)
+    input.knownBodyFatPct ?? (heightCm ? bodyFatFromGirths(girths, heightCm, sex) : undefined)
   if (pct == null) return out
   out.bodyFatPct = round1(pct)
 

@@ -7,7 +7,13 @@ import { useEffect, useRef, useState } from 'react'
  * при появлении, поэтому кольцо читается как «замер собирается».
  */
 
-export type DonutPart = { key: string; label: string; value: number; unit: string; color: string }
+export type DonutPart = {
+  key: string
+  label: string
+  value: number
+  unit: string
+  color: string
+}
 
 type Props = {
   parts: DonutPart[]
@@ -119,7 +125,13 @@ export function BodyDonut({ parts, centerLabel, centerValue, status, statusKind 
           />
         ))}
 
-        <text x={SIZE / 2} y={SIZE / 2 - 12} textAnchor="middle" fill="var(--text-dim)" fontSize="12">
+        <text
+          x={SIZE / 2}
+          y={SIZE / 2 - 12}
+          textAnchor="middle"
+          fill="var(--text-dim)"
+          fontSize="12"
+        >
           {centerLabel}
         </text>
         <text

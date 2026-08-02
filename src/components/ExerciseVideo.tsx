@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Attachment } from '../db/db'
 import { addAttachment, deleteAttachment } from '../db/coach'
+import { attachmentUrl } from '../lib/backend'
 import { IconTrash, IconVideo } from './Icons'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
@@ -25,7 +26,15 @@ export function AttachmentPlayer({
   attachment: Attachment
   onDelete?: () => void
 }) {
-  const url = useBlobUrl(attachment.blob)
+  const local = useBlobUrl(attachment.blob)
+  // Своё видео играем из локального файла, чужое — с сервера. Тренеру
+  // оригинал никогда не приезжает в базу устройства: ролики слишком тяжёлые.
+  const url =
+    local ??
+    (attachment.remote_id && attachment.remote_file
+      ? attachmentUrl(attachment.remote_id, attachment.remote_file)
+      : undefined)
+
   if (!url) return null
 
   return (

@@ -148,18 +148,22 @@ export function SessionReview({
           {(comments ?? [])
             .filter((c) => !c.exercise_id)
             .map((c) => (
-            <div
-              key={c.id}
-              className="muted"
-              style={{ borderLeft: '2px solid var(--accent)', paddingLeft: 10, marginBottom: 8 }}
-            >
-              {c.text}
-              <div className="mute-sm">
-                {formatDateTime(c.created_at)}
-                {c.is_read === 1 ? ' · прочитано' : ' · не прочитано'}
+              <div
+                key={c.id}
+                className="muted"
+                style={{
+                  borderLeft: '2px solid var(--accent)',
+                  paddingLeft: 10,
+                  marginBottom: 8,
+                }}
+              >
+                {c.text}
+                <div className="mute-sm">
+                  {formatDateTime(c.created_at)}
+                  {c.is_read === 1 ? ' · прочитано' : ' · не прочитано'}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
         </>
       )}
 

@@ -56,8 +56,7 @@ export function ClientNutrition({ clientId }: { clientId: string }) {
                 <div
                   className="num"
                   style={{
-                    color:
-                      Math.abs(summary.deviation) > 300 ? 'var(--warn)' : 'var(--ok)',
+                    color: Math.abs(summary.deviation) > 300 ? 'var(--warn)' : 'var(--ok)',
                   }}
                 >
                   {summary.deviation > 0 ? '+' : ''}
@@ -78,8 +77,8 @@ export function ClientNutrition({ clientId }: { clientId: string }) {
             </div>
             {summary.daysLogged < summary.daysTotal / 2 && (
               <div className="mute-sm" style={{ marginTop: 10, color: 'var(--warn)' }}>
-                Дневник заполняется реже половины дней — средние значения
-                и расчёт расхода по ним ненадёжны.
+                Дневник заполняется реже половины дней — средние значения и расчёт расхода по
+                ним ненадёжны.
               </div>
             )}
           </div>
@@ -125,7 +124,10 @@ export function ClientNutrition({ clientId }: { clientId: string }) {
                 <div style={{ fontWeight: 700, fontSize: 17, fontFamily: 'var(--font-num)' }}>
                   {plan.target} ккал
                 </div>
-                <div className="mute-sm" style={{ marginTop: 2, fontFamily: 'var(--font-num)' }}>
+                <div
+                  className="mute-sm"
+                  style={{ marginTop: 2, fontFamily: 'var(--font-num)' }}
+                >
                   Б {plan.macros.protein} · Ж {plan.macros.fat} · У {plan.macros.carbs} г
                 </div>
               </div>
@@ -133,7 +135,11 @@ export function ClientNutrition({ clientId }: { clientId: string }) {
             {plan.profile.coach_note && (
               <div
                 className="mute-sm"
-                style={{ marginTop: 12, paddingLeft: 10, borderLeft: '2px solid var(--accent)' }}
+                style={{
+                  marginTop: 12,
+                  paddingLeft: 10,
+                  borderLeft: '2px solid var(--accent)',
+                }}
               >
                 {plan.profile.coach_note}
               </div>
@@ -245,7 +251,13 @@ function TargetSheet({
   const save = async () => {
     await setCoachTargets(
       clientId,
-      { kcal: Math.round(num(kcal)), protein: num(protein), fat: num(fat), carbs: num(carbs), note },
+      {
+        kcal: Math.round(num(kcal)),
+        protein: num(protein),
+        fat: num(fat),
+        carbs: num(carbs),
+        note,
+      },
       coachId,
     )
     haptics.success()

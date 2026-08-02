@@ -32,7 +32,9 @@ export function LineChart({ data, color = 'var(--accent)', unit = '', height = 1
   const py = (y: number) => padTop + (1 - (y - minY) / spanY) * (h - padTop - padBottom)
 
   const single = data.length === 1
-  const path = data.map((d, i) => `${i === 0 ? 'M' : 'L'}${px(d.x).toFixed(1)},${py(d.y).toFixed(1)}`).join(' ')
+  const path = data
+    .map((d, i) => `${i === 0 ? 'M' : 'L'}${px(d.x).toFixed(1)},${py(d.y).toFixed(1)}`)
+    .join(' ')
   const area = `${path} L${px(maxX).toFixed(1)},${h - padBottom} L${px(minX).toFixed(1)},${h - padBottom} Z`
 
   const fmtDate = (ts: number) =>
@@ -40,7 +42,13 @@ export function LineChart({ data, color = 'var(--accent)', unit = '', height = 1
 
   return (
     <svg className="chart" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" role="img">
-      <line x1={padX} y1={h - padBottom} x2={w - padX} y2={h - padBottom} stroke="var(--line)" />
+      <line
+        x1={padX}
+        y1={h - padBottom}
+        x2={w - padX}
+        y2={h - padBottom}
+        stroke="var(--line)"
+      />
       {!single && (
         <>
           <path d={area} fill={color} opacity={0.12} />

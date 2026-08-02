@@ -57,7 +57,10 @@ export async function startSessionFromRoutine(routineId: string) {
   const routine = await db.routines.get(routineId)
   if (!routine) throw new Error('Тренировочный день не найден')
 
-  const items = await db.templateItems.where('routine_id').equals(routineId).sortBy('sequence_order')
+  const items = await db.templateItems
+    .where('routine_id')
+    .equals(routineId)
+    .sortBy('sequence_order')
 
   const sessionId = uid()
   const ts = now()
@@ -153,23 +156,31 @@ export async function addExerciseToSession(sessionId: string, exerciseId: string
   const previous = await lastSetsForExercise(exerciseId)
   const ts = now()
 
-  const rows: ExerciseSet[] = Array.from({ length: Math.max(1, previous.length || 3) }, (_, i) => ({
-    id: uid(),
-    workout_session_id: sessionId,
-    exercise_id: exerciseId,
-    sequence_order: seq,
-    set_number: i + 1,
-    weight_kg: previous[i]?.weight_kg ?? previous[previous.length - 1]?.weight_kg,
-    reps_completed: previous[i]?.reps_completed ?? previous[previous.length - 1]?.reps_completed,
-    is_pr: 0,
-    is_done: 0,
-    updated_at: ts,
-  }))
+  const rows: ExerciseSet[] = Array.from(
+    { length: Math.max(1, previous.length || 3) },
+    (_, i) => ({
+      id: uid(),
+      workout_session_id: sessionId,
+      exercise_id: exerciseId,
+      sequence_order: seq,
+      set_number: i + 1,
+      weight_kg: previous[i]?.weight_kg ?? previous[previous.length - 1]?.weight_kg,
+      reps_completed:
+        previous[i]?.reps_completed ?? previous[previous.length - 1]?.reps_completed,
+      is_pr: 0,
+      is_done: 0,
+      updated_at: ts,
+    }),
+  )
   await db.sets.bulkAdd(rows)
 }
 
 /** «Горячая замена» упражнения: тренажёр занят — меняем, не теряя структуру. */
-export async function swapExercise(sessionId: string, sequenceOrder: number, newExerciseId: string) {
+export async function swapExercise(
+  sessionId: string,
+  sequenceOrder: number,
+  newExerciseId: string,
+) {
   const rows = await db.sets
     .where('[workout_session_id+sequence_order]')
     .equals([sessionId, sequenceOrder])
@@ -283,7 +294,9 @@ export async function lastSetsForExercise(exerciseId: string): Promise<ExerciseS
   const done = sets.filter((s) => s.is_done)
   if (!done.length) return []
 
-  const sessions = await db.sessions.bulkGet([...new Set(done.map((s) => s.workout_session_id))])
+  const sessions = await db.sessions.bulkGet([
+    ...new Set(done.map((s) => s.workout_session_id)),
+  ])
   const completed = sessions.filter((s): s is WorkoutSession => !!s && s.is_completed === 1)
   if (!completed.length) return []
 
@@ -293,7 +306,10 @@ export async function lastSetsForExercise(exerciseId: string): Promise<ExerciseS
     .sort((a, b) => a.set_number - b.set_number)
 }
 
-async function bestPreviousScore(exerciseId: string, excludeSessionId: string): Promise<number> {
+async function bestPreviousScore(
+  exerciseId: string,
+  excludeSessionId: string,
+): Promise<number> {
   const sets = await db.sets.where('exercise_id').equals(exerciseId).toArray()
   let best = 0
   for (const s of sets) {
@@ -396,7 +412,13 @@ export async function saveManualMeasurement(
     .and((m) => startOfDay(m.logged_at) === startOfDay(at) && m.source !== 'inbody')
     .first()
 
-  const payload = { ...fields, user_id: userId, logged_at: at, source: 'manual' as const, updated_at: now() }
+  const payload = {
+    ...fields,
+    user_id: userId,
+    logged_at: at,
+    source: 'manual' as const,
+    updated_at: now(),
+  }
   if (existing) await db.bodyMetrics.update(existing.id, payload)
   else await db.bodyMetrics.add({ id: uid(), ...payload })
 
@@ -491,8 +513,8 @@ export async function exportHistoryCsv(): Promise<string> {
   const lines = ['Дата;Тренировка;Упражнение;Подход;Вес, кг;Повторения;Рекорд']
   for (const session of sessions) {
     const rows = await db.sets.where('workout_session_id').equals(session.id).toArray()
-    for (const s of rows.sort((a, b) =>
-      a.sequence_order - b.sequence_order || a.set_number - b.set_number,
+    for (const s of rows.sort(
+      (a, b) => a.sequence_order - b.sequence_order || a.set_number - b.set_number,
     )) {
       lines.push(
         [

@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../../db/db'
+import { db, type Contact, type ContactKind } from '../../db/db'
+import { isAuthed, updateAccount } from '../../lib/backend'
+import { ContactEditor } from '../../components/ContactLinks'
+import { AccountSection } from '../../components/AccountSection'
 import { Sheet } from '../../components/Sheet'
 import { AccountSwitcher } from '../../components/AccountSwitcher'
 import { useApp, useProfile } from '../../store/app'
@@ -31,7 +34,9 @@ export function TrainerProfile() {
     try {
       const res = await seedTrainerDemo(userId)
       haptics.success()
-      toast(`Добавлено ${res.clients} ${plural(res.clients, ['клиент', 'клиента', 'клиентов'])}`)
+      toast(
+        `Добавлено ${res.clients} ${plural(res.clients, ['клиент', 'клиента', 'клиентов'])}`,
+      )
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Не удалось создать демо-клиентов')
     } finally {
@@ -56,7 +61,9 @@ export function TrainerProfile() {
           </div>
           <div className="grow">
             <div style={{ fontWeight: 600 }}>{profile?.name}</div>
-            <div className="mute-sm">{profile?.specialization ?? 'Специализация не указана'}</div>
+            <div className="mute-sm">
+              {profile?.specialization ?? 'Специализация не указана'}
+            </div>
           </div>
           <button className="btn sm" onClick={() => setEditOpen(true)}>
             Изменить
@@ -92,8 +99,8 @@ export function TrainerProfile() {
       <div className="section-title">Аккаунты</div>
       <div className="card stack">
         <div className="muted">
-          Прототип держит несколько аккаунтов в одной базе, чтобы можно было посмотреть на связку
-          с обеих сторон.
+          Прототип держит несколько аккаунтов в одной базе, чтобы можно было посмотреть на
+          связку с обеих сторон.
         </div>
         <button className="btn block" onClick={() => setAccountsOpen(true)}>
           Переключить аккаунт
@@ -102,6 +109,8 @@ export function TrainerProfile() {
           {demoBusy ? 'Создаю…' : 'Добавить демо-клиентов'}
         </button>
       </div>
+
+      <AccountSection />
 
       <div className="mute-sm" style={{ textAlign: 'center', marginTop: 20 }}>
         Прототип v0.2 · кабинет тренера
@@ -122,14 +131,36 @@ function TrainerForm({ onDone }: { onDone: () => void }) {
   const [name, setName] = useState('')
   const [spec, setSpec] = useState('')
   const [bio, setBio] = useState('')
+  const [contacts, setContacts] = useState<Contact[]>([])
+  const [preferred, setPreferred] = useState<ContactKind | undefined>()
+  const [loaded, setLoaded] = useState(false)
+
+  // Контакты подтягиваются один раз: дальше форма — источник правды.
+  if (profile && !loaded) {
+    setContacts(profile.contacts ?? [])
+    setPreferred(profile.preferred_contact)
+    setLoaded(true)
+  }
 
   const submit = async () => {
     await db.profile.update(userId, {
       name: name.trim() || profile?.name || 'Тренер',
       specialization: spec.trim() || profile?.specialization,
       bio: bio.trim() || profile?.bio,
+      contacts,
+      preferred_contact: preferred,
       updated_at: Date.now(),
     })
+
+    // Контакты дублируются в аккаунт: только оттуда их может прочитать
+    // клиент — доступа к записям тренера у него нет и быть не должно.
+    if (isAuthed()) {
+      await updateAccount({
+        name: name.trim() || profile?.name,
+        contacts,
+        preferred_contact: preferred,
+      }).catch(() => {})
+    }
     onDone()
   }
 
@@ -162,6 +193,20 @@ function TrainerForm({ onDone }: { onDone: () => void }) {
           placeholder={profile?.bio ?? 'Опыт, образование, подход к работе'}
         />
       </div>
+      <div className="divider" />
+      <div className="field-group-title">Где с вами связаться</div>
+      <div className="mute-sm" style={{ marginBottom: 10 }}>
+        Клиент увидит эти ссылки в карточке тренера и напишет вам в один тап.
+      </div>
+      <ContactEditor
+        contacts={contacts}
+        preferred={preferred}
+        onChange={(next, pref) => {
+          setContacts(next)
+          setPreferred(pref)
+        }}
+      />
+
       <button className="btn primary block" onClick={submit}>
         Сохранить
       </button>

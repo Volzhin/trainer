@@ -10,7 +10,7 @@ import {
   type ClientSummary,
 } from '../../db/coach'
 import { Sheet } from '../../components/Sheet'
-import { IconPlus, IconFlame, IconTrash, IconUsers, IconChat } from '../../components/Icons'
+import { IconPlus, IconFlame, IconTrash, IconUsers } from '../../components/Icons'
 import { plural } from '../../lib/calc'
 import { useApp, useProfile } from '../../store/app'
 import { haptics } from '../../lib/native'
@@ -61,7 +61,11 @@ export function TrainerClients() {
             {profile?.specialization ? ` · ${profile.specialization}` : ''}
           </div>
         </div>
-        <button className="icon-btn" onClick={() => setInviteOpen(true)} aria-label="Пригласить">
+        <button
+          className="icon-btn"
+          onClick={() => setInviteOpen(true)}
+          aria-label="Пригласить"
+        >
           <IconPlus size={18} />
         </button>
       </div>
@@ -104,14 +108,21 @@ export function TrainerClients() {
           Пока нет клиентов.
           <br />
           Выпустите код приглашения и передайте его клиенту.
-          <button className="btn primary block" style={{ marginTop: 16 }} onClick={() => setInviteOpen(true)}>
+          <button
+            className="btn primary block"
+            style={{ marginTop: 16 }}
+            onClick={() => setInviteOpen(true)}
+          >
             Пригласить клиента
           </button>
         </div>
       ) : (
         (clients ?? []).map((c) => {
           const stale = (c.daysSinceLast ?? 999) > STALE_DAYS
-          const progress = Math.min(100, (c.sessionsThisWeek / Math.max(1, c.weeklyTarget)) * 100)
+          const progress = Math.min(
+            100,
+            (c.sessionsThisWeek / Math.max(1, c.weeklyTarget)) * 100,
+          )
           return (
             <div
               key={c.link.id}
@@ -127,16 +138,13 @@ export function TrainerClients() {
                       {c.client.name}
                     </span>
                     <span className="row" style={{ gap: 6 }}>
-                      {c.unreadChat > 0 && (
-                        <span className="badge" style={{ background: 'var(--accent)', color: '#fff', borderColor: 'var(--accent)' }}>
-                          {c.unreadChat}
-                          <IconChat size={11} />
-                        </span>
-                      )}
                       {c.recentPRs > 0 && <span className="badge pr">{c.recentPRs} PR</span>}
                     </span>
                   </div>
-                  <div className="mute-sm" style={{ color: stale ? 'var(--danger)' : undefined }}>
+                  <div
+                    className="mute-sm"
+                    style={{ color: stale ? 'var(--danger)' : undefined }}
+                  >
                     {c.daysSinceLast == null
                       ? 'ещё не тренировался'
                       : c.daysSinceLast === 0
@@ -246,7 +254,11 @@ function InviteSheet({
             <button className="btn sm" onClick={() => copy(i.code)}>
               Скопировать
             </button>
-            <button className="icon-btn" onClick={() => revokeInvite(i.code)} aria-label="Отозвать">
+            <button
+              className="icon-btn"
+              onClick={() => revokeInvite(i.code)}
+              aria-label="Отозвать"
+            >
               <IconTrash size={16} />
             </button>
           </div>

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FoodItem, MealSlot } from '../db/db'
-import { logFood, logQuick, recentFoods, searchCachedFoods } from '../db/nutrition'
+import { logFood, recentFoods, saveCustomFood, searchCachedFoods } from '../db/nutrition'
 import { findByBarcode, scaleNutrients, searchFood } from '../lib/foodApi'
 import { BarcodeScanner } from './BarcodeScanner'
+import { CustomFoodForm } from './CustomFoodForm'
 import { Sheet } from './Sheet'
 import { IconSearch } from './Icons'
 import { useApp } from '../store/app'
@@ -34,15 +35,18 @@ export function FoodPicker({
   const [loading, setLoading] = useState(false)
   const [chosen, setChosen] = useState<FoodItem | null>(null)
   const [amount, setAmount] = useState('100')
-  const [manual, setManual] = useState(false)
+  /** Открыта форма своего продукта; строка — предзаполненный штрихкод. */
+  const [creating, setCreating] = useState<{ barcode?: string } | null>(null)
   const [scanning, setScanning] = useState(false)
   const abortRef = useRef<AbortController>()
 
   // Кеш отвечает сразу и работает офлайн — показываем его, не дожидаясь сети.
   useEffect(() => {
     if (!slot) return
-    void (query.trim() ? searchCachedFoods(query) : recentFoods()).then(setLocal)
-  }, [query, slot])
+    void (query.trim() ? searchCachedFoods(query, userId) : recentFoods(20, userId)).then(
+      setLocal,
+    )
+  }, [query, slot, userId, creating])
 
   // Сеть — с задержкой: иначе на каждую букву уходит запрос.
   useEffect(() => {
@@ -71,7 +75,7 @@ export function FoodPicker({
     if (!slot) {
       setQuery('')
       setChosen(null)
-      setManual(false)
+      setCreating(null)
       abortRef.current?.abort()
     }
   }, [slot])
@@ -80,7 +84,12 @@ export function FoodPicker({
     setLoading(true)
     try {
       const found = await findByBarcode(code.trim())
-      if (!found) return toast('Продукт не найден по штрихкоду')
+      if (!found) {
+        // База штрихкодов неполная по России — сразу предлагаем завести свой.
+        toast('Такого штрихкода нет в базе — заполните сами')
+        setCreating({ barcode: code.trim() })
+        return
+      }
       haptics.impact()
       pick(found)
     } catch {
@@ -112,6 +121,9 @@ export function FoodPicker({
   // Продукты из сети, которых нет в кеше, — чтобы не дублировать строки.
   const localIds = new Set(local.map((f) => f.id))
   const extra = remote.filter((f) => !localIds.has(f.id))
+  // Свои и найденные раньше разводим по разным блокам: своим доверия больше.
+  const mine = local.filter((f) => f.source === 'manual')
+  const cached = local.filter((f) => f.source !== 'manual')
 
   const preview = chosen ? scaleNutrients(chosen.per100, parseFloat(amount) || 0) : null
 
@@ -170,16 +182,19 @@ export function FoodPicker({
             Выбрать другое
           </button>
         </div>
-      ) : manual ? (
-        <ManualEntry
-          onCancel={() => setManual(false)}
-          onSave={async (name, nutrients) => {
-            if (!slot) return
-            await logQuick({ name, nutrients, slot, date, userId })
+      ) : creating ? (
+        <CustomFoodForm
+          initialName={query.trim()}
+          barcode={creating.barcode}
+          submitLabel="Сохранить и добавить"
+          cancelLabel="Назад к поиску"
+          onCancel={() => setCreating(null)}
+          onSubmit={async (input) => {
+            const food = await saveCustomFood(input, userId)
             haptics.success()
-            onAdded()
-            setManual(false)
-            onClose()
+            toast('Продукт сохранён — теперь он в ваших')
+            setCreating(null)
+            pick(food)
           }}
         />
       ) : (
@@ -199,18 +214,29 @@ export function FoodPicker({
             <button className="btn sm grow" onClick={() => setScanning(true)}>
               По штрихкоду
             </button>
-            <button className="btn sm grow" onClick={() => setManual(true)}>
-              Ввести вручную
+            <button className="btn sm grow" onClick={() => setCreating({})}>
+              Создать продукт
             </button>
           </div>
 
-          {local.length > 0 && (
+          {mine.length > 0 && (
+            <>
+              <div className="section-title">Мои продукты</div>
+              <div className="group">
+                {mine.map((f) => (
+                  <FoodRow key={f.id} food={f} onPick={pick} />
+                ))}
+              </div>
+            </>
+          )}
+
+          {cached.length > 0 && (
             <>
               <div className="section-title">
-                {query.trim() ? 'Из ваших продуктов' : 'Недавние'}
+                {query.trim() ? 'Уже записывали' : 'Недавние'}
               </div>
               <div className="group">
-                {local.map((f) => (
+                {cached.map((f) => (
                   <FoodRow key={f.id} food={f} onPick={pick} />
                 ))}
               </div>
@@ -219,9 +245,7 @@ export function FoodPicker({
 
           {(extra.length > 0 || loading) && (
             <>
-              <div className="section-title">
-                База продуктов{loading ? ' · ищу…' : ''}
-              </div>
+              <div className="section-title">База продуктов{loading ? ' · ищу…' : ''}</div>
               <div className="group">
                 {extra.map((f) => (
                   <FoodRow key={f.id} food={f} onPick={pick} />
@@ -231,8 +255,15 @@ export function FoodPicker({
           )}
 
           {!loading && !local.length && !extra.length && query.trim().length >= 3 && (
-            <div className="empty">
-              Ничего не нашлось. Можно ввести продукт вручную.
+            <div className="empty" style={{ padding: 20 }}>
+              Ничего не нашлось.
+              <button
+                className="btn block"
+                style={{ marginTop: 12 }}
+                onClick={() => setCreating({})}
+              >
+                Создать «{query.trim()}»
+              </button>
             </div>
           )}
         </div>
@@ -258,92 +289,19 @@ function FoodRow({ food, onPick }: { food: FoodItem; onPick: (f: FoodItem) => vo
         <span className="ex-thumb placeholder" />
       )}
       <span className="grow">
-        <span className="title">{food.name}</span>
+        <span className="title">
+          {food.name}
+          {food.source === 'manual' && (
+            <span className="tag" style={{ marginLeft: 6 }}>
+              своё
+            </span>
+          )}
+        </span>
         <span className="sub" style={{ display: 'block' }}>
           {food.brand ? `${food.brand} · ` : ''}
           {food.per100.kcal} ккал на 100 {food.unit}
         </span>
       </span>
     </button>
-  )
-}
-
-/** Ручной ввод — когда продукта нет в базе или это домашнее блюдо. */
-function ManualEntry({
-  onCancel,
-  onSave,
-}: {
-  onCancel: () => void
-  onSave: (name: string, n: { kcal: number; protein: number; fat: number; carbs: number }) => void
-}) {
-  const [name, setName] = useState('')
-  const [kcal, setKcal] = useState('')
-  const [protein, setProtein] = useState('')
-  const [fat, setFat] = useState('')
-  const [carbs, setCarbs] = useState('')
-
-  const num = (v: string) => {
-    const n = parseFloat(v.replace(',', '.'))
-    return Number.isFinite(n) ? n : 0
-  }
-
-  return (
-    <div className="stack">
-      <div className="field">
-        <label>Что это было</label>
-        <input
-          className="input"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Борщ домашний"
-          autoFocus
-        />
-      </div>
-      <div className="field">
-        <label>Калории</label>
-        <input
-          className="input"
-          inputMode="numeric"
-          value={kcal}
-          onChange={(e) => setKcal(e.target.value)}
-          placeholder="450"
-        />
-      </div>
-      <div className="row" style={{ gap: 8 }}>
-        {[
-          ['Белки', protein, setProtein],
-          ['Жиры', fat, setFat],
-          ['Углеводы', carbs, setCarbs],
-        ].map(([label, value, set]) => (
-          <div className="field grow" key={label as string}>
-            <label>{label as string}</label>
-            <input
-              className="input"
-              inputMode="decimal"
-              value={value as string}
-              onChange={(e) => (set as (v: string) => void)(e.target.value)}
-              placeholder="0"
-            />
-          </div>
-        ))}
-      </div>
-      <button
-        className="btn primary block"
-        disabled={!name.trim() || !num(kcal)}
-        onClick={() =>
-          onSave(name, {
-            kcal: Math.round(num(kcal)),
-            protein: num(protein),
-            fat: num(fat),
-            carbs: num(carbs),
-          })
-        }
-      >
-        Записать
-      </button>
-      <button className="btn ghost block" onClick={onCancel}>
-        Назад к поиску
-      </button>
-    </div>
   )
 }

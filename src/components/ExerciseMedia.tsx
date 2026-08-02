@@ -42,7 +42,9 @@ export function ExerciseMedia({ exercise }: { exercise: Exercise }) {
       {image_url ? (
         <img src={image_url} alt={name} style={frame} loading="lazy" />
       ) : (
-        <div style={{ ...frame, display: 'grid', placeItems: 'center', color: 'var(--text-mute)' }}>
+        <div
+          style={{ ...frame, display: 'grid', placeItems: 'center', color: 'var(--text-mute)' }}
+        >
           Нет превью
         </div>
       )}

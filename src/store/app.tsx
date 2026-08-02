@@ -100,7 +100,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!r) return r
       const endsAt = Math.max(Date.now(), r.endsAt + seconds * 1000)
       firedRef.current = false
-      return { ...r, endsAt, total: Math.max(r.total, Math.round((endsAt - Date.now()) / 1000)) }
+      return {
+        ...r,
+        endsAt,
+        total: Math.max(r.total, Math.round((endsAt - Date.now()) / 1000)),
+      }
     })
   }, [])
 

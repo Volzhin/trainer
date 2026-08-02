@@ -92,10 +92,7 @@ export type ExpenditureResult = {
  * запасов тела. Вес и потребление сглаживаются, иначе стакан воды двигал бы
  * цель на сотни килокалорий.
  */
-export function estimateExpenditure(
-  days: DayPoint[],
-  fallback: number,
-): ExpenditureResult {
+export function estimateExpenditure(days: DayPoint[], fallback: number): ExpenditureResult {
   const window = days.slice(-ANALYSIS_WINDOW_DAYS)
   const eaten = window.filter((d) => typeof d.kcal === 'number' && d.kcal! > 0)
   const weights = window.filter((d) => typeof d.weightKg === 'number')

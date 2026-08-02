@@ -63,7 +63,8 @@ function toItem(p: OffProduct): FoodItem | null {
   const brand = (Array.isArray(p.brands) ? p.brands[0] : p.brands?.split(',')[0])?.trim()
 
   // Напитки считаем в миллилитрах: «100 г сока» звучит неестественно.
-  const liquid = /(мл|ml|l\b|литр)/i.test(p.quantity ?? '') || /напит|сок|вода|молок/i.test(name)
+  const liquid =
+    /(мл|ml|l\b|литр)/i.test(p.quantity ?? '') || /напит|сок|вода|молок/i.test(name)
 
   return {
     id: `off-${p.code ?? name}`,
@@ -109,7 +110,10 @@ export async function searchFood(query: string, signal?: AbortSignal): Promise<F
     products = await legacySearch(query, signal)
   }
 
-  return products.sort(russianFirst).map(toItem).filter((x): x is FoodItem => !!x)
+  return products
+    .sort(russianFirst)
+    .map(toItem)
+    .filter((x): x is FoodItem => !!x)
 }
 
 async function legacySearch(query: string, signal?: AbortSignal): Promise<OffProduct[]> {
@@ -124,10 +128,16 @@ async function legacySearch(query: string, signal?: AbortSignal): Promise<OffPro
 }
 
 /** Поиск по штрихкоду GTIN-13 / EAN / UPC. */
-export async function findByBarcode(code: string, signal?: AbortSignal): Promise<FoodItem | null> {
-  const res = await fetch(`${BASE}/api/v2/product/${encodeURIComponent(code)}?fields=${FIELDS}`, {
-    signal,
-  })
+export async function findByBarcode(
+  code: string,
+  signal?: AbortSignal,
+): Promise<FoodItem | null> {
+  const res = await fetch(
+    `${BASE}/api/v2/product/${encodeURIComponent(code)}?fields=${FIELDS}`,
+    {
+      signal,
+    },
+  )
   if (!res.ok) return null
   const data = (await res.json()) as { status?: number; product?: OffProduct }
   if (data.status !== 1 || !data.product) return null

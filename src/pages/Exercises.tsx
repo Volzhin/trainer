@@ -45,10 +45,15 @@ export function Exercises() {
         <div>
           <h1>Упражнения</h1>
           <div className="sub">
-            {list.length} {plural(list.length, ['упражнение', 'упражнения', 'упражнений'])} в каталоге
+            {list.length} {plural(list.length, ['упражнение', 'упражнения', 'упражнений'])} в
+            каталоге
           </div>
         </div>
-        <button className="icon-btn" onClick={() => setCreateOpen(true)} aria-label="Создать упражнение">
+        <button
+          className="icon-btn"
+          onClick={() => setCreateOpen(true)}
+          aria-label="Создать упражнение"
+        >
           <IconPlus size={18} />
         </button>
       </div>
@@ -94,9 +99,7 @@ export function Exercises() {
 
       <div className="group stagger" style={{ marginTop: 14 }}>
         {list.length === 0 && (
-          <div className="empty">
-            Ничего не нашлось. Можно создать своё упражнение.
-          </div>
+          <div className="empty">Ничего не нашлось. Можно создать своё упражнение.</div>
         )}
         {visible.map((ex, i) => (
           <button

@@ -166,9 +166,7 @@ function statusFromText(text: string): NormStatus | undefined {
  * в каждом по три пары строк — руки, туловище, ноги.
  */
 function extractSegments(lines: Item[][]): { muscle: Segments; fat: Segments } {
-  const header = lines.find((toks) =>
-    toks.some((t) => /^Содержание$/i.test(t.text)),
-  )
+  const header = lines.find((toks) => toks.some((t) => /^Содержание$/i.test(t.text)))
   const empty = { muscle: {}, fat: {} }
   if (!header) return empty
 
@@ -312,7 +310,9 @@ export async function parseInBodyPdf(file: File): Promise<InBodyReport> {
   const nameLabel = items.find((i) => /^Имя$/i.test(i.text))
   if (nameLabel) {
     report.person = items
-      .filter((i) => Math.abs(i.y - nameLabel.y) < 8 && i.x > nameLabel.x && i.x - nameLabel.x < 90)
+      .filter(
+        (i) => Math.abs(i.y - nameLabel.y) < 8 && i.x > nameLabel.x && i.x - nameLabel.x < 90,
+      )
       .sort((a, b) => a.x - b.x)[0]?.text
   }
 

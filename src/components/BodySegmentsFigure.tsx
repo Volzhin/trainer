@@ -53,7 +53,13 @@ export function BodySegmentsFigure({
     if (kind !== 'fat') return null
     let key: SegmentKey | null = null
     let peak = 0
-    for (const k of ['left_arm', 'right_arm', 'trunk', 'left_leg', 'right_leg'] as SegmentKey[]) {
+    for (const k of [
+      'left_arm',
+      'right_arm',
+      'trunk',
+      'left_leg',
+      'right_leg',
+    ] as SegmentKey[]) {
       const pct = segments[k]?.pct
       if (pct == null) continue
       if (pct - 100 > peak) {

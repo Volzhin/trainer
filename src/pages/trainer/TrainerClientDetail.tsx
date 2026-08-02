@@ -14,8 +14,8 @@ import {
   personalProgramsFor,
   removeLink,
 } from '../../db/coach'
-import { unreadCount } from '../../db/chat'
 import { BarChart, LineChart } from '../../components/LineChart'
+import { ContactLinks } from '../../components/ContactLinks'
 import { BodyCompositionCard } from '../../components/BodyCompositionCard'
 import { BodyCompositionView } from '../../components/BodyCompositionView'
 import { Sheet } from '../../components/Sheet'
@@ -31,7 +31,9 @@ export function TrainerClientDetail() {
   const { id = '' } = useParams()
   const nav = useNavigate()
   const { toast, userId } = useApp()
-  const [tab, setTab] = useState<'overview' | 'progress' | 'body' | 'history' | 'nutrition' | 'notes'>('overview')
+  const [tab, setTab] = useState<
+    'overview' | 'progress' | 'body' | 'history' | 'nutrition' | 'notes'
+  >('overview')
   // Из списка клиентов можно попасть сразу к назначению программы.
   const [params, setParams] = useSearchParams()
   const [assignOpen, setAssignOpen] = useState(params.get('assign') === '1')
@@ -39,7 +41,12 @@ export function TrainerClientDetail() {
   const [reviewing, setReviewing] = useState<WorkoutSession | null>(null)
 
   const version = useLiveQuery(
-    async () => [await db.sessions.count(), await db.assignments.count(), await db.trainerNotes.count(), await db.feedback.count()],
+    async () => [
+      await db.sessions.count(),
+      await db.assignments.count(),
+      await db.trainerNotes.count(),
+      await db.feedback.count(),
+    ],
     [id],
   )
   const detail = useLiveQuery(() => loadClientDetail(id), [id, version?.join('-')])
@@ -60,15 +67,17 @@ export function TrainerClientDetail() {
     async () => (assignment ? await db.programs.get(assignment.program_id) : undefined),
     [assignment?.program_id],
   )
-  const notes = useLiveQuery(() => listTrainerNotes(id, userId), [id, userId, version?.join('-')], [])
+  const notes = useLiveQuery(
+    () => listTrainerNotes(id, userId),
+    [id, userId, version?.join('-')],
+    [],
+  )
   const personal = useLiveQuery(
     () => personalProgramsFor(id, userId),
     [id, userId, version?.join('-')],
     [] as Program[],
   )
   const allSets = useLiveQuery(() => db.sets.toArray(), [], [])
-  const chatVersion = useLiveQuery(() => db.chat.count(), [])
-  const unread = useLiveQuery(() => unreadCount(userId, id), [userId, id, chatVersion], 0)
 
   if (!detail) return <div className="screen">Загрузка…</div>
 
@@ -95,10 +104,6 @@ export function TrainerClientDetail() {
             {client.height_cm ? ` · ${client.height_cm} см` : ''}
           </div>
         </div>
-        <button className="btn sm primary" onClick={() => nav(`/trainer/clients/${id}/chat`)}>
-          Чат
-          {unread > 0 && <span className="badge" style={{ marginLeft: 6 }}>{unread}</span>}
-        </button>
       </div>
 
       <div className="chips">
@@ -135,6 +140,15 @@ export function TrainerClientDetail() {
               </div>
               <div className="label">последняя</div>
             </div>
+          </div>
+
+          <div className="section-title">Связь с клиентом</div>
+          <div className="card">
+            <ContactLinks
+              profile={client}
+              title="Написать"
+              emptyHint="Клиент не указал, где с ним связаться. Попросите заполнить это в профиле."
+            />
           </div>
 
           <div className="section-title">Тело</div>
@@ -398,7 +412,11 @@ function SessionFeedback({ sessionId }: { sessionId: string }) {
           }}
         >
           {f.text}
-          {f.is_read === 0 && <span className="badge" style={{ marginLeft: 8 }}>не прочитано</span>}
+          {f.is_read === 0 && (
+            <span className="badge" style={{ marginLeft: 8 }}>
+              не прочитано
+            </span>
+          )}
         </div>
       ))}
     </div>
@@ -432,7 +450,8 @@ function AssignSheet({
   const [slots, setSlots] = useState<Record<number, string>>({})
 
   const programs = useLiveQuery(
-    () => db.programs.filter((p) => p.author_id === userId || p.author_id === 'system').toArray(),
+    () =>
+      db.programs.filter((p) => p.author_id === userId || p.author_id === 'system').toArray(),
     [userId],
     [] as Program[],
   )
@@ -440,7 +459,10 @@ function AssignSheet({
 
   const chosen = programId || programs?.[0]?.id || ''
   const days = useMemo(
-    () => (allRoutines ?? []).filter((r) => r.program_id === chosen).sort((a, b) => a.day_order - b.day_order),
+    () =>
+      (allRoutines ?? [])
+        .filter((r) => r.program_id === chosen)
+        .sort((a, b) => a.day_order - b.day_order),
     [allRoutines, chosen],
   )
 
@@ -632,8 +654,8 @@ function AssignSheet({
       ) : (
         <div className="stack">
           <div className="muted">
-            Создадим пустую программу под этого клиента. Наполните её днями и упражнениями, потом
-            назначьте на дни недели.
+            Создадим пустую программу под этого клиента. Наполните её днями и упражнениями,
+            потом назначьте на дни недели.
           </div>
           <div className="field">
             <label>Название</label>

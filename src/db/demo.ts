@@ -203,7 +203,8 @@ async function buildHistory(userId: string, opts: HistoryOptions): Promise<Histo
     const ts = thisMonday - (opts.weeks - week) * 7 * 86400_000 + 8 * 3600_000
     if (ts > Date.now()) continue
 
-    const weight = Math.round((opts.startWeightKg - week * 0.42 + (rand() - 0.5) * 0.6) * 10) / 10
+    const weight =
+      Math.round((opts.startWeightKg - week * 0.42 + (rand() - 0.5) * 0.6) * 10) / 10
     const fatPct = Math.round((21.5 - week * 0.38 + (rand() - 0.5) * 0.4) * 10) / 10
 
     // Демо-замер должен быть полным: с одним весом экран анализа тела

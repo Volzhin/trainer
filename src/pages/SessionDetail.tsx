@@ -89,15 +89,17 @@ export function SessionDetail() {
       {(comments ?? []).filter((c) => !c.exercise_id).length > 0 && (
         <>
           <div className="section-title">Комментарий тренера</div>
-          {(comments ?? []).filter((c) => !c.exercise_id).map((c) => (
-            <div className="card" key={c.id} style={{ borderColor: 'var(--accent-dim)' }}>
-              <div className="row" style={{ marginBottom: 6 }}>
-                <IconChat size={16} />
-                <span className="mute-sm">{formatDateTime(c.created_at)}</span>
+          {(comments ?? [])
+            .filter((c) => !c.exercise_id)
+            .map((c) => (
+              <div className="card" key={c.id} style={{ borderColor: 'var(--accent-dim)' }}>
+                <div className="row" style={{ marginBottom: 6 }}>
+                  <IconChat size={16} />
+                  <span className="mute-sm">{formatDateTime(c.created_at)}</span>
+                </div>
+                {c.text}
               </div>
-              {c.text}
-            </div>
-          ))}
+            ))}
         </>
       )}
 
@@ -122,7 +124,8 @@ export function SessionDetail() {
                     {ex?.name ?? 'Упражнение'}
                   </span>
                   <span className="mute-sm">
-                    {rows.length} {plural(rows.length, ['подход', 'подхода', 'подходов'])} · как делать
+                    {rows.length} {plural(rows.length, ['подход', 'подхода', 'подходов'])} · как
+                    делать
                   </span>
                 </span>
               </button>
@@ -130,7 +133,11 @@ export function SessionDetail() {
             {rows
               .sort((a, b) => a.set_number - b.set_number)
               .map((s) => (
-                <div className="set-grid" key={s.id} style={{ gridTemplateColumns: '34px 1fr 1fr 60px' }}>
+                <div
+                  className="set-grid"
+                  key={s.id}
+                  style={{ gridTemplateColumns: '34px 1fr 1fr 60px' }}
+                >
                   <div className="num">{s.set_number}</div>
                   <div style={{ textAlign: 'center' }}>{formatWeight(s.weight_kg)} кг</div>
                   <div style={{ textAlign: 'center' }}>{s.reps_completed ?? '—'} повт.</div>

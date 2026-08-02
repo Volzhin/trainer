@@ -160,6 +160,10 @@ export interface UserProfile {
   /** Только для тренера: специализация и описание в карточке. */
   specialization?: string
   bio?: string
+  /** Куда писать: ссылки ведут прямо в чат в выбранном мессенджере. */
+  contacts?: Contact[]
+  /** Предпочтительный способ связи — показывается первым и крупно. */
+  preferred_contact?: ContactKind
   plan: 'FREE' | 'PRO'
   default_rest_seconds: number
   haptics_enabled: 0 | 1
@@ -177,10 +181,25 @@ export interface AppState {
   theme?: ThemePref
   /** Акцентный цвет интерфейса. */
   accent?: AccentPref
+  /**
+   * Метки обмена по каждому аккаунту. Именно по аккаунту, а не по
+   * устройству: на общем телефоне вторая учётная запись со старыми
+   * данными иначе никогда бы их не выгрузила — её строки оказались бы
+   * «старее» чужого курсора.
+   */
+  cursors?: Record<string, { pulled?: number; pushed?: number }>
 }
 
 export type ThemePref = 'auto' | 'light' | 'dark'
 export type AccentPref = 'lime' | 'indigo'
+
+export type ContactKind = 'telegram' | 'whatsapp' | 'max' | 'phone' | 'email'
+
+/** Контакт для связи. Хранится как ввёл человек, нормализуется при показе. */
+export interface Contact {
+  kind: ContactKind
+  value: string
+}
 
 export type LinkStatus = 'PENDING' | 'ACTIVE' | 'PAUSED'
 
@@ -398,9 +417,14 @@ export interface Attachment {
   session_id: string
   exercise_id: string
   kind: 'video' | 'photo'
-  blob: Blob
+  /** Оригинал на устройстве. У приехавшего с сервера файла его нет. */
+  blob?: Blob
   mime: string
   size: number
+  /** Идентификатор записи на сервере — по нему собирается адрес файла. */
+  remote_id?: string
+  /** Имя файла на сервере. */
+  remote_file?: string
   created_at: number
   updated_at: number
 }
@@ -506,7 +530,6 @@ class TrainerDB extends Dexie {
       foodLogs: 'id, user_id, date, [user_id+date], logged_at',
       foods: 'id, barcode, name, used_at',
     })
-
   }
 }
 

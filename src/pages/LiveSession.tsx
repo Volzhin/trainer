@@ -63,7 +63,10 @@ export function LiveSession() {
     const map = new Map<string, ExerciseSet[]>()
     for (const exId of ids) {
       const rows = await lastSetsForExercise(exId)
-      map.set(exId, rows.filter((r) => r.workout_session_id !== id))
+      map.set(
+        exId,
+        rows.filter((r) => r.workout_session_id !== id),
+      )
     }
     return map
   }, [sets?.length, id])
@@ -138,7 +141,10 @@ export function LiveSession() {
 
     const restSeconds = await restForExercise(block.exercise.id, session.routine_id)
     const next = block.sets.find((s) => s.id !== set.id && !s.is_done)
-    startRest(restSeconds ?? profile?.default_rest_seconds ?? 90, next ? block.exercise.name : undefined)
+    startRest(
+      restSeconds ?? profile?.default_rest_seconds ?? 90,
+      next ? block.exercise.name : undefined,
+    )
   }
 
   const onFinish = async () => {
@@ -198,7 +204,12 @@ export function LiveSession() {
                 onClick={() => setTechniqueFor(block.exercise.id)}
               >
                 {block.exercise.image_url ? (
-                  <img src={block.exercise.image_url} alt="" className="ex-thumb" loading="lazy" />
+                  <img
+                    src={block.exercise.image_url}
+                    alt=""
+                    className="ex-thumb"
+                    loading="lazy"
+                  />
                 ) : (
                   <span className="ex-thumb placeholder" />
                 )}
@@ -262,7 +273,11 @@ export function LiveSession() {
           </div>
         ))}
 
-        <button className="btn block" style={{ marginTop: 12 }} onClick={() => setPickerOpen(true)}>
+        <button
+          className="btn block"
+          style={{ marginTop: 12 }}
+          onClick={() => setPickerOpen(true)}
+        >
           <IconPlus size={17} /> Добавить упражнение
         </button>
       </div>
@@ -286,7 +301,11 @@ export function LiveSession() {
         }}
       />
 
-      <Sheet open={finishOpen} title="Завершить тренировку" onClose={() => setFinishOpen(false)}>
+      <Sheet
+        open={finishOpen}
+        title="Завершить тренировку"
+        onClose={() => setFinishOpen(false)}
+      >
         <div className="stat-grid" style={{ marginBottom: 14 }}>
           <div className="stat">
             <div className="value">{formatDuration(elapsed)}</div>
@@ -402,7 +421,9 @@ function SetRow({
         {(set.is_pr === 1 || oneRm > 0) && (
           <div className="prev-hint">
             {set.is_pr === 1 && <span className="badge pr">Личный рекорд</span>}
-            {oneRm > 0 && <span style={{ marginLeft: set.is_pr ? 8 : 0 }}>1ПМ ≈ {oneRm} кг</span>}
+            {oneRm > 0 && (
+              <span style={{ marginLeft: set.is_pr ? 8 : 0 }}>1ПМ ≈ {oneRm} кг</span>
+            )}
           </div>
         )}
       </div>

@@ -15,7 +15,14 @@ type Part = { key: string; value: number; color: string }
 const round1 = (v: number) => Math.round(v * 10) / 10
 
 const Chevron = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
     <path d="m9 5 7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 )
@@ -37,13 +44,19 @@ export function BodyCompositionCard({
     const scans = all
       .filter((m) => m.weight_kg != null || m.body_fat_pct != null)
       .sort((a, b) => b.logged_at - a.logged_at)
-    const weighed = all.filter((m) => m.weight_kg != null).sort((a, b) => b.logged_at - a.logged_at)
+    const weighed = all
+      .filter((m) => m.weight_kg != null)
+      .sort((a, b) => b.logged_at - a.logged_at)
     return { latest: scans[0], previous: scans[1], lastWeight: weighed[0] }
   }, [metrics])
 
   if (!latest) {
     return (
-      <button className="card tap" style={{ width: '100%', textAlign: 'left' }} onClick={onOpen}>
+      <button
+        className="card tap"
+        style={{ width: '100%', textAlign: 'left' }}
+        onClick={onOpen}
+      >
         <div className="row between">
           <div className="grow">
             <div style={{ fontWeight: 600 }}>Анализ тела</div>
@@ -118,7 +131,13 @@ export function BodyCompositionCard({
       )}
 
       <div className="metrics" style={{ marginTop: 12 }}>
-        <Stat label="Вес" unit="кг" now={latest.weight_kg} was={previous?.weight_kg} better="down" />
+        <Stat
+          label="Вес"
+          unit="кг"
+          now={latest.weight_kg}
+          was={previous?.weight_kg}
+          better="down"
+        />
         <Stat
           label="Жир"
           unit="%"
@@ -162,7 +181,10 @@ function Stat({
     <div className="metric">
       <div className="num" style={{ fontSize: 20, color }}>
         {now ?? '—'}
-        <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-mute)' }}> {unit}</span>
+        <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-mute)' }}>
+          {' '}
+          {unit}
+        </span>
       </div>
       <div className="cap">
         {label}

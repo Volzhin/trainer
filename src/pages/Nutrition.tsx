@@ -2,12 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type FoodLog, type MealSlot } from '../db/db'
-import {
-  deleteFoodLog,
-  loadPlan,
-  logsForDate,
-  sumNutrients,
-} from '../db/nutrition'
+import { deleteFoodLog, loadPlan, logsForDate, sumNutrients } from '../db/nutrition'
 import { localDate } from '../lib/tdee'
 import { FoodPicker } from '../components/FoodPicker'
 import { MacroRings } from '../components/MacroRings'
@@ -67,7 +62,11 @@ export function Nutrition() {
                 : 'Расход оценён по формуле'}
           </div>
         </div>
-        <button className="icon-btn" onClick={() => nav('/nutrition/settings')} aria-label="Настройки питания">
+        <button
+          className="icon-btn"
+          onClick={() => nav('/nutrition/settings')}
+          aria-label="Настройки питания"
+        >
           <IconChevronRight size={18} />
         </button>
       </div>
@@ -105,9 +104,7 @@ export function Nutrition() {
           macros={plan?.macros ?? { protein: 0, fat: 0, carbs: 0 }}
         />
         <div className="row between" style={{ marginTop: 16 }}>
-          <span className="mute-sm">
-            {eaten.kcal > target ? 'Превышение' : 'Осталось'}
-          </span>
+          <span className="mute-sm">{eaten.kcal > target ? 'Превышение' : 'Осталось'}</span>
           <span style={{ fontFamily: 'var(--font-num)', fontWeight: 700 }}>
             {eaten.kcal > target ? eaten.kcal - target : left} ккал
           </span>
@@ -115,10 +112,7 @@ export function Nutrition() {
       </div>
 
       {plan?.fromCoach && plan.profile.coach_note && (
-        <div
-          className="card"
-          style={{ marginTop: 10, borderColor: 'var(--accent)' }}
-        >
+        <div className="card" style={{ marginTop: 10, borderColor: 'var(--accent)' }}>
           <div className="mute-sm">Комментарий тренера</div>
           <div style={{ marginTop: 4 }}>{plan.profile.coach_note}</div>
         </div>
@@ -173,6 +167,20 @@ export function Nutrition() {
           </div>
         )
       })}
+
+      <div className="group" style={{ marginTop: 18 }}>
+        <button className="group-row" onClick={() => nav('/nutrition/foods')}>
+          <span className="grow">
+            <span className="title">Мои продукты</span>
+            <span className="sub" style={{ display: 'block' }}>
+              Домашние блюда и то, чего нет в базе
+            </span>
+          </span>
+          <span className="chevron">
+            <IconChevronRight size={16} />
+          </span>
+        </button>
+      </div>
 
       <FoodPicker
         slot={pickerSlot}

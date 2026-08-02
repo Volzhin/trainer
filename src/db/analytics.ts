@@ -99,7 +99,10 @@ export async function loadProgress(
 
   const sessionById = new Map(sessions.map((s) => [s.id, s]))
   const allSets = sessions.length
-    ? await db.sets.where('workout_session_id').anyOf(sessions.map((s) => s.id)).toArray()
+    ? await db.sets
+        .where('workout_session_id')
+        .anyOf(sessions.map((s) => s.id))
+        .toArray()
     : []
   const doneSets = allSets.filter((s) => s.is_done === 1)
 
@@ -117,7 +120,10 @@ export async function loadProgress(
     : []
   const routineById = new Map(routines.map((r) => [r.id, r]))
   const templateItems = routines.length
-    ? await db.templateItems.where('routine_id').anyOf(routines.map((r) => r.id)).toArray()
+    ? await db.templateItems
+        .where('routine_id')
+        .anyOf(routines.map((r) => r.id))
+        .toArray()
     : []
 
   // Упражнение → дни программы, в которых оно стоит.

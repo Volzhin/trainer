@@ -34,9 +34,7 @@ const DEFAULT_PROFILE: Omit<NutritionProfile, 'id' | 'updated_at'> = {
  * умолчанию. Создавать её здесь нельзя: функция вызывается из живых
  * запросов, а запись внутри читающего запроса роняет подписку.
  */
-export async function getNutritionProfile(
-  userId = currentUserId(),
-): Promise<NutritionProfile> {
+export async function getNutritionProfile(userId = currentUserId()): Promise<NutritionProfile> {
   const existing = await db.nutritionProfile.get(userId)
   return existing ?? { id: userId, ...DEFAULT_PROFILE, updated_at: 0 }
 }
@@ -176,12 +174,18 @@ export async function searchCachedFoods(
   const term = query.trim().toLowerCase()
   if (!term) return recentFoods(20, userId)
   const rows = await db.foods.toArray()
-  return rows
-    .filter(visibleTo(userId))
-    .filter((f) => `${f.name} ${f.brand ?? ''}`.toLowerCase().includes(term))
-    // Свои продукты вперёд: их создавали как раз потому, что базы не хватило.
-    .sort((a, b) => Number(b.source === 'manual') - Number(a.source === 'manual') || b.used_at - a.used_at)
-    .slice(0, 25)
+  return (
+    rows
+      .filter(visibleTo(userId))
+      .filter((f) => `${f.name} ${f.brand ?? ''}`.toLowerCase().includes(term))
+      // Свои продукты вперёд: их создавали как раз потому, что базы не хватило.
+      .sort(
+        (a, b) =>
+          Number(b.source === 'manual') - Number(a.source === 'manual') ||
+          b.used_at - a.used_at,
+      )
+      .slice(0, 25)
+  )
 }
 
 /* -------------------------- свои продукты ----------------------------- */
@@ -228,7 +232,8 @@ export async function saveCustomFood(
 
 export async function updateCustomFood(id: string, patch: Partial<CustomFoodInput>) {
   const food = await db.foods.get(id)
-  if (!food || food.source !== 'manual') throw new Error('Редактировать можно только свои продукты')
+  if (!food || food.source !== 'manual')
+    throw new Error('Редактировать можно только свои продукты')
   await db.foods.put({ ...food, ...patch, id, updated_at: now() })
 }
 
@@ -248,7 +253,10 @@ export async function myFoods(userId = currentUserId()): Promise<FoodItem[]> {
 }
 
 /** Сколько раз продукт попадал в дневник — показываем в списке своих. */
-export async function foodUsageCount(foodId: string, userId = currentUserId()): Promise<number> {
+export async function foodUsageCount(
+  foodId: string,
+  userId = currentUserId(),
+): Promise<number> {
   return db.foodLogs
     .where('user_id')
     .equals(userId)
@@ -327,9 +335,13 @@ export async function loadPlan(userId = currentUserId()): Promise<NutritionPlan>
 
   // Норма тренера главнее расчёта: спорить с ним внутри приложения нельзя.
   const fromCoach = profile.coach_kcal != null
-  const target = fromCoach ? profile.coach_kcal! : targetKcal(tdee, profile.weekly_change_kg ?? 0)
+  const target = fromCoach
+    ? profile.coach_kcal!
+    : targetKcal(tdee, profile.weekly_change_kg ?? 0)
   const macros =
-    fromCoach && profile.coach_macros ? profile.coach_macros : macroTargets(target, profile.macro_split)
+    fromCoach && profile.coach_macros
+      ? profile.coach_macros
+      : macroTargets(target, profile.macro_split)
 
   return {
     profile,
@@ -403,12 +415,23 @@ export async function nutritionSummary(
 /** Тренер назначает норму КБЖУ. Пустое значение снимает назначение. */
 export async function setCoachTargets(
   clientId: string,
-  targets: { kcal?: number; protein?: number; fat?: number; carbs?: number; note?: string } | null,
+  targets: {
+    kcal?: number
+    protein?: number
+    fat?: number
+    carbs?: number
+    note?: string
+  } | null,
   coachId: string,
 ) {
   if (!targets?.kcal) {
     await updateNutritionProfile(
-      { coach_kcal: undefined, coach_macros: undefined, coach_id: undefined, coach_note: undefined },
+      {
+        coach_kcal: undefined,
+        coach_macros: undefined,
+        coach_id: undefined,
+        coach_note: undefined,
+      },
       clientId,
     )
     return

@@ -25,7 +25,8 @@ export function ProgramDetail() {
   const items = useLiveQuery(() => db.templateItems.toArray(), [], [] as WorkoutTemplateItem[])
   const exercises = useLiveQuery(() => db.exercises.toArray(), [], [] as Exercise[])
   const clientName = useLiveQuery(
-    async () => (program?.client_id ? (await db.profile.get(program.client_id))?.name : undefined),
+    async () =>
+      program?.client_id ? (await db.profile.get(program.client_id))?.name : undefined,
     [program?.client_id],
   )
 

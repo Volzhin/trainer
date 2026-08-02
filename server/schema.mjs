@@ -1,0 +1,212 @@
+/**
+ * Схема PocketBase как код.
+ *
+ * Скрипт идемпотентен: сравнивает то, что уже есть на сервере, с описанием
+ * ниже и досылает разницу. Его гоняет деплой при каждом пуше, поэтому схема
+ * живёт в репозитории, а не в кликах по админке — иначе она расходится с
+ * приложением и её невозможно восстановить.
+ *
+ * Запуск: PB_URL=... PB_ADMIN_EMAIL=... PB_ADMIN_PASSWORD=... node server/schema.mjs
+ */
+
+const PB_URL = (process.env.PB_URL ?? 'http://127.0.0.1:8090').replace(/\/$/, '')
+const EMAIL = process.env.PB_ADMIN_EMAIL
+const PASSWORD = process.env.PB_ADMIN_PASSWORD
+
+if (!EMAIL || !PASSWORD) {
+  console.error('Нужны PB_ADMIN_EMAIL и PB_ADMIN_PASSWORD')
+  process.exit(1)
+}
+
+/** Видео техники — самый тяжёлый файл, который загружает клиент. */
+const MAX_UPLOAD = 64 * 1024 * 1024
+
+/**
+ * Доступ к данным клиента. Тренер видит и правит записи своих клиентов:
+ * без этого он не сможет ни назначить программу, ни оставить обратную связь.
+ * Связь односторонняя — поле trainer у клиента, поэтому одного условия хватает.
+ */
+const OWNER_OR_TRAINER = 'owner = @request.auth.id || owner.trainer = @request.auth.id'
+
+async function main() {
+  const token = await login()
+  const existing = await listCollections(token)
+  const byName = new Map(existing.map((c) => [c.name, c]))
+
+  const users = byName.get('users')
+  if (!users) throw new Error('Коллекции users нет — база не инициализирована')
+
+  await patchUsers(token, users)
+
+  // Ссылки в relation-полях идут по id коллекции, поэтому users берём заново.
+  const usersId = users.id
+
+  await ensure(token, byName, {
+    name: 'records',
+    type: 'base',
+    // Общее хранилище синхронизации. Приложение офлайн-первое: истина лежит
+    // в Dexie на устройстве, сюда уезжают те же строки как есть, а разбор
+    // конфликтов делает сравнение updated — кто новее, тот и прав.
+    fields: [
+      rel('owner', usersId, { required: true, cascadeDelete: true }),
+      text('tbl', { required: true }),
+      text('rid', { required: true }),
+      num('updated', { required: true }),
+      bool('deleted'),
+      json('payload', 5 * 1024 * 1024),
+    ],
+    indexes: [
+      'CREATE UNIQUE INDEX `idx_records_owner_tbl_rid` ON `records` (`owner`, `tbl`, `rid`)',
+      'CREATE INDEX `idx_records_owner_updated` ON `records` (`owner`, `updated`)',
+    ],
+    listRule: OWNER_OR_TRAINER,
+    viewRule: OWNER_OR_TRAINER,
+    createRule: OWNER_OR_TRAINER,
+    updateRule: OWNER_OR_TRAINER,
+    deleteRule: OWNER_OR_TRAINER,
+  })
+
+  await ensure(token, byName, {
+    name: 'attachments',
+    type: 'base',
+    // Видео техники и PDF отчётов. В records они не помещаются: там json,
+    // а файл должен отдаваться потоком и кэшироваться браузером.
+    fields: [
+      rel('owner', usersId, { required: true, cascadeDelete: true }),
+      text('rid', { required: true }),
+      text('kind'),
+      text('note'),
+      { name: 'file', type: 'file', required: true, maxSelect: 1, maxSize: MAX_UPLOAD },
+    ],
+    indexes: ['CREATE INDEX `idx_attachments_owner` ON `attachments` (`owner`, `rid`)'],
+    listRule: OWNER_OR_TRAINER,
+    viewRule: OWNER_OR_TRAINER,
+    createRule: OWNER_OR_TRAINER,
+    updateRule: OWNER_OR_TRAINER,
+    deleteRule: OWNER_OR_TRAINER,
+  })
+
+  await ensure(token, byName, {
+    name: 'invites',
+    type: 'base',
+    // Код приглашения — то, как клиент попадает к тренеру. Читать код может
+    // любой залогиненный: иначе его нельзя погасить, не зная владельца.
+    fields: [
+      text('code', { required: true }),
+      rel('trainer', usersId, { required: true, cascadeDelete: true }),
+      rel('client', usersId, {}),
+      sel('status', ['PENDING', 'ACCEPTED', 'REVOKED']),
+      num('expires'),
+    ],
+    indexes: ['CREATE UNIQUE INDEX `idx_invites_code` ON `invites` (`code`)'],
+    // Читать и править приглашения может только их автор. Клиент код не
+    // ищет — он отдаёт его серверу, который сам находит нужную запись.
+    // Иначе список кодов был бы доступен любому вошедшему целиком.
+    listRule: 'trainer = @request.auth.id',
+    viewRule: 'trainer = @request.auth.id',
+    createRule: 'trainer = @request.auth.id',
+    updateRule: 'trainer = @request.auth.id',
+    deleteRule: 'trainer = @request.auth.id',
+  })
+
+  console.log('Схема применена')
+}
+
+/** Профиль лежит прямо в auth-коллекции: так правила доступа умеют ходить
+ *  по связи owner.trainer, а отдельная таблица профилей этого не позволяет. */
+async function patchUsers(token, users) {
+  const add = [
+    sel('role', ['client', 'trainer']),
+    rel('trainer', users.id, {}),
+    num('height_cm'),
+    num('goal_weight_kg'),
+    text('experience'),
+    text('specialization'),
+    text('bio', { max: 2000 }),
+    json('contacts', 64 * 1024),
+    text('preferred_contact'),
+    num('synced_at'),
+  ]
+
+  const have = new Set(users.fields.map((f) => f.name))
+  const fields = [...users.fields, ...add.filter((f) => !have.has(f.name))]
+
+  const body = {
+    fields,
+    // Регистрация открыта: приложение публичное, роль выбирается при входе.
+    createRule: '',
+    listRule:
+      'id = @request.auth.id || trainer = @request.auth.id || id = @request.auth.trainer',
+    viewRule:
+      'id = @request.auth.id || trainer = @request.auth.id || id = @request.auth.trainer',
+    updateRule: 'id = @request.auth.id',
+    deleteRule: 'id = @request.auth.id',
+    passwordAuth: { enabled: true, identityFields: ['email'] },
+  }
+
+  await api(token, `/api/collections/${users.id}`, 'PATCH', body)
+  console.log('users: поля профиля и правила доступа обновлены')
+}
+
+async function ensure(token, byName, def) {
+  const current = byName.get(def.name)
+  if (!current) {
+    await api(token, '/api/collections', 'POST', def)
+    console.log(`${def.name}: создана`)
+    return
+  }
+  // Системные поля (id, created, updated) сервер добавляет сам — их нужно
+  // сохранить, иначе PATCH их снесёт.
+  const have = new Map(current.fields.map((f) => [f.name, f]))
+  const merged = [...current.fields]
+  for (const f of def.fields) if (!have.has(f.name)) merged.push(f)
+  await api(token, `/api/collections/${current.id}`, 'PATCH', { ...def, fields: merged })
+  console.log(`${def.name}: обновлена`)
+}
+
+const text = (name, o = {}) => ({ name, type: 'text', required: false, ...o })
+const num = (name, o = {}) => ({ name, type: 'number', required: false, ...o })
+const bool = (name) => ({ name, type: 'bool', required: false })
+const json = (name, maxSize) => ({ name, type: 'json', required: false, maxSize })
+const sel = (name, values) => ({ name, type: 'select', required: false, maxSelect: 1, values })
+const rel = (name, collectionId, o = {}) => ({
+  name,
+  type: 'relation',
+  required: false,
+  collectionId,
+  maxSelect: 1,
+  cascadeDelete: false,
+  ...o,
+})
+
+async function login() {
+  const res = await fetch(`${PB_URL}/api/collections/_superusers/auth-with-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identity: EMAIL, password: PASSWORD }),
+  })
+  if (!res.ok)
+    throw new Error(`Вход администратора не удался: ${res.status} ${await res.text()}`)
+  return (await res.json()).token
+}
+
+async function listCollections(token) {
+  const res = await api(token, '/api/collections?perPage=200')
+  return res.items
+}
+
+async function api(token, path, method = 'GET', body) {
+  const res = await fetch(`${PB_URL}${path}`, {
+    method,
+    headers: { Authorization: token, 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  })
+  const text = await res.text()
+  if (!res.ok) throw new Error(`${method} ${path} -> ${res.status} ${text}`)
+  return text ? JSON.parse(text) : null
+}
+
+main().catch((e) => {
+  console.error(e.message)
+  process.exit(1)
+})
