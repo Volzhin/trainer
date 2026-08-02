@@ -98,6 +98,16 @@ export function NutritionSettings() {
         </>
       )}
 
+      {plan.fromCoach && (
+        <div className="card" style={{ marginTop: 12, borderColor: 'var(--accent)' }}>
+          <div style={{ fontWeight: 600 }}>Норму назначил тренер</div>
+          <div className="muted" style={{ marginTop: 4 }}>
+            Цель и макросы заданы им, поэтому расчёт приложения на них не влияет.
+            Свои настройки заработают, когда тренер снимет норму.
+          </div>
+        </div>
+      )}
+
       <div className="section-title">Цель</div>
       <div className="segmented">
         {GOALS.map((g) => (

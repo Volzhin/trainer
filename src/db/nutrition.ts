@@ -213,6 +213,8 @@ export type NutritionPlan = {
   macros: { protein: number; fat: number; carbs: number }
   /** Оценка по формуле — показываем, пока не набралось данных. */
   formula: number
+  /** Норму поставил тренер, а не алгоритм. */
+  fromCoach: boolean
 }
 
 /**
@@ -238,15 +240,108 @@ export async function loadPlan(userId = currentUserId()): Promise<NutritionPlan>
 
   const expenditure = estimateExpenditure(days, formula)
   const tdee = expenditure.tdee + (profile.manual_offset ?? 0)
-  const target = targetKcal(tdee, profile.weekly_change_kg ?? 0)
+
+  // Норма тренера главнее расчёта: спорить с ним внутри приложения нельзя.
+  const fromCoach = profile.coach_kcal != null
+  const target = fromCoach ? profile.coach_kcal! : targetKcal(tdee, profile.weekly_change_kg ?? 0)
+  const macros =
+    fromCoach && profile.coach_macros ? profile.coach_macros : macroTargets(target, profile.macro_split)
 
   return {
     profile,
     expenditure: { ...expenditure, tdee },
     target,
-    macros: macroTargets(target, profile.macro_split),
+    macros,
     formula,
+    fromCoach,
   }
+}
+
+/** Сводка питания за период — то, что тренер смотрит у клиента. */
+export type NutritionSummary = {
+  daysLogged: number
+  daysTotal: number
+  avgKcal: number
+  avgProtein: number
+  avgFat: number
+  avgCarbs: number
+  /** Отклонение среднего от цели, ккал. */
+  deviation: number
+  points: { x: number; y: number }[]
+  target: number
+  plan: NutritionPlan
+}
+
+export async function nutritionSummary(
+  userId: string,
+  daysBack = 14,
+): Promise<NutritionSummary> {
+  const plan = await loadPlan(userId)
+  const logs = await db.foodLogs.where('user_id').equals(userId).toArray()
+
+  const from = Date.now() - daysBack * 86400_000
+  const byDate = new Map<string, { kcal: number; p: number; f: number; c: number }>()
+
+  for (const l of logs) {
+    if (l.logged_at < from) continue
+    const acc = byDate.get(l.date) ?? { kcal: 0, p: 0, f: 0, c: 0 }
+    acc.kcal += l.nutrients.kcal
+    acc.p += l.nutrients.protein
+    acc.f += l.nutrients.fat
+    acc.c += l.nutrients.carbs
+    byDate.set(l.date, acc)
+  }
+
+  const entries = [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+  const n = entries.length || 1
+  const sum = entries.reduce(
+    (a, [, v]) => ({ kcal: a.kcal + v.kcal, p: a.p + v.p, f: a.f + v.f, c: a.c + v.c }),
+    { kcal: 0, p: 0, f: 0, c: 0 },
+  )
+
+  return {
+    daysLogged: entries.length,
+    daysTotal: daysBack,
+    avgKcal: Math.round(sum.kcal / n),
+    avgProtein: Math.round(sum.p / n),
+    avgFat: Math.round(sum.f / n),
+    avgCarbs: Math.round(sum.c / n),
+    deviation: Math.round(sum.kcal / n - plan.target),
+    points: entries.map(([date, v]) => ({
+      x: new Date(`${date}T12:00:00`).getTime(),
+      y: v.kcal,
+    })),
+    target: plan.target,
+    plan,
+  }
+}
+
+/** Тренер назначает норму КБЖУ. Пустое значение снимает назначение. */
+export async function setCoachTargets(
+  clientId: string,
+  targets: { kcal?: number; protein?: number; fat?: number; carbs?: number; note?: string } | null,
+  coachId: string,
+) {
+  if (!targets?.kcal) {
+    await updateNutritionProfile(
+      { coach_kcal: undefined, coach_macros: undefined, coach_id: undefined, coach_note: undefined },
+      clientId,
+    )
+    return
+  }
+  await updateNutritionProfile(
+    {
+      coach_kcal: targets.kcal,
+      coach_macros: {
+        protein: targets.protein ?? 0,
+        fat: targets.fat ?? 0,
+        carbs: targets.carbs ?? 0,
+      },
+      coach_id: coachId,
+      coach_note: targets.note,
+    },
+    clientId,
+  )
 }
 
 /** Точки для графика тренда расхода — как менялся метаболизм по неделям. */

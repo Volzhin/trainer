@@ -21,6 +21,7 @@ import { BodyCompositionView } from '../../components/BodyCompositionView'
 import { Sheet } from '../../components/Sheet'
 import { Group, Row } from '../../components/Group'
 import { SessionReview } from '../../components/SessionReview'
+import { ClientNutrition } from '../../components/ClientNutrition'
 import { IconBack, IconCheck, IconPlus, IconTrash } from '../../components/Icons'
 import { formatDate, formatDuration, plural, totalVolume } from '../../lib/calc'
 import { useApp } from '../../store/app'
@@ -29,7 +30,7 @@ export function TrainerClientDetail() {
   const { id = '' } = useParams()
   const nav = useNavigate()
   const { toast, userId } = useApp()
-  const [tab, setTab] = useState<'overview' | 'body' | 'history' | 'notes'>('overview')
+  const [tab, setTab] = useState<'overview' | 'body' | 'history' | 'nutrition' | 'notes'>('overview')
   // Из списка клиентов можно попасть сразу к назначению программы.
   const [params, setParams] = useSearchParams()
   const [assignOpen, setAssignOpen] = useState(params.get('assign') === '1')
@@ -104,6 +105,7 @@ export function TrainerClientDetail() {
           [
             ['overview', 'Сводка'],
             ['body', 'Тело'],
+            ['nutrition', 'Питание'],
             ['history', 'Тренировки'],
             ['notes', 'Заметки'],
           ] as const
@@ -308,6 +310,8 @@ export function TrainerClientDetail() {
           })}
         </div>
       )}
+
+      {tab === 'nutrition' && <ClientNutrition clientId={id} />}
 
       {tab === 'notes' && (
         <div style={{ marginTop: 14 }}>

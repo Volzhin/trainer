@@ -286,6 +286,14 @@ export interface NutritionProfile {
   current_tdee?: number
   /** Ручная поправка расхода для тех, кто ведёт счёт сам. */
   manual_offset?: number
+  /**
+   * Цели, назначенные тренером. Заданы — перекрывают расчёт: если тренер
+   * поставил норму, приложение не должно спорить с ним своей математикой.
+   */
+  coach_kcal?: number
+  coach_macros?: { protein: number; fat: number; carbs: number }
+  coach_id?: string
+  coach_note?: string
   /** Скорость изменения веса, кг в неделю: сколько дефицита или профицита держим. */
   weekly_change_kg?: number
   updated_at: number

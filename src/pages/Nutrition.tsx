@@ -60,9 +60,11 @@ export function Nutrition() {
         <div>
           <h1>Питание</h1>
           <div className="sub">
-            {plan?.expenditure.source === 'adaptive'
-              ? `Расход по вашим данным · ${plan.expenditure.tdee} ккал`
-              : 'Расход оценён по формуле'}
+            {plan?.fromCoach
+              ? 'Норму назначил тренер'
+              : plan?.expenditure.source === 'adaptive'
+                ? `Расход по вашим данным · ${plan.expenditure.tdee} ккал`
+                : 'Расход оценён по формуле'}
           </div>
         </div>
         <button className="icon-btn" onClick={() => nav('/nutrition/settings')} aria-label="Настройки питания">
@@ -111,6 +113,16 @@ export function Nutrition() {
           </span>
         </div>
       </div>
+
+      {plan?.fromCoach && plan.profile.coach_note && (
+        <div
+          className="card"
+          style={{ marginTop: 10, borderColor: 'var(--accent)' }}
+        >
+          <div className="mute-sm">Комментарий тренера</div>
+          <div style={{ marginTop: 4 }}>{plan.profile.coach_note}</div>
+        </div>
+      )}
 
       {SLOTS.map(({ key, label }) => {
         const items = (logs ?? []).filter((l) => l.slot === key)
