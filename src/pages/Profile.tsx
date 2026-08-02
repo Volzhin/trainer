@@ -158,7 +158,12 @@ export function Profile() {
           onClick={() => nav('/body')}
           chevron
         />
-        <Row title="Прогресс" sub="Тоннаж, рекорды и объём" onClick={() => nav('/progress')} chevron />
+        <Row
+          title="Прогресс"
+          sub="План программы, рост весов по упражнениям, рекорды"
+          onClick={() => nav('/progress')}
+          chevron
+        />
       </Group>
 
       <Group title="Оформление">

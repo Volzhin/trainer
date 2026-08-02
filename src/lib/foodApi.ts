@@ -114,8 +114,3 @@ export function scaleNutrients(per100: Nutrients, amount: number): Nutrients {
     sodium: s(per100.sodium),
   }
 }
-
-/** Поддержка сканера штрихкодов зависит от браузера. */
-export function barcodeScanSupported(): boolean {
-  return typeof window !== 'undefined' && 'BarcodeDetector' in window
-}

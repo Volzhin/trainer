@@ -451,18 +451,6 @@ class TrainerDB extends Dexie {
         await tx.table<AppState>('appState').put({ id: 'state', active_user_id: LOCAL_USER_ID })
       })
 
-    // v5 — модуль питания: дневник, кеш продуктов и настройки расхода.
-    this.version(5).stores({
-      nutritionProfile: 'id',
-      foodLogs: 'id, user_id, date, [user_id+date], logged_at',
-      foods: 'id, barcode, name, used_at',
-    })
-
-    // v4 — переписка тренера и клиента с голосовыми, кружками и файлами.
-    this.version(4).stores({
-      chat: 'id, thread_id, created_at, [thread_id+created_at], [thread_id+is_read]',
-    })
-
     // v3 — видео техники и покомментарийный разбор упражнений.
     this.version(3).stores({
       programs: 'id, author_id, goal, is_public, client_id',
@@ -470,6 +458,19 @@ class TrainerDB extends Dexie {
       feedback:
         'id, client_id, session_id, exercise_id, [trainer_id+client_id], [session_id+exercise_id], is_read',
     })
+
+    // v4 — переписка тренера и клиента с голосовыми, кружками и файлами.
+    this.version(4).stores({
+      chat: 'id, thread_id, created_at, [thread_id+created_at], [thread_id+is_read]',
+    })
+
+    // v5 — модуль питания: дневник, кеш продуктов и настройки расхода.
+    this.version(5).stores({
+      nutritionProfile: 'id',
+      foodLogs: 'id, user_id, date, [user_id+date], logged_at',
+      foods: 'id, barcode, name, used_at',
+    })
+
   }
 }
 

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FoodItem, MealSlot } from '../db/db'
 import { logFood, logQuick, recentFoods, searchCachedFoods } from '../db/nutrition'
-import { barcodeScanSupported, findByBarcode, scaleNutrients, searchFood } from '../lib/foodApi'
+import { findByBarcode, scaleNutrients, searchFood } from '../lib/foodApi'
+import { BarcodeScanner } from './BarcodeScanner'
 import { Sheet } from './Sheet'
 import { IconSearch } from './Icons'
 import { useApp } from '../store/app'
@@ -34,6 +35,7 @@ export function FoodPicker({
   const [chosen, setChosen] = useState<FoodItem | null>(null)
   const [amount, setAmount] = useState('100')
   const [manual, setManual] = useState(false)
+  const [scanning, setScanning] = useState(false)
   const abortRef = useRef<AbortController>()
 
   // Кеш отвечает сразу и работает офлайн — показываем его, не дожидаясь сети.
@@ -73,18 +75,6 @@ export function FoodPicker({
       abortRef.current?.abort()
     }
   }, [slot])
-
-  const scan = async () => {
-    if (!barcodeScanSupported()) {
-      const code = window.prompt('Введите штрихкод')
-      if (code) void lookup(code)
-      return
-    }
-    // Сканер требует камеры и работает не во всех браузерах — ручной ввод
-    // остаётся запасным путём, чтобы функция не упиралась в поддержку.
-    const code = window.prompt('Введите штрихкод')
-    if (code) void lookup(code)
-  }
 
   const lookup = async (code: string) => {
     setLoading(true)
@@ -206,7 +196,7 @@ export function FoodPicker({
           </div>
 
           <div className="row" style={{ gap: 8 }}>
-            <button className="btn sm grow" onClick={scan}>
+            <button className="btn sm grow" onClick={() => setScanning(true)}>
               По штрихкоду
             </button>
             <button className="btn sm grow" onClick={() => setManual(true)}>
@@ -247,6 +237,14 @@ export function FoodPicker({
           )}
         </div>
       )}
+      <BarcodeScanner
+        open={scanning}
+        onClose={() => setScanning(false)}
+        onDetected={(code) => {
+          setScanning(false)
+          void lookup(code)
+        }}
+      />
     </Sheet>
   )
 }

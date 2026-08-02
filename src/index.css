@@ -1725,3 +1725,29 @@ button.group-row:active {
 .ex-thumb.placeholder {
   background: var(--surface-2);
 }
+
+/* Видоискатель сканера штрихкодов. */
+.scanner {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: #000;
+}
+
+.scanner video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Рамка прицела: подсказывает, куда наводить, не перекрывая кадр. */
+.scanner-frame {
+  position: absolute;
+  inset: 22% 10%;
+  border: 2px solid var(--accent);
+  border-radius: var(--r-md);
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.35);
+}

@@ -1,84 +1,47 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type ExerciseSet } from '../db/db'
-import { listMySessions, logBodyMetric } from '../db/repo'
+import {
+  loadProgress,
+  PERIODS,
+  type ExerciseProgress,
+  type PeriodKey,
+  type PlanProgress,
+} from '../db/analytics'
+import { logBodyMetric } from '../db/repo'
 import { BarChart } from '../components/LineChart'
+import { BodyCompositionCard } from '../components/BodyCompositionCard'
 import { Sheet } from '../components/Sheet'
-import { estimate1RM, plural, startOfDay } from '../lib/calc'
+import { formatDate, formatTonnage, formatWeight, plural } from '../lib/calc'
 import { useApp } from '../store/app'
 
+const WEEKDAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
+
+/**
+ * Прогресс = ответ на два вопроса: держусь ли я плана и растут ли веса.
+ * Поэтому экран идёт от программы к упражнениям в ней, и только потом —
+ * к сводным цифрам. Всё считается за один выбранный период.
+ */
 export function Progress() {
-  const { toast } = useApp()
+  const nav = useNavigate()
+  const { toast, userId } = useApp()
+
+  const [period, setPeriod] = useState<PeriodKey>('4w')
+  const [onlyProgram, setOnlyProgram] = useState(true)
   const [metricOpen, setMetricOpen] = useState(false)
 
-  const sessions = useLiveQuery(() => listMySessions(), [], [])
-  const sets = useLiveQuery(() => db.sets.toArray(), [], [] as ExerciseSet[])
-  const exercises = useLiveQuery(() => db.exercises.toArray(), [], [])
+  const days = PERIODS.find((p) => p.key === period)!.days
+  const report = useLiveQuery(() => loadProgress(userId, days), [userId, days])
 
-  const sessionIds = useMemo(() => new Set((sessions ?? []).map((s) => s.id)), [sessions])
-  const doneSets = useMemo(
-    () => (sets ?? []).filter((s) => s.is_done && sessionIds.has(s.workout_session_id)),
-    [sets, sessionIds],
-  )
+  const shown = useMemo(() => {
+    const list = report?.exercises ?? []
+    if (!report?.plan || !onlyProgram) return list
+    return list.filter((e) => e.inProgram)
+  }, [report, onlyProgram])
 
-  /** Тоннаж по последним 8 неделям. */
-  const weekly = useMemo(() => {
-    const byId = new Map((sessions ?? []).map((s) => [s.id, s]))
-    const buckets: number[] = Array(8).fill(0)
-    const labels: string[] = []
-    const monday = startOfDay(Date.now())
-    const dow = (new Date(monday).getDay() + 6) % 7
-    const thisMonday = monday - dow * 86400_000
+  if (!report) return <div className="screen">Загрузка…</div>
 
-    for (let i = 0; i < 8; i++) {
-      const start = thisMonday - (7 - i) * 7 * 86400_000
-      labels.push(new Date(start).toLocaleDateString('ru-RU', { day: 'numeric', month: 'numeric' }))
-    }
-    for (const s of doneSets) {
-      const session = byId.get(s.workout_session_id)
-      if (!session || !s.weight_kg || !s.reps_completed) continue
-      // Приводим дату тренировки к понедельнику её недели, иначе текущая
-      // неделя (дни после понедельника) уезжает за границу массива.
-      const day = startOfDay(session.start_time)
-      const sessionMonday = day - ((new Date(day).getDay() + 6) % 7) * 86400_000
-      const idx = 7 - Math.round((thisMonday - sessionMonday) / (7 * 86400_000))
-      if (idx >= 0 && idx < 8) buckets[idx] += s.weight_kg * s.reps_completed
-    }
-    return { buckets, labels }
-  }, [doneSets, sessions])
-
-  /** Распределение подходов по мышечным группам за 30 дней. */
-  const muscleSplit = useMemo(() => {
-    const exMap = new Map((exercises ?? []).map((e) => [e.id, e]))
-    const byId = new Map((sessions ?? []).map((s) => [s.id, s]))
-    const cutoff = Date.now() - 30 * 86400_000
-    const counts = new Map<string, number>()
-    for (const s of doneSets) {
-      const session = byId.get(s.workout_session_id)
-      if (!session || session.start_time < cutoff) continue
-      const g = exMap.get(s.exercise_id)?.muscle_group
-      if (!g) continue
-      counts.set(g, (counts.get(g) ?? 0) + 1)
-    }
-    const total = [...counts.values()].reduce((a, b) => a + b, 0)
-    return { rows: [...counts.entries()].sort((a, b) => b[1] - a[1]), total }
-  }, [doneSets, exercises, sessions])
-
-  /** Топ упражнений по расчётному 1ПМ. */
-  const records = useMemo(() => {
-    const exMap = new Map((exercises ?? []).map((e) => [e.id, e]))
-    const best = new Map<string, number>()
-    for (const s of doneSets) {
-      if (!s.weight_kg || !s.reps_completed) continue
-      const score = estimate1RM(s.weight_kg, s.reps_completed)
-      best.set(s.exercise_id, Math.max(best.get(s.exercise_id) ?? 0, score))
-    }
-    return [...best.entries()]
-      .map(([exId, score]) => ({ name: exMap.get(exId)?.name ?? '—', score }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 6)
-  }, [doneSets, exercises])
-
+  const periodLabel = PERIODS.find((p) => p.key === period)!.label.toLowerCase()
 
   return (
     <div className="screen">
@@ -86,58 +49,159 @@ export function Progress() {
         <div>
           <h1>Прогресс</h1>
           <div className="sub">
-            {(sessions ?? []).length}{' '}
-            {plural((sessions ?? []).length, ['тренировка', 'тренировки', 'тренировок'])} в истории
+            {report.sessions} {plural(report.sessions, ['тренировка', 'тренировки', 'тренировок'])} за{' '}
+            {periodLabel}
           </div>
         </div>
       </div>
 
-      <div className="section-title">Тоннаж по неделям</div>
-      <div className="card">
-        <BarChart data={weekly.buckets} labels={weekly.labels} />
-        <div className="mute-sm" style={{ marginTop: 8, textAlign: 'center' }}>
-          Вес × повторения × подходы за неделю
+      <div className="chips" style={{ marginBottom: 14 }}>
+        {PERIODS.map((p) => (
+          <button
+            key={p.key}
+            className={`chip${period === p.key ? ' active' : ''}`}
+            onClick={() => setPeriod(p.key)}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="stat-grid">
+        <div className="stat">
+          <div className="value t-num">{report.sessions}</div>
+          <div className="label">тренировок</div>
+        </div>
+        <div className="stat">
+          <div className="value t-num">{report.perWeek}</div>
+          <div className="label">в среднем за неделю</div>
+        </div>
+        <div className="stat">
+          <div className="value t-num">{formatTonnage(report.volume)}</div>
+          <div className="label">поднято всего</div>
+        </div>
+        <div className="stat">
+          <div className="value t-num">{report.sets}</div>
+          <div className="label">подходов</div>
         </div>
       </div>
 
-      <div className="section-title">Объём по группам · 30 дней</div>
+      {report.plan ? (
+        <PlanCard plan={report.plan} onOpen={() => nav(`/programs/${report.plan!.program.id}`)} />
+      ) : (
+        <>
+          <div className="section-title">Программа</div>
+          <div className="card">
+            <div style={{ fontWeight: 600 }}>Программа не назначена</div>
+            <div className="mute-sm" style={{ marginTop: 4 }}>
+              С программой прогресс считается по плану: видно, какие тренировки вы пропустили и
+              какие упражнения растут, а какие стоят.
+            </div>
+            <button className="btn block" style={{ marginTop: 12 }} onClick={() => nav('/programs')}>
+              Выбрать программу
+            </button>
+          </div>
+        </>
+      )}
+
+      <div className="section-title">
+        {report.plan && onlyProgram ? 'Упражнения программы' : 'Упражнения'}
+      </div>
+      <div className="mute-sm" style={{ marginBottom: 10 }}>
+        Рабочий вес в последней тренировке и изменение расчётного максимума за {periodLabel}.
+      </div>
+
+      {report.plan && (
+        <div className="segmented" style={{ marginBottom: 12 }}>
+          <button className={onlyProgram ? 'on' : ''} onClick={() => setOnlyProgram(true)}>
+            Из программы
+          </button>
+          <button className={onlyProgram ? '' : 'on'} onClick={() => setOnlyProgram(false)}>
+            Все
+          </button>
+        </div>
+      )}
+
+      {shown.length === 0 ? (
+        <div className="empty" style={{ padding: 20 }}>
+          За этот период подходов не записано
+        </div>
+      ) : (
+        <div className="stack" style={{ gap: 8 }}>
+          {shown.map((e) => (
+            <ExerciseRow key={e.exercise.id} row={e} onOpen={() => nav(`/exercises/${e.exercise.id}`)} />
+          ))}
+        </div>
+      )}
+
+      <div className="section-title">Нагрузка по неделям</div>
       <div className="card">
-        {muscleSplit.rows.length === 0 ? (
+        <BarChart data={report.weekly.map((w) => w.value)} labels={report.weekly.map((w) => w.label)} />
+        <div className="mute-sm" style={{ marginTop: 8, textAlign: 'center' }}>
+          Вес × повторения за неделю. Всего за {periodLabel} — {formatTonnage(report.volume)}
+        </div>
+      </div>
+
+      <div className="section-title">Куда уходит нагрузка</div>
+      <div className="card">
+        {report.muscles.length === 0 ? (
           <div className="empty" style={{ padding: 20 }}>
-            Нет данных за месяц
+            Нет данных за период
           </div>
         ) : (
           <div className="stack">
-            {muscleSplit.rows.map(([group, count]) => (
-              <div key={group}>
-                <div className="row between" style={{ marginBottom: 4 }}>
-                  <span className="muted">{group}</span>
-                  <span className="mute-sm">
-                    {count} {plural(count, ['подход', 'подхода', 'подходов'])}
-                  </span>
+            {report.muscles.slice(0, 8).map((m) => {
+              const top = report.muscles[0].sets
+              return (
+                <div key={m.group}>
+                  <div className="row between" style={{ marginBottom: 4 }}>
+                    <span className="muted">{m.group}</span>
+                    <span className="mute-sm t-num" style={{ fontSize: 12 }}>
+                      {m.sets} {plural(m.sets, ['подход', 'подхода', 'подходов'])}
+                    </span>
+                  </div>
+                  <div className="bar">
+                    <i style={{ width: `${(m.sets / top) * 100}%` }} />
+                  </div>
                 </div>
-                <div className="rest-progress">
-                  <i style={{ width: `${(count / muscleSplit.total) * 100}%` }} />
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
 
-      <div className="section-title">Рекорды · расчётный 1ПМ</div>
-      {records.length === 0 ? (
+      <div className="section-title">Личные рекорды</div>
+      <div className="mute-sm" style={{ marginBottom: 10 }}>
+        Расчётный максимум на одно повторение — по формуле Эпли из лучшего подхода.
+      </div>
+      {report.records.length === 0 ? (
         <div className="empty" style={{ padding: 20 }}>
           Завершите первую тренировку
         </div>
       ) : (
-        records.map((r) => (
-          <div className="list-item" key={r.name}>
-            <div className="grow truncate">{r.name}</div>
-            <strong>{Math.round(r.score)} кг</strong>
-          </div>
-        ))
+        <div className="stack" style={{ gap: 8 }}>
+          {report.records.map((r) => (
+            <button
+              key={r.exerciseId}
+              className="list-item"
+              style={{ width: '100%', textAlign: 'left' }}
+              onClick={() => nav(`/exercises/${r.exerciseId}`)}
+            >
+              <div className="grow truncate">{r.name}</div>
+              <strong className="t-num" style={{ fontSize: 16 }}>
+                {Math.round(r.score)} кг
+              </strong>
+              <span className="chevron">›</span>
+            </button>
+          ))}
+        </div>
       )}
+
+      <div className="section-title">Тело</div>
+      <BodyCompositionCard userId={userId} onOpen={() => nav('/body')} />
+      <button className="btn block" style={{ marginTop: 10 }} onClick={() => setMetricOpen(true)}>
+        Записать замер вручную
+      </button>
 
       <BodyMetricSheet
         open={metricOpen}
@@ -145,6 +209,173 @@ export function Progress() {
         onSaved={() => toast('Замер сохранён')}
       />
     </div>
+  )
+}
+
+/** План против факта: расписание, доля выполненного и разбивка по дням. */
+function PlanCard({ plan, onOpen }: { plan: PlanProgress; onOpen: () => void }) {
+  const missed = Math.max(0, plan.planned - plan.done)
+  const pct = Math.min(100, plan.adherence)
+
+  return (
+    <>
+      <div className="section-title">Программа</div>
+      <div className="card">
+        <div className="row between">
+          <div className="grow">
+            <div style={{ fontWeight: 700, fontSize: 17 }}>{plan.program.name}</div>
+            <div className="mute-sm" style={{ marginTop: 2 }}>
+              {plan.trainerName ? `от тренера · ${plan.trainerName}` : 'ваша программа'}
+            </div>
+          </div>
+          <span className={`tag${pct >= 80 ? ' accent' : ''}`}>{pct}%</span>
+        </div>
+
+        {plan.weekdays.length > 0 && (
+          <div className="weekday-row" style={{ marginTop: 14 }}>
+            {WEEKDAYS.map((label, wd) => {
+              const on = plan.weekdays.includes(wd)
+              return (
+                <div key={wd} className={`weekday${on ? ' on' : ''}`}>
+                  <span className="wd">{label}</span>
+                  <span className="slot">{on ? '•' : '—'}</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        <div className="row between" style={{ marginTop: 16, marginBottom: 6 }}>
+          <span className="mute-sm">Сделано по плану</span>
+          <span className="mute-sm t-num" style={{ fontSize: 12 }}>
+            {plan.done} из {plan.planned}
+          </span>
+        </div>
+        <div className="bar">
+          <i
+            style={{
+              width: `${pct}%`,
+              background: pct >= 80 ? 'var(--ok)' : pct >= 50 ? 'var(--accent)' : 'var(--warn)',
+            }}
+          />
+        </div>
+        <div className="mute-sm" style={{ marginTop: 8 }}>
+          {missed === 0
+            ? 'План выполняется полностью.'
+            : `Пропущено ${missed} ${plural(missed, ['тренировка', 'тренировки', 'тренировок'])} из плана.`}
+          {' На этой неделе — '}
+          {plan.doneThisWeek} из {plan.weeklyTarget}.
+        </div>
+
+        {plan.byRoutine.length > 0 && (
+          <div className="stack" style={{ marginTop: 14, gap: 8 }}>
+            {plan.byRoutine.map(({ routine, planned, done }) => (
+              <div key={routine.id}>
+                <div className="row between" style={{ marginBottom: 4 }}>
+                  <span className="muted truncate">{routine.name}</span>
+                  <span className="mute-sm t-num" style={{ fontSize: 12 }}>
+                    {done}/{planned || '—'}
+                  </span>
+                </div>
+                <div className="bar">
+                  <i
+                    style={{
+                      width: `${planned ? Math.min(100, (done / planned) * 100) : 0}%`,
+                      background: done >= planned && planned > 0 ? 'var(--ok)' : 'var(--accent)',
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button className="btn sm block" style={{ marginTop: 14 }} onClick={onOpen}>
+          Открыть программу
+        </button>
+      </div>
+    </>
+  )
+}
+
+/** Строка упражнения: что было в последний раз и куда двигается вес. */
+function ExerciseRow({ row, onOpen }: { row: ExerciseProgress; onOpen: () => void }) {
+  const { exercise, deltaKg, lastWeight, lastReps, lastDate, sessions } = row
+  const untouched = sessions === 0
+
+  return (
+    <button className="list-item" style={{ width: '100%', textAlign: 'left' }} onClick={onOpen}>
+      <div className="grow" style={{ minWidth: 0 }}>
+        <div className="truncate" style={{ fontWeight: 600 }}>
+          {exercise.name}
+        </div>
+        <div className="mute-sm truncate" style={{ marginTop: 2 }}>
+          {untouched
+            ? row.routineNames.length
+              ? `${row.routineNames.join(' · ')} — ещё не выполнялось`
+              : 'ещё не выполнялось'
+            : [
+                lastDate && formatDate(lastDate),
+                `${sessions} ${plural(sessions, ['тренировка', 'тренировки', 'тренировок'])}`,
+                row.routineNames[0],
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+        </div>
+      </div>
+
+      {!untouched && <Spark points={row.points} up={(deltaKg ?? 0) >= 0} />}
+
+      <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
+        <div className="t-num" style={{ fontSize: 15 }}>
+          {lastWeight != null ? `${formatWeight(lastWeight)} кг` : '—'}
+          {lastReps ? <span className="mute-sm" style={{ fontSize: 12 }}> × {lastReps}</span> : null}
+        </div>
+        {deltaKg != null && deltaKg !== 0 && (
+          <div
+            className="t-num"
+            style={{
+              fontSize: 12,
+              marginTop: 2,
+              color: deltaKg > 0 ? 'var(--ok)' : 'var(--danger)',
+            }}
+          >
+            {deltaKg > 0 ? '↑' : '↓'} {Math.abs(deltaKg)} кг
+          </div>
+        )}
+      </div>
+    </button>
+  )
+}
+
+/** Мини-график 1ПМ внутри строки: тренд важнее точных значений. */
+function Spark({ points, up }: { points: { x: number; y: number }[]; up: boolean }) {
+  if (points.length < 2) return null
+  const w = 52
+  const h = 22
+  const ys = points.map((p) => p.y)
+  const min = Math.min(...ys)
+  const max = Math.max(...ys)
+  const span = max - min || 1
+  const d = points
+    .map((p, i) => {
+      const x = (i / (points.length - 1)) * w
+      const y = h - ((p.y - min) / span) * (h - 3) - 1.5
+      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
+    })
+    .join(' ')
+
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden style={{ flex: '0 0 auto' }}>
+      <path
+        d={d}
+        fill="none"
+        stroke={up ? 'var(--ok)' : 'var(--danger)'}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   )
 }
 
