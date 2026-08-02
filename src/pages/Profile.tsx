@@ -153,7 +153,7 @@ export function Profile() {
           chevron
         />
         <Row
-          title="Состав тела"
+          title="Анализ тела"
           sub="Замеры и отчёты InBody"
           onClick={() => nav('/body')}
           chevron

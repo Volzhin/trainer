@@ -89,7 +89,7 @@ export function BodyDonut({ parts, centerLabel, centerValue, status, statusKind 
         viewBox={`0 0 ${SIZE} ${SIZE}`}
         style={{ width: '100%', maxWidth: 280, margin: '0 auto', display: 'block' }}
         role="img"
-        aria-label={`Состав тела, ${centerLabel} ${centerValue}`}
+        aria-label={`Анализ тела, ${centerLabel} ${centerValue}`}
       >
         <circle
           cx={SIZE / 2}

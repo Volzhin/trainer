@@ -74,15 +74,15 @@ export type BodySubject = 'self' | 'client'
 
 const TEXT = {
   self: {
-    emptyTitle: 'Загрузите отчёт InBody',
+    emptyTitle: 'Сделайте первый замер',
     emptyHint:
-      'PDF из приложения DDX Fitness или распечатку InBody. Разберём состав, нормы и сегментарный анализ — и покажем динамику между замерами.',
+      'Загрузите PDF из DDX Fitness или распечатку InBody — разберём состав, нормы и сегментарный анализ. Нет отчёта — введите вес и обхваты руками, состав посчитается по ним.',
     uploadFirst: 'Загрузить отчёт InBody',
     uploadMore: 'Загрузить новый замер',
     privacy: 'Файл никуда не отправляется — разбор идёт прямо на устройстве.',
   },
   client: {
-    emptyTitle: 'Замеров InBody пока нет',
+    emptyTitle: 'Замеров пока нет',
     emptyHint:
       'Клиент может загрузить отчёт сам — или загрузите его PDF здесь: состав, нормы и сегментарный анализ появятся и в приложении клиента.',
     uploadFirst: 'Загрузить отчёт клиента',
@@ -92,7 +92,7 @@ const TEXT = {
 }
 
 /**
- * Тело экрана «Состав тела» без шапки: один и тот же разбор показывается
+ * Тело экрана «Анализ тела» без шапки: один и тот же разбор показывается
  * клиенту про себя и тренеру — про каждого клиента.
  */
 export function BodyCompositionView({
@@ -115,10 +115,13 @@ export function BodyCompositionView({
 
   const metrics = useLiveQuery(() => listBodyMetrics(userId), [userId], [] as BodyMetric[])
 
+  // Замером считается любая запись: ручной ввод и импорт отчёта равноправны.
+  // Раньше фильтр по источнику прятал ручные замеры, и экран сообщал, что
+  // данных нет, одновременно рисуя по ним график.
   const scans = useMemo(
     () =>
       (metrics ?? [])
-        .filter((m) => m.source === 'inbody')
+        .filter((m) => m.weight_kg != null || m.body_fat_pct != null)
         .sort((a, b) => b.logged_at - a.logged_at),
     [metrics],
   )

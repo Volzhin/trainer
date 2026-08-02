@@ -33,7 +33,10 @@ export function BodyCompositionCard({
 
   const { latest, previous, lastWeight } = useMemo(() => {
     const all = metrics ?? []
-    const scans = all.filter((m) => m.source === 'inbody').sort((a, b) => b.logged_at - a.logged_at)
+    // Ручной замер такой же полноценный, как импортированный отчёт.
+    const scans = all
+      .filter((m) => m.weight_kg != null || m.body_fat_pct != null)
+      .sort((a, b) => b.logged_at - a.logged_at)
     const weighed = all.filter((m) => m.weight_kg != null).sort((a, b) => b.logged_at - a.logged_at)
     return { latest: scans[0], previous: scans[1], lastWeight: weighed[0] }
   }, [metrics])
@@ -43,7 +46,7 @@ export function BodyCompositionCard({
       <button className="card tap" style={{ width: '100%', textAlign: 'left' }} onClick={onOpen}>
         <div className="row between">
           <div className="grow">
-            <div style={{ fontWeight: 600 }}>Состав тела</div>
+            <div style={{ fontWeight: 600 }}>Анализ тела</div>
             <div className="mute-sm" style={{ marginTop: 3 }}>
               {subject === 'client'
                 ? 'Замеров InBody нет — можно загрузить отчёт клиента'
@@ -79,7 +82,7 @@ export function BodyCompositionCard({
     <button className="card tap" style={{ width: '100%', textAlign: 'left' }} onClick={onOpen}>
       <div className="row between">
         <div className="grow">
-          <div style={{ fontWeight: 600 }}>Состав тела</div>
+          <div style={{ fontWeight: 600 }}>Анализ тела</div>
           <div className="mute-sm" style={{ marginTop: 1 }}>
             Замер от {formatDate(latest.logged_at)}
           </div>

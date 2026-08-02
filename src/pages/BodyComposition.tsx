@@ -15,7 +15,7 @@ export function BodyComposition() {
           <IconBack size={18} />
         </button>
         <div className="grow">
-          <h1 style={{ fontSize: 22 }}>Состав тела</h1>
+          <h1 style={{ fontSize: 22 }}>Анализ тела</h1>
           <div className="sub">Отчёты InBody и динамика</div>
         </div>
       </div>
