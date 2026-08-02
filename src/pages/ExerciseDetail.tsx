@@ -3,6 +3,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db'
 import { IconBack } from '../components/Icons'
 import { LineChart } from '../components/LineChart'
+import { ExerciseMedia } from '../components/ExerciseMedia'
+import { ExerciseDescription } from '../components/ExerciseDescription'
 import { estimate1RM, formatDate, formatWeight } from '../lib/calc'
 
 export function ExerciseDetail() {
@@ -51,41 +53,65 @@ export function ExerciseDetail() {
           <IconBack size={18} />
         </button>
         <div className="grow">
-          <h1 style={{ fontSize: 22 }}>{exercise.name}</h1>
-          <div className="sub">
-            {exercise.muscle_group} · {exercise.equipment}
-          </div>
+          <h1 style={{ fontSize: 21, lineHeight: 1.2 }}>{exercise.name}</h1>
         </div>
       </div>
 
-      <div className="card">
-        <div className="mute-sm" style={{ marginBottom: 6 }}>
-          Техника выполнения
-        </div>
-        <div style={{ fontSize: 15 }}>
-          {exercise.description ?? 'Описание пока не добавлено.'}
-        </div>
+      <div className="tagline" style={{ marginBottom: 14, marginTop: -6 }}>
+        <span className="tag accent">{exercise.muscle_group}</span>
+        <span className="tag">{exercise.equipment}</span>
+        {exercise.exercise_type && <span className="tag">{exercise.exercise_type}</span>}
+        {(exercise.sports ?? []).map((s) => (
+          <span className="tag" key={s}>
+            {s}
+          </span>
+        ))}
+      </div>
+
+      <ExerciseMedia exercise={exercise} />
+
+      {exercise.description && (
+        <>
+          <div className="section-title">Техника выполнения</div>
+          <div className="card enter">
+            <ExerciseDescription text={exercise.description} />
+          </div>
+        </>
+      )}
+
+      <div className="group" style={{ marginTop: 12 }}>
         {exercise.secondary && exercise.secondary.length > 0 && (
-          <div className="mute-sm" style={{ marginTop: 10 }}>
-            Дополнительно работают: {exercise.secondary.join(', ')}
+          <div className="group-row">
+            <span className="grow title">Ещё работают</span>
+            <span className="value">{exercise.secondary.join(', ')}</span>
           </div>
         )}
-        <div
-          style={{
-            marginTop: 12,
-            aspectRatio: '16 / 9',
-            borderRadius: 10,
-            background: 'var(--bg-elev-2)',
-            border: '1px solid var(--line)',
-            display: 'grid',
-            placeItems: 'center',
-            color: 'var(--text-mute)',
-            fontSize: 13,
-          }}
-        >
-          Видео-демонстрация · подключается с CDN
-        </div>
+        {exercise.equipment_all && exercise.equipment_all.length > 0 && (
+          <div className="group-row">
+            <span className="grow title">Инвентарь</span>
+            <span className="value">{exercise.equipment_all.join(', ')}</span>
+          </div>
+        )}
+        {exercise.alt_names && exercise.alt_names.length > 0 && (
+          <div className="group-row">
+            <span className="grow title">Другие названия</span>
+            <span className="value">{exercise.alt_names.join(', ')}</span>
+          </div>
+        )}
       </div>
+
+      {exercise.restrictions && exercise.restrictions.length > 0 && (
+        <div className="card" style={{ marginTop: 12, borderColor: 'var(--warn)' }}>
+          <div className="mute-sm" style={{ color: 'var(--warn)', marginBottom: 4 }}>
+            Ограничения
+          </div>
+          {exercise.restrictions.map((r) => (
+            <div key={r} style={{ fontSize: 14 }}>
+              {r}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="section-title">Прогресс 1ПМ</div>
       <div className="card">

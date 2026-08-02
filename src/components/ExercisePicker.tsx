@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Exercise } from '../db/db'
 import { Sheet } from './Sheet'
 import { IconSearch } from './Icons'
-import { MUSCLE_GROUPS } from '../lib/constants'
+import { loadFacets, matchesQuery } from '../lib/facets'
 
 type Props = {
   open: boolean
@@ -18,12 +18,17 @@ export function ExercisePicker({ open, title = 'Выбрать упражнен�
   const [q, setQ] = useState('')
   const [muscle, setMuscle] = useState<string>(preferMuscle ?? 'Все')
   const exercises = useLiveQuery(() => db.exercises.toArray(), [], [] as Exercise[])
+  const facets = useLiveQuery(() => loadFacets(), [exercises?.length], {
+    muscles: [],
+    equipment: [],
+    sports: [],
+  })
 
   const list = useMemo(() => {
     const term = q.trim().toLowerCase()
     return (exercises ?? [])
       .filter((e) => (muscle === 'Все' ? true : e.muscle_group === muscle))
-      .filter((e) => (term ? e.name.toLowerCase().includes(term) : true))
+      .filter((e) => matchesQuery(e, term))
       .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
   }, [exercises, q, muscle])
 
@@ -41,7 +46,7 @@ export function ExercisePicker({ open, title = 'Выбрать упражнен�
       </div>
 
       <div className="chips" style={{ marginBottom: 12 }}>
-        {['Все', ...MUSCLE_GROUPS].map((m) => (
+        {['Все', ...facets.muscles].map((m) => (
           <button
             key={m}
             className={`chip${muscle === m ? ' active' : ''}`}

@@ -28,16 +28,35 @@ export type Equipment =
   | 'Резина'
   | 'Кардио-тренажёр'
 
+/**
+ * Упражнение каталога. Мышечные группы и оборудование хранятся строками:
+ * справочник приходит из внешней базы и содержит больше значений, чем
+ * имеет смысл перечислять в коде — списки фильтров собираются из данных.
+ */
 export interface Exercise {
   id: string
   name: string
-  muscle_group: MuscleGroup
-  secondary?: MuscleGroup[]
-  equipment: Equipment
+  /** Синонимы из источника — по ним тоже ищем. */
+  alt_names?: string[]
+  muscle_group: string
+  secondary?: string[]
+  equipment: string
+  /** Конкретный инвентарь: «Скамья с регулируемым углом», «Рукоятка канат». */
+  equipment_all?: string[]
+  /** Изоляция / базовое и т.п. */
+  exercise_type?: string
+  /** Виды спорта, к которым относится упражнение. */
+  sports?: string[]
+  /** Противопоказания из источника. */
+  restrictions?: string[]
+  accents?: string[]
   is_custom: 0 | 1 // числом — Dexie не индексирует boolean
   creator_id?: string
   description?: string
+  image_url?: string
   video_url?: string
+  /** Прямой mp4 — играется во встроенном плеере без внешнего сервиса. */
+  clip_url?: string
   is_time_based?: 0 | 1
   updated_at: number
 }
