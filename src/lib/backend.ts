@@ -46,10 +46,19 @@ function read(): Stored | null {
   }
 }
 
+/**
+ * Запись сессии на диск. Хранилище может отказать — в приватном окне
+ * Safari или при исчерпанной квоте. Это не повод считать человека
+ * незалогиненным: сессия остаётся в памяти и работает до закрытия вкладки.
+ */
 function write(next: Stored | null) {
   session = next
-  if (next) localStorage.setItem(TOKEN_KEY, JSON.stringify(next))
-  else localStorage.removeItem(TOKEN_KEY)
+  try {
+    if (next) localStorage.setItem(TOKEN_KEY, JSON.stringify(next))
+    else localStorage.removeItem(TOKEN_KEY)
+  } catch {
+    /* останемся с сессией в памяти */
+  }
   listeners.forEach((l) => l(next?.user ?? null))
 }
 
@@ -74,7 +83,11 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+/** Почему сессия оборвалась. Показывается на экране входа. */
+let dropReason = ''
+export const sessionDropReason = () => dropReason
+
+async function request<T>(path: string, init: RequestInit = {}, retried = false): Promise<T> {
   const headers = new Headers(init.headers)
   if (session?.token) headers.set('Authorization', session.token)
   if (init.body && !(init.body instanceof FormData)) {
@@ -86,11 +99,51 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const data = text ? JSON.parse(text) : null
 
   if (!res.ok) {
-    // Протухший токен: выкидываем сессию, приложение покажет экран входа.
-    if (res.status === 401) write(null)
+    /**
+     * Один отказ — ещё не повод выкидывать человека из аккаунта.
+     *
+     * Раньше любой 401 из любого фонового запроса стирал сессию, и человек
+     * оказывался на экране входа без объяснений. Сначала пробуем продлить
+     * токен и повторить запрос; сессию рвём, только если и продление
+     * отказало — тогда токен действительно мёртв.
+     */
+    if (res.status === 401 && !retried && path !== REFRESH_PATH && session) {
+      const state = await renew()
+      if (state === 'ok') return request<T>(path, init, true)
+      // Связи нет — это не протухший токен. Оставляем сессию: человек
+      // вернётся в метро в сеть и продолжит работать, а не обнаружит себя
+      // разлогиненным.
+      if (state === 'expired') {
+        dropReason = 'Вход устарел — войдите ещё раз'
+        write(null)
+      }
+    }
     throw new ApiError(res.status, humanError(data, res.status))
   }
   return data as T
+}
+
+const REFRESH_PATH = '/api/collections/users/auth-refresh'
+
+/**
+ * Продление токена. Различает «токен мёртв» и «сети нет» — от этого зависит,
+ * выкидывать человека из аккаунта или подождать.
+ */
+async function renew(): Promise<'ok' | 'expired' | 'offline'> {
+  if (!session) return 'expired'
+  try {
+    const res = await fetch(`${API_BASE}${REFRESH_PATH}`, {
+      method: 'POST',
+      headers: { Authorization: session.token, 'Content-Type': 'application/json' },
+    })
+    if (res.status === 401 || res.status === 403) return 'expired'
+    if (!res.ok) return 'offline'
+    const data = (await res.json()) as { token: string; record: AuthUser }
+    write({ token: data.token, user: data.record })
+    return 'ok'
+  } catch {
+    return 'offline'
+  }
 }
 
 /** PocketBase кладёт разбор по полям — собираем из него внятную фразу. */

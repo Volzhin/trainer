@@ -1,5 +1,13 @@
 import { useState } from 'react'
-import { ApiError, MAIL_ENABLED, login, register, requestPasswordReset } from '../lib/backend'
+import {
+  ApiError,
+  MAIL_ENABLED,
+  login,
+  register,
+  requestPasswordReset,
+  sessionDropReason,
+} from '../lib/backend'
+import { useApp } from '../store/app'
 import { adoptAccount, enterDemoMode, firstExchange } from '../db/account'
 import { startSync } from '../db/sync'
 import { IconChevronRight } from '../components/Icons'
@@ -16,6 +24,7 @@ import { IconChevronRight } from '../components/Icons'
 type Mode = 'login' | 'register' | 'reset'
 
 export function Auth({ onReady }: { onReady: () => void }) {
+  const { switchTo } = useApp()
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -41,6 +50,10 @@ export function Auth({ onReady }: { onReady: () => void }) {
         : await login(email, password)
 
       const { fresh } = await adoptAccount(user)
+      // Приложение читает данные от имени активного аккаунта. Без этого
+      // переключения экраны остались бы на прежнем профиле — человек входит
+      // и видит «Гость», пока не перезагрузит страницу.
+      await switchTo(user.id)
       // Первичный обмен идёт фоном: держать человека на кнопке «Секунду…»,
       // пока выгружается история тренировок, — верный способ его потерять.
       void firstExchange(user, fresh, isNew)
@@ -57,6 +70,10 @@ export function Auth({ onReady }: { onReady: () => void }) {
     enterDemoMode()
     onReady()
   }
+
+  // Если сессия оборвалась сама, человек должен понимать почему, а не
+  // гадать, куда делся его аккаунт.
+  const dropped = sessionDropReason()
 
   const canSubmit =
     mode === 'reset'
@@ -142,6 +159,7 @@ export function Auth({ onReady }: { onReady: () => void }) {
         </div>
       )}
 
+      {!error && dropped && <div className="auth-note">{dropped}</div>}
       {error && <div className="auth-error">{error}</div>}
       {sent && (
         <div className="auth-note">
