@@ -4,7 +4,6 @@ dist-ssr
 *.local
 .DS_Store
 .vite
-.github/
 
 # Доступы к серверу — не место в репозитории
 ssh.md

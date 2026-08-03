@@ -1,0 +1,69 @@
+name: Деплой на сервер
+
+# Единственный путь в прод — пуш в main. Ручная выкладка не предполагается:
+# иначе на сервере оказывается код, которого нет в репозитории.
+#
+# Публикация на GitHub Pages убрана намеренно: страница отдавалась из США,
+# а по 242-ФЗ данные российских пользователей должны обрабатываться в РФ.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Проверка типов
+        run: npx tsc -b
+
+      - name: Сборка
+        run: npm run build
+        env:
+          BASE_PATH: /
+
+      - name: Ключ доступа к серверу
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Выкладка приложения
+        run: rsync -az --delete dist/ root@${{ secrets.DEPLOY_HOST }}:/opt/trainer/web/
+
+      # Серверные обработчики: погашение кода приглашения делает сервер,
+      # поэтому список приглашений закрыт даже для вошедших.
+      - name: Серверные обработчики
+        run: |
+          rsync -az server/pb_hooks/ root@${{ secrets.DEPLOY_HOST }}:/opt/trainer/pb/pb_hooks/
+          ssh root@${{ secrets.DEPLOY_HOST }} 'systemctl restart trainer-pb && sleep 3'
+
+      # Схема применяется после статики: скрипт идемпотентен, и повторный
+      # запуск на неизменившейся схеме ничего не делает.
+      - name: Схема базы
+        run: |
+          scp server/schema.mjs root@${{ secrets.DEPLOY_HOST }}:/opt/trainer/schema.mjs
+          ssh root@${{ secrets.DEPLOY_HOST }} \
+            "PB_ADMIN_EMAIL='${{ secrets.PB_ADMIN_EMAIL }}' \
+             PB_ADMIN_PASSWORD='${{ secrets.PB_ADMIN_PASSWORD }}' \
+             node /opt/trainer/schema.mjs"
+
+      - name: Проверка живости
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' "https://${{ secrets.DEPLOY_DOMAIN }}/api/health")
+          echo "api: $code"
+          test "$code" = "200"
