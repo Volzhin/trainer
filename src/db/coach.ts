@@ -404,11 +404,14 @@ export async function assignProgram(input: {
   trainerId?: string
 }) {
   const trainerId = input.trainerId ?? currentUserId()
-  // Активное назначение всегда одно: новое отменяет предыдущее.
+  // Активное назначение всегда одно: новое отменяет предыдущее — и своё, и
+  // чужое. Раньше снимались только назначения того же автора, и план, который
+  // человек составил себе сам, продолжал жить рядом с назначением тренера;
+  // какой из двух покажется, решал порядок строк в базе.
   const active = await db.assignments
     .where('client_id')
     .equals(input.clientId)
-    .and((a) => a.trainer_id === trainerId && a.status === 'ACTIVE')
+    .and((a) => a.status === 'ACTIVE')
     .toArray()
   for (const a of active) {
     await db.assignments.update(a.id, {
@@ -439,6 +442,56 @@ export async function assignProgram(input: {
     updated_at: startAt,
   })
   return id
+}
+
+/**
+ * План, который человек составляет себе сам.
+ *
+ * Технически это то же назначение, только тренер в нём — он сам. Отдельная
+ * сущность ничего бы не дала: календарь, счётчик за неделю и «что сегодня»
+ * уже умеют читать назначение, и вторая ветка в каждом из этих мест означала
+ * бы два способа сломаться вместо одного.
+ */
+export async function planProgramMyself(input: {
+  programId: string
+  schedule: ScheduleSlot[]
+  weeks?: number
+}) {
+  const me = currentUserId()
+  const current = await db.assignments
+    .where('client_id')
+    .equals(me)
+    .and((a) => a.status === 'ACTIVE')
+    .first()
+
+  // План тренера человек себе не переписывает — за этим он к тренеру и
+  // пришёл. Снять такое назначение может только сам тренер.
+  if (current && current.trainer_id !== me) {
+    throw new Error('Программу назначил тренер — свой план поверх неё не ставится')
+  }
+
+  return assignProgram({
+    clientId: me,
+    programId: input.programId,
+    schedule: input.schedule,
+    weeks: input.weeks,
+    trainerId: me,
+  })
+}
+
+/** Снимает свой план. Назначение тренера этим не трогается. */
+export async function cancelMyPlan(): Promise<boolean> {
+  const me = currentUserId()
+  const mine = await db.assignments
+    .where('client_id')
+    .equals(me)
+    .and((a) => a.status === 'ACTIVE' && a.trainer_id === me)
+    .toArray()
+
+  for (const a of mine) {
+    await db.assignments.update(a.id, { status: 'CANCELLED', updated_at: now() })
+  }
+  return mine.length > 0
 }
 
 /**
@@ -608,7 +661,18 @@ export async function activeAssignmentFor(clientId = currentUserId()) {
     ? Math.max(0, Math.ceil((assignment.end_at - Date.now()) / (7 * 86400_000)))
     : undefined
 
-  return { assignment, program, trainer, routines, doneThisWeek, weeksLeft }
+  return {
+    assignment,
+    program,
+    trainer,
+    routines,
+    doneThisWeek,
+    weeksLeft,
+    // План, составленный самому себе. Называть его «программой от тренера»
+    // значит врать человеку, а прятать за ним каталог — запирать его в
+    // выборе, который он сделал сам и вправе поменять.
+    isSelfPlan: assignment.trainer_id === clientId,
+  }
 }
 
 export async function addFeedback(input: {

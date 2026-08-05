@@ -56,7 +56,10 @@ export function Home() {
 
       <WorkoutCalendar />
 
-      {assigned && (
+      {/* Свой план календарь уже показал карточкой «План» — второй блок про
+          то же самое только дублировал бы его, да ещё и подписью «от тренера»,
+          которого в этом плане нет. */}
+      {assigned && !assigned.isSelfPlan && (
         <>
           <div className="section-title">Программа от тренера</div>
           <div className="card">

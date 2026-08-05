@@ -45,7 +45,11 @@ export function Programs() {
   const active = useLiveQuery(() => getActiveSession(), [])
   // Когда тренер назначил программу, клиент должен видеть только её:
   // каталог рядом с назначением читается как «можно выбрать другое».
-  const assigned = useLiveQuery(() => activeAssignmentFor(currentUserId()), [])
+  const plan = useLiveQuery(() => activeAssignmentFor(currentUserId()), [])
+  // Свой план так не прячет ничего: человек поставил его сам и вправе в любой
+  // момент выбрать другое. Скрывать от него каталог значило бы запирать его в
+  // собственном же решении.
+  const assigned = plan && !plan.isSelfPlan ? plan : null
 
   /**
    * «Мои» — это не только собранные своими руками. Программа, которую тренер
