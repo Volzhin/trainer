@@ -339,8 +339,8 @@ export function LiveSession() {
           <>
             <div className="field-group-title">Видеоотчёт тренеру</div>
             <div className="mute-sm" style={{ marginBottom: 10 }}>
-              Необязательно. Можно пропустить и прикрепить позже — тренировка
-              останется в истории.
+              Необязательно. Можно пропустить и прикрепить позже — тренировка останется в
+              истории.
             </div>
             <div className="finish-videos">
               {doneBlocks.map((block) => (

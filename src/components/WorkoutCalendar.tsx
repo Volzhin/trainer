@@ -124,6 +124,10 @@ export function WorkoutCalendar() {
     // Если на выбранный день есть план — запускаем именно его день программы.
     const routineId = plannedToday?.routine.id ?? plan?.routines?.[0]?.id
     const id = routineId ? await startSessionFromRoutine(routineId) : await startEmptySession()
+    if (!id) {
+      toast('В этом дне программы пока нет упражнений')
+      return
+    }
     nav(`/session/${id}`)
   }
 

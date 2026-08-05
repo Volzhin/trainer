@@ -90,6 +90,10 @@ export function ProgramDetail() {
                 onClick={async () => {
                   haptics.impact()
                   const sid = await startSessionFromRoutine(routine.id)
+                  if (!sid) {
+                    toast('В этом дне пока нет упражнений')
+                    return
+                  }
                   nav(`/session/${sid}`)
                 }}
               >

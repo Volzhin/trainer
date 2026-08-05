@@ -7,7 +7,7 @@ import { HashRouter } from 'react-router-dom'
 import { registerSW } from 'virtual:pwa-register'
 import App from './App'
 import { AppProvider } from './store/app'
-import { repairCatalogIds, seedIfEmpty } from './db/seed'
+import { repairCatalogIds, seedIfEmpty, syncCatalogPrograms } from './db/seed'
 import { restoreSession } from './db/account'
 import { applyAccent, applyTheme, getAccentPref, getThemePref, loadActiveUser } from './db/db'
 import './index.css'
@@ -24,6 +24,9 @@ try {
 // поднимаем до первого рендера — иначе экраны стартуют не от того профиля.
 seedIfEmpty()
   .then(repairCatalogIds)
+  // Программы каталога, появившиеся в новой версии, досылаем и тем, у кого
+  // база уже собрана: иначе обновление не приносит им ничего нового.
+  .then(syncCatalogPrograms)
   .then(loadActiveUser)
   // Если человек уже входил, поднимаем его аккаунт и запускаем обмен с
   // сервером до рендера: иначе экраны на мгновение покажут чужой профиль.

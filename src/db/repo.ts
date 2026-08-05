@@ -49,11 +49,11 @@ export async function startEmptySession(title = 'Свободная тренир
   return session.id
 }
 
-/** Разворачивает шаблон тренировочного дня в сессию с плановыми подходами. */
-export async function startSessionFromRoutine(routineId: string) {
-  const active = await getActiveSession()
-  if (active) return active.id
-
+/**
+ * Разворачивает шаблон тренировочного дня в сессию с плановыми подходами.
+ * Возвращает null, если разворачивать нечего — в дне нет ни одного упражнения.
+ */
+export async function startSessionFromRoutine(routineId: string): Promise<string | null> {
   const routine = await db.routines.get(routineId)
   if (!routine) throw new Error('Тренировочный день не найден')
 
@@ -61,6 +61,22 @@ export async function startSessionFromRoutine(routineId: string) {
     .where('routine_id')
     .equals(routineId)
     .sortBy('sequence_order')
+
+  // Пустой день не разворачиваем. Экран тренировки открылся бы без единого
+  // упражнения, и это читается как «приложение сломалось», а не как «в этот
+  // день программы ничего не добавлено».
+  if (!items.length) return null
+
+  const active = await getActiveSession()
+  if (active) {
+    const started = await db.sets.where('workout_session_id').equals(active.id).count()
+    // Незавершённая тренировка с подходами — та, которую человек делает
+    // прямо сейчас; подменять её другой нельзя. А вот пустая — след прошлого
+    // запуска, в ней нечего терять: раньше именно она молча открывалась
+    // вместо выбранного дня, и человек видел пустой экран.
+    if (started > 0) return active.id
+    await discardSession(active.id)
+  }
 
   const sessionId = uid()
   const ts = now()
@@ -469,6 +485,26 @@ export async function createProgram(name: string) {
     updated_at: now(),
   })
   return id
+}
+
+/**
+ * Отмечает программу каталога звёздочкой и снимает отметку.
+ *
+ * Каталог общий и наверх не уезжает, поэтому «добавить к себе» — это не копия
+ * программы, а ссылка на неё в профиле. Копия разошлась бы с оригиналом при
+ * первом же обновлении каталога, а список идентификаторов — нет.
+ */
+export async function toggleFavoriteProgram(programId: string): Promise<boolean> {
+  const userId = currentUserId()
+  const profile = await db.profile.get(userId)
+  if (!profile) return false
+
+  const current = profile.favorite_programs ?? []
+  const added = !current.includes(programId)
+  const next = added ? [...current, programId] : current.filter((id) => id !== programId)
+
+  await db.profile.update(userId, { favorite_programs: next, updated_at: now() })
+  return added
 }
 
 export async function createRoutine(programId: string, name: string) {

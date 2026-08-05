@@ -259,6 +259,58 @@ const PROGRAMS: ProgramSpec[] = [
       },
     ],
   },
+  /**
+   * Новые программы дописываются только в конец списка: идентификатор
+   * выводится из позиции (`prog-5`), и вставка в середину переназначила бы
+   * чужие идентификаторы — назначенная тренером программа открылась бы у
+   * клиента другой.
+   */
+  {
+    name: 'Дом · три дня в неделю',
+    description:
+      'Понедельник, среда, пятница — всё тело каждый раз, из инвентаря только коврик. ' +
+      'Сутки отдыха между тренировками: мышца успевает восстановиться, а привычка держится ' +
+      'на трёх опорах в неделю, а не на одной. Начинайте с пяти минут разминки, ' +
+      'заканчивайте растяжкой. Прогрессия — повторениями: когда все подходы даются ' +
+      'уверенно, добавляйте по два повторения к каждому.',
+    goal: 'Дом',
+    level: 'Новичок',
+    days: [
+      {
+        name: 'Понедельник · всё тело A',
+        items: [
+          ['Приседания (воздушные)', 4, 15, 75],
+          ['Отжимания', 4, 10, 90],
+          ['Обратные выпады с подъемом колена', 3, 10, 75],
+          ['Ягодичный мост лежа на полу с упором на одну ногу', 3, 12, 60],
+          ['Планка', 3, undefined, 45],
+          ['Мертвый жук', 3, 12, 45],
+        ],
+      },
+      {
+        name: 'Среда · всё тело B',
+        items: [
+          ['Выпады вперед (попеременные)', 4, 12, 75],
+          ['Отжимания узким хватом', 3, 10, 90],
+          ['Лодочка', 3, 12, 60],
+          ['"Лопаточные" отжимания', 3, 12, 45],
+          ['Планка боковая на локте', 3, undefined, 45],
+          ['Скручивания (руки на полу)', 3, 15, 45],
+        ],
+      },
+      {
+        name: 'Пятница · всё тело C',
+        items: [
+          ['Берпи без прыжка', 4, 10, 75],
+          ['Отжимания с ногами на возвышении', 3, 8, 90],
+          ['Выпрыгивания из седа', 3, 12, 60],
+          ['Скалолаз', 3, undefined, 45],
+          ['Планка с касанием плеч', 3, undefined, 45],
+          ['Складка', 3, 12, 45],
+        ],
+      },
+    ],
+  },
 ]
 
 /** Названия сверяем без регистра и «ё»: источник пишет их непоследовательно. */
@@ -292,7 +344,11 @@ async function pruneBuiltInCatalog() {
 /** Устойчивый идентификатор строки каталога: одинаков на всех устройствах. */
 const catalogId = (prefix: string, ...parts: number[]) => `${prefix}-${parts.join('-')}`
 
-/** Собирает программы каталога. Вынесено, чтобы их можно было пересобрать. */
+/**
+ * Собирает программы каталога. Вынесено, чтобы их можно было пересобрать.
+ * Уже существующие пропускает: тот же вызов досылает появившиеся в новой
+ * версии программы, не трогая правки, которых в каталоге и быть не должно.
+ */
 async function buildCatalogPrograms(byName: Map<string, string>, ts: number) {
   for (const [specIndex, spec] of PROGRAMS.entries()) {
     // Идентификаторы каталога выводятся из его состава, а не выдаются
@@ -300,6 +356,7 @@ async function buildCatalogPrograms(byName: Map<string, string>, ts: number) {
     // случайные идентификаторы означали бы, что назначенная тренером
     // программа ссылается у клиента в пустоту.
     const programId = catalogId('prog', specIndex)
+    if (await db.programs.get(programId)) continue
     await db.programs.add({
       id: programId,
       name: spec.name,
@@ -321,16 +378,21 @@ async function buildCatalogPrograms(byName: Map<string, string>, ts: number) {
         updated_at: ts,
       })
       await db.templateItems.bulkAdd(
-        day.items.map(([exName, sets, reps, rest], i) => ({
-          id: catalogId('ti', specIndex, dayIndex, i),
-          routine_id: routineId,
-          exercise_id: byName.get(normName(exName))!,
-          sequence_order: i,
-          target_sets: sets,
-          target_reps: reps,
-          rest_seconds: rest,
-          updated_at: ts,
-        })),
+        day.items
+          .map(([exName, sets, reps, rest], i) => ({
+            id: catalogId('ti', specIndex, dayIndex, i),
+            routine_id: routineId,
+            exercise_id: byName.get(normName(exName)),
+            sequence_order: i,
+            target_sets: sets,
+            target_reps: reps,
+            rest_seconds: rest,
+            updated_at: ts,
+          }))
+          // Упражнения, которого нет в справочнике, в шаблоне быть не должно:
+          // строка без exercise_id разворачивается в тренировку без названия
+          // и веса — человек видит пустой экран и не понимает, что делать.
+          .filter((item): item is typeof item & { exercise_id: string } => !!item.exercise_id),
       )
     }
   }
@@ -376,6 +438,23 @@ export async function repairCatalogIds() {
       })
     }
   }
+}
+
+/**
+ * Досылает программы каталога, добавленные после первого запуска.
+ *
+ * `seedIfEmpty` срабатывает ровно один раз — на пустой базе. Без отдельного
+ * прохода новую программу увидели бы только те, кто ставит приложение
+ * впервые, а у всех остальных каталог навсегда остался бы прежним.
+ */
+export async function syncCatalogPrograms() {
+  const exercises = await db.exercises.toArray()
+  // База ещё не заполнена — каталог соберёт seedIfEmpty, лезть вперёд него
+  // нельзя: без справочника программы вышли бы без упражнений.
+  if (!exercises.length) return
+
+  const byName = new Map(exercises.map((e) => [normName(e.name), e.id]))
+  await buildCatalogPrograms(byName, now())
 }
 
 export async function seedIfEmpty() {

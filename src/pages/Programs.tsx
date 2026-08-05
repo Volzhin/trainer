@@ -10,8 +10,9 @@ import {
   deleteProgram,
   startSessionFromRoutine,
   getActiveSession,
+  toggleFavoriteProgram,
 } from '../db/repo'
-import { IconClipboard, IconPlay, IconPlus, IconTrash } from '../components/Icons'
+import { IconClipboard, IconPlay, IconPlus, IconStar, IconTrash } from '../components/Icons'
 import { Sheet } from '../components/Sheet'
 import { activeAssignmentFor } from '../db/coach'
 import { useApp, useProfile } from '../store/app'
@@ -46,16 +47,26 @@ export function Programs() {
   // каталог рядом с назначением читается как «можно выбрать другое».
   const assigned = useLiveQuery(() => activeAssignmentFor(currentUserId()), [])
 
+  /**
+   * «Мои» — это не только собранные своими руками. Программа, которую тренер
+   * сделал под этого человека, и отмеченная звёздочкой из каталога для него
+   * ровно такие же свои: он к ним возвращается, а не выбирает их заново.
+   */
+  const favorites = useMemo(
+    () => new Set(profile?.favorite_programs ?? []),
+    [profile?.favorite_programs],
+  )
+  const isMine = (p: Program) =>
+    p.author_id === currentUserId() || p.client_id === currentUserId() || favorites.has(p.id)
+
   const visible = useMemo(() => {
     if (assigned) return (programs ?? []).filter((p) => p.id === assigned.program.id)
     return (programs ?? [])
-      .filter((p) =>
-        tab === 'mine' ? p.author_id === currentUserId() : p.author_id === 'system',
-      )
-      .filter((p) => (goal === 'Все' ? true : p.goal === goal))
-  }, [programs, goal, tab, assigned?.program.id])
+      .filter((p) => (tab === 'mine' ? isMine(p) : p.author_id === 'system'))
+      .filter((p) => (tab === 'mine' ? true : goal === 'Все' || p.goal === goal))
+  }, [programs, goal, tab, favorites, assigned?.program.id])
 
-  const myCount = (programs ?? []).filter((p) => p.author_id === currentUserId()).length
+  const myCount = (programs ?? []).filter(isMine).length
 
   const onCreate = async () => {
     if (!(await canCreateProgram())) {
@@ -104,7 +115,7 @@ export function Programs() {
             className={`chip${tab === 'mine' ? ' active' : ''}`}
             onClick={() => setTab('mine')}
           >
-            Мои ({myCount})
+            Мои программы ({myCount})
           </button>
         </div>
       )}
@@ -132,26 +143,34 @@ export function Programs() {
             {assigned
               ? 'Программа от тренера скоро появится'
               : tab === 'mine'
-                ? 'Создайте свою первую программу'
+                ? 'Здесь появятся программы от тренера и отмеченные звёздочкой в каталоге. Свою можно собрать кнопкой «+».'
                 : 'В этой категории пусто'}
           </div>
         )}
 
         {visible.map((p) => {
           const days = (routines ?? []).filter((r) => r.program_id === p.id)
+          const mineByAuthor = p.author_id === currentUserId()
+          const fromTrainer = p.client_id === currentUserId() && !mineByAuthor
+          const starred = favorites.has(p.id)
           return (
             <div className="card tap" key={p.id} onClick={() => nav(`/programs/${p.id}`)}>
               <div className="row between">
                 <div className="grow">
                   <div style={{ fontWeight: 600, fontSize: 17 }}>{p.name}</div>
                   <div className="mute-sm" style={{ marginTop: 3 }}>
-                    {p.client_id
-                      ? `для ${clientNames.get(p.client_id) ?? 'клиента'} · `
-                      : `${p.goal} · ${p.level} · `}
+                    {fromTrainer
+                      ? 'От тренера · '
+                      : p.client_id
+                        ? `для ${clientNames.get(p.client_id) ?? 'клиента'} · `
+                        : `${p.goal} · ${p.level} · `}
                     {days.length} {plural(days.length, ['день', 'дня', 'дней'])}
                   </div>
                 </div>
-                {p.author_id === currentUserId() && (
+                {/* Своё удаляют, чужое отмечают: каталог принадлежит всем,
+                    и удалить из него программу человек не может — только
+                    убрать её из своего списка. */}
+                {mineByAuthor ? (
                   <button
                     className="icon-btn"
                     onClick={(e) => {
@@ -163,6 +182,22 @@ export function Programs() {
                   >
                     <IconTrash size={17} />
                   </button>
+                ) : (
+                  !fromTrainer && (
+                    <button
+                      className="icon-btn"
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        haptics.selection()
+                        const added = await toggleFavoriteProgram(p.id)
+                        toast(added ? 'Добавлено в мои программы' : 'Убрано из моих программ')
+                      }}
+                      aria-label={starred ? 'Убрать из моих' : 'Добавить в мои'}
+                      aria-pressed={starred}
+                    >
+                      <IconStar size={17} filled={starred} />
+                    </button>
+                  )
                 )}
               </div>
               {p.description && (
@@ -183,6 +218,10 @@ export function Programs() {
                             e.stopPropagation()
                             haptics.impact()
                             const sid = await startSessionFromRoutine(d.id)
+                            if (!sid) {
+                              toast('В этом дне пока нет упражнений')
+                              return
+                            }
                             nav(`/session/${sid}`)
                           }}
                         >

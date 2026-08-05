@@ -122,6 +122,16 @@ export const IconPlay = ({ size }: P) => (
   </svg>
 )
 
+/** Звезда. Залитая — программа уже в своём списке, контурная — ещё нет. */
+export const IconStar = ({ size, filled }: P & { filled?: boolean }) => (
+  <svg {...base(size)}>
+    <path
+      d="M12 3.8l2.6 5.27 5.82.85-4.21 4.1.99 5.79L12 17.08l-5.2 2.73.99-5.79-4.21-4.1 5.82-.85z"
+      fill={filled ? 'currentColor' : 'none'}
+    />
+  </svg>
+)
+
 export const IconFlame = ({ size }: P) => (
   <svg {...base(size)}>
     <path d="M12 3s5 4.5 5 9a5 5 0 0 1-10 0c0-1.5.7-2.8 1.5-3.7.3 1.2 1 2 1.9 2.2C10 8.5 12 6 12 3z" />
