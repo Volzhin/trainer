@@ -7,6 +7,7 @@ import {
   type ExerciseSet,
   type WorkoutSession,
 } from './db'
+import { invalidateExercises } from './catalog'
 import { estimate1RM, startOfDay } from '../lib/calc'
 import type { BodyMetric } from './db'
 import type { InBodyReport } from '../lib/inbody'
@@ -360,6 +361,9 @@ export async function createCustomExercise(input: {
     updated_at: now(),
   }
   await db.exercises.add(ex)
+  // Каталог читается из кеша — без сброса своё упражнение не появилось бы
+  // в списках до перезапуска приложения.
+  invalidateExercises()
   return ex.id
 }
 

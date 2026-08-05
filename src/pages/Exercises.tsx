@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type Exercise } from '../db/db'
+import { useExercises } from '../db/catalog'
 import { createCustomExercise } from '../db/repo'
 import { IconPlus, IconSearch } from '../components/Icons'
 import { Sheet } from '../components/Sheet'
@@ -21,7 +21,7 @@ export function Exercises() {
   // тратит секунды на разметку экрана, который всё равно не виден целиком.
   const [limit, setLimit] = useState(60)
 
-  const exercises = useLiveQuery(() => db.exercises.toArray(), [], [] as Exercise[])
+  const exercises = useExercises()
   const facets = useLiveQuery(() => loadFacets(), [exercises?.length], {
     muscles: [],
     equipment: [],

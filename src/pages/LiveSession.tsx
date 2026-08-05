@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Exercise, type ExerciseSet } from '../db/db'
+import { useExercises } from '../db/catalog'
 import {
   addExerciseToSession,
   addSetRow,
@@ -43,7 +44,12 @@ export function LiveSession() {
   const [techniqueFor, setTechniqueFor] = useState<string | null>(null)
   const [finishOpen, setFinishOpen] = useState(false)
   const [notes, setNotes] = useState('')
-  const [elapsed, setElapsed] = useState(0)
+  /**
+   * Длительность, замороженная в момент нажатия «Завершить». Секундомер
+   * останавливается там, а не когда человек закончит возиться с видео: иначе
+   * разбор роликов на десять минут припишется к длительности тренировки.
+   */
+  const [frozenElapsed, setFrozenElapsed] = useState<number | null>(null)
   const [askedNotify, setAskedNotify] = useState(false)
 
   const session = useLiveQuery(() => db.sessions.get(id), [id])
@@ -55,7 +61,7 @@ export function LiveSession() {
     [id],
     [] as ExerciseSet[],
   )
-  const exercises = useLiveQuery(() => db.exercises.toArray(), [], [] as Exercise[])
+  const exercises = useExercises()
 
   // История предыдущей тренировки по каждому упражнению — для подсказок.
   const prevByExercise = useLiveQuery(async () => {
@@ -70,16 +76,6 @@ export function LiveSession() {
     }
     return map
   }, [sets?.length, id])
-
-  // Секундомер останавливается в момент нажатия «Завершить», а не когда
-  // человек закончит возиться с видео: иначе разбор роликов на десять минут
-  // припишется к длительности тренировки.
-  useEffect(() => {
-    if (!session || finishOpen) return
-    const t = setInterval(() => setElapsed(Date.now() - session.start_time), 1000)
-    setElapsed(Date.now() - session.start_time)
-    return () => clearInterval(t)
-  }, [session, finishOpen])
 
   const blocks: Block[] = useMemo(() => {
     const exMap = new Map((exercises ?? []).map((e) => [e.id, e]))
@@ -189,11 +185,17 @@ export function LiveSession() {
               {session.title}
             </div>
             <div className="mute-sm">
-              {formatDuration(elapsed)} · {doneCount}{' '}
+              <Stopwatch from={session.start_time} stopped={frozenElapsed} /> · {doneCount}{' '}
               {plural(doneCount, ['подход', 'подхода', 'подходов'])} · {Math.round(volume)} кг
             </div>
           </div>
-          <button className="btn success sm" onClick={() => setFinishOpen(true)}>
+          <button
+            className="btn success sm"
+            onClick={() => {
+              setFrozenElapsed(Date.now() - session.start_time)
+              setFinishOpen(true)
+            }}
+          >
             Завершить
           </button>
         </div>
@@ -320,11 +322,14 @@ export function LiveSession() {
       <Sheet
         open={finishOpen}
         title="Завершить тренировку"
-        onClose={() => setFinishOpen(false)}
+        onClose={() => {
+          setFinishOpen(false)
+          setFrozenElapsed(null)
+        }}
       >
         <div className="stat-grid" style={{ marginBottom: 14 }}>
           <div className="stat">
-            <div className="value">{formatDuration(elapsed)}</div>
+            <div className="value">{formatDuration(frozenElapsed ?? 0)}</div>
             <div className="label">длительность</div>
           </div>
           <div className="stat">
@@ -400,6 +405,23 @@ export function LiveSession() {
       </Sheet>
     </div>
   )
+}
+
+/**
+ * Секундомер тренировки. Отдельным компонентом — чтобы ежесекундное
+ * обновление перерисовывало строку со временем, а не весь экран с
+ * упражнениями и полями подходов.
+ */
+function Stopwatch({ from, stopped }: { from: number; stopped: number | null }) {
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    if (stopped != null) return
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [stopped])
+
+  return <>{formatDuration(stopped ?? now - from)}</>
 }
 
 function SetRow({

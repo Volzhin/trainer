@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type Exercise, type ExerciseSet } from '../db/db'
+import { db, type ExerciseSet } from '../db/db'
+import { useExercises } from '../db/catalog'
 import { deleteSession } from '../db/repo'
 import { feedbackForSession, markFeedbackRead, trainerOfClient } from '../db/coach'
 import { VideoUploader } from '../components/ExerciseVideo'
@@ -22,7 +23,7 @@ export function SessionDetail() {
     [id],
     [] as ExerciseSet[],
   )
-  const exercises = useLiveQuery(() => db.exercises.toArray(), [], [] as Exercise[])
+  const exercises = useExercises()
   const comments = useLiveQuery(() => feedbackForSession(id), [id], [])
   const attachments = useLiveQuery(
     () => db.attachments.where('session_id').equals(id).toArray(),

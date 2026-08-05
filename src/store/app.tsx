@@ -21,7 +21,6 @@ type Ctx = {
   toasts: Toast[]
   toast: (text: string, kind?: 'pr' | 'default') => void
   rest: RestState
-  restLeft: number
   startRest: (seconds: number, label?: string) => void
   addRest: (seconds: number) => void
   stopRest: () => void
@@ -36,7 +35,6 @@ const AppCtx = createContext<Ctx | null>(null)
 export function AppProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
   const [rest, setRest] = useState<RestState>(null)
-  const [tick, setTick] = useState(0)
   const [online, setOnline] = useState(navigator.onLine)
   const [userId, setUserId] = useState(currentUserId())
   const firedRef = useRef(false)
@@ -68,25 +66,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2200)
   }, [])
 
-  // Таймер считает по абсолютной метке времени: интервалы в фоне
-  // дросселируются, но оставшееся время остаётся корректным.
+  /**
+   * Конец отдыха ждём таймером на точный момент, а не опросом четыре раза в
+   * секунду. Опрос жил здесь, в провайдере, и каждое его срабатывание меняло
+   * значение контекста — то есть перерисовывало все три десятка мест, которые
+   * читают useApp, включая экран тренировки со всеми подходами. Обратный
+   * отсчёт на цифрах теперь тикает там, где он виден, — в RestTimer.
+   */
   useEffect(() => {
     if (!rest) return
-    const i = setInterval(() => setTick((t) => t + 1), 250)
-    return () => clearInterval(i)
+    firedRef.current = false
+
+    const fire = () => {
+      if (firedRef.current) return
+      firedRef.current = true
+      haptics.warning()
+      beep(2)
+      notifyRestOver(rest.label)
+      window.setTimeout(() => setRest(null), 1500)
+    }
+
+    const exact = window.setTimeout(fire, Math.max(0, rest.endsAt - Date.now()))
+    // Страховка на случай свёрнутой вкладки: точные таймеры там придерживают,
+    // и без проверки отдых мог бы «зависнуть» дольше положенного. Пока время
+    // не вышло, она ничего не меняет и никого не перерисовывает.
+    const guard = window.setInterval(() => {
+      if (Date.now() >= rest.endsAt) fire()
+    }, 1000)
+
+    return () => {
+      window.clearTimeout(exact)
+      window.clearInterval(guard)
+    }
   }, [rest])
-
-  const restLeft = rest ? Math.max(0, Math.round((rest.endsAt - Date.now()) / 1000)) : 0
-
-  useEffect(() => {
-    if (!rest || firedRef.current) return
-    if (rest.endsAt - Date.now() > 0) return
-    firedRef.current = true
-    haptics.warning()
-    beep(2)
-    notifyRestOver(rest.label)
-    setTimeout(() => setRest(null), 1500)
-  }, [rest, tick])
 
   const startRest = useCallback((seconds: number, label?: string) => {
     if (seconds <= 0) return
@@ -124,7 +136,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toasts,
       toast,
       rest,
-      restLeft,
       startRest,
       addRest,
       stopRest,
@@ -132,7 +143,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       userId,
       switchTo,
     }),
-    [toasts, toast, rest, restLeft, startRest, addRest, stopRest, online, userId, switchTo],
+    [toasts, toast, rest, startRest, addRest, stopRest, online, userId, switchTo],
   )
 
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>
@@ -152,4 +163,24 @@ export function useProfile() {
 /** Роль активного аккаунта. Пока профиль не загружен — считаем клиентом. */
 export function useRole(): Role {
   return useProfile()?.role ?? 'CLIENT'
+}
+
+/**
+ * Обратный отсчёт отдыха. Тикает только у того, кто его показывает: держать
+ * его в контексте означало перерисовывать четыре раза в секунду каждый экран,
+ * который читает useApp, — а таких мест три десятка.
+ */
+export function useRestLeft(): number {
+  const { rest } = useApp()
+  const [left, setLeft] = useState(0)
+
+  useEffect(() => {
+    if (!rest) return setLeft(0)
+    const read = () => setLeft(Math.max(0, Math.round((rest.endsAt - Date.now()) / 1000)))
+    read()
+    const i = setInterval(read, 250)
+    return () => clearInterval(i)
+  }, [rest])
+
+  return left
 }

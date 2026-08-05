@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type Exercise } from '../db/db'
+import { type Exercise } from '../db/db'
+import { useExercises } from '../db/catalog'
 import { Sheet } from './Sheet'
 import { IconSearch } from './Icons'
 import { loadFacets, matchesQuery } from '../lib/facets'
@@ -23,7 +24,7 @@ export function ExercisePicker({
 }: Props) {
   const [q, setQ] = useState('')
   const [muscle, setMuscle] = useState<string>(preferMuscle ?? 'Все')
-  const exercises = useLiveQuery(() => db.exercises.toArray(), [], [] as Exercise[])
+  const exercises = useExercises()
   const facets = useLiveQuery(() => loadFacets(), [exercises?.length], {
     muscles: [],
     equipment: [],

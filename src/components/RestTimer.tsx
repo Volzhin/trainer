@@ -1,9 +1,10 @@
-import { useApp } from '../store/app'
+import { useApp, useRestLeft } from '../store/app'
 import { formatClock } from '../lib/calc'
 import { IconClose } from './Icons'
 
 export function RestTimer() {
-  const { rest, restLeft, addRest, stopRest } = useApp()
+  const { rest, addRest, stopRest } = useApp()
+  const restLeft = useRestLeft()
   if (!rest) return null
 
   const pct = Math.max(0, Math.min(100, (restLeft / rest.total) * 100))

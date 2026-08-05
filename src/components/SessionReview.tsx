@@ -3,11 +3,11 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import {
   db,
   type Attachment,
-  type Exercise,
   type ExerciseSet,
   type Feedback,
   type WorkoutSession,
 } from '../db/db'
+import { useExercises } from '../db/catalog'
 import { addFeedback, attachmentsForSession, feedbackForSession } from '../db/coach'
 import { AttachmentPlayer } from './ExerciseVideo'
 import { Sheet } from './Sheet'
@@ -41,7 +41,7 @@ export function SessionReview({
     [session?.id],
     [] as ExerciseSet[],
   )
-  const exercises = useLiveQuery(() => db.exercises.toArray(), [], [] as Exercise[])
+  const exercises = useExercises()
   const comments = useLiveQuery(
     async () => (session ? await feedbackForSession(session.id) : []),
     [session?.id],

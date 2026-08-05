@@ -1,4 +1,5 @@
 import { db, now, LOCAL_USER_ID, type Exercise } from './db'
+import { invalidateExercises } from './catalog'
 
 /** Запись импортируемой базы: формат выгрузки внешнего справочника. */
 type ImportedExercise = {
@@ -337,7 +338,10 @@ async function pruneBuiltInCatalog() {
   for (const t of await db.templateItems.toArray()) used.add(t.exercise_id)
 
   const removable = [...legacyIds].filter((id) => !used.has(id))
-  if (removable.length) await db.exercises.bulkDelete(removable)
+  if (removable.length) {
+    await db.exercises.bulkDelete(removable)
+    invalidateExercises()
+  }
 }
 
 /** Идемпотентно наполняет пустую базу. Вызывается при старте приложения. */
@@ -467,6 +471,7 @@ export async function seedIfEmpty() {
   // Каталог целиком приходит из внешней базы: описания, фото и видео техники.
   const exercises = await importCatalog()
   await db.exercises.bulkAdd(exercises)
+  invalidateExercises()
 
   const byName = new Map(exercises.map((e) => [normName(e.name), e.id]))
   const ts = now()

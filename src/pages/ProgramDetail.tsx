@@ -1,13 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import {
-  db,
-  currentUserId,
-  type Exercise,
-  type WorkoutRoutine,
-  type WorkoutTemplateItem,
-} from '../db/db'
+import { db, currentUserId, type WorkoutRoutine, type WorkoutTemplateItem } from '../db/db'
+import { useExercises } from '../db/catalog'
 import { addTemplateItem, createRoutine, startSessionFromRoutine } from '../db/repo'
 import { activeAssignmentFor, cancelMyPlan, planProgramMyself } from '../db/coach'
 import { IconBack, IconChevronRight, IconPlay, IconPlus, IconTrash } from '../components/Icons'
@@ -35,7 +30,7 @@ export function ProgramDetail() {
     [],
   )
   const items = useLiveQuery(() => db.templateItems.toArray(), [], [] as WorkoutTemplateItem[])
-  const exercises = useLiveQuery(() => db.exercises.toArray(), [], [] as Exercise[])
+  const exercises = useExercises()
   const clientName = useLiveQuery(
     async () =>
       program?.client_id ? (await db.profile.get(program.client_id))?.name : undefined,
