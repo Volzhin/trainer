@@ -367,17 +367,36 @@ export function LiveSession() {
             onChange={(e) => setNotes(e.target.value)}
           />
         </div>
+        {/* Тренировка без единого отмеченного подхода не сохраняется — сохранять
+            в ней нечего. Раньше об этом сообщал тост уже после нажатия, когда
+            экран сменился: человек видел, что тренировки нет в календаре, и
+            считал это пропажей. Предупреждать нужно до, а не после. */}
+        {doneCount === 0 && (
+          <div
+            className="mute-sm"
+            style={{
+              marginBottom: 12,
+              paddingLeft: 10,
+              borderLeft: '2px solid var(--danger)',
+            }}
+          >
+            Ни один подход не отмечен галочкой — сохранять нечего, и в календаре тренировка не
+            появится. Отметьте выполненные подходы и завершите снова.
+          </div>
+        )}
         <div className="stack">
           <button className="btn success block" onClick={onFinish}>
-            Завершить тренировку
+            {doneCount === 0 ? 'Выйти без сохранения' : 'Завершить тренировку'}
           </button>
           <button className="btn ghost danger block" onClick={onDiscard}>
             Отменить тренировку
           </button>
         </div>
-        <div className="mute-sm" style={{ marginTop: 10, textAlign: 'center' }}>
-          Неотмеченные подходы не попадут в статистику.
-        </div>
+        {doneCount > 0 && (
+          <div className="mute-sm" style={{ marginTop: 10, textAlign: 'center' }}>
+            Неотмеченные подходы не попадут в статистику.
+          </div>
+        )}
       </Sheet>
     </div>
   )
