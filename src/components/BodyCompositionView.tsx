@@ -39,7 +39,7 @@ export const BODY_C = {
   minerals: 'var(--c-minerals)',
   water: 'var(--c-water)',
   fat: 'var(--c-fat)',
-  neutral: 'var(--text-dim)',
+  neutral: 'var(--text-2)',
 }
 
 const C = BODY_C
@@ -626,7 +626,7 @@ function MetricRow({
       <span style={{ textAlign: 'right' }}>
         <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
           {shown}
-          <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-mute)' }}>
+          <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-3)' }}>
             {row.unit ? ` ${row.unit}` : ''}
           </span>
         </span>
@@ -637,7 +637,7 @@ function MetricRow({
               fontSize: 12,
               fontWeight: 600,
               fontVariantNumeric: 'tabular-nums',
-              color: good ? 'var(--success)' : 'var(--danger)',
+              color: good ? 'var(--ok)' : 'var(--danger)',
             }}
           >
             {diff > 0 ? '↑' : '↓'} {Math.abs(diff)}

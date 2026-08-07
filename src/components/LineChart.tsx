@@ -47,7 +47,7 @@ export function LineChart({ data, color = 'var(--accent)', unit = '', height = 1
         y1={h - padBottom}
         x2={w - padX}
         y2={h - padBottom}
-        stroke="var(--line)"
+        stroke="var(--border)"
       />
       {!single && (
         <>
@@ -67,18 +67,18 @@ export function LineChart({ data, color = 'var(--accent)', unit = '', height = 1
         <circle key={i} cx={px(d.x)} cy={py(d.y)} r={single ? 4 : 2.6} fill={color} />
       ))}
 
-      <text x={padX} y={12} fill="var(--text-mute)" fontSize={10}>
+      <text x={padX} y={12} fill="var(--text-3)" fontSize={10}>
         макс {Math.round(maxY)}
         {unit}
       </text>
-      <text x={w - padX} y={12} fill="var(--text-mute)" fontSize={10} textAnchor="end">
+      <text x={w - padX} y={12} fill="var(--text-3)" fontSize={10} textAnchor="end">
         мин {Math.round(minY)}
         {unit}
       </text>
-      <text x={padX} y={h - 6} fill="var(--text-mute)" fontSize={10}>
+      <text x={padX} y={h - 6} fill="var(--text-3)" fontSize={10}>
         {fmtDate(minX)}
       </text>
-      <text x={w - padX} y={h - 6} fill="var(--text-mute)" fontSize={10} textAnchor="end">
+      <text x={w - padX} y={h - 6} fill="var(--text-3)" fontSize={10} textAnchor="end">
         {fmtDate(maxX)}
       </text>
     </svg>
@@ -97,7 +97,7 @@ export function BarChart({ data, labels }: { data: number[]; labels: string[] })
             style={
               {
                 height: `${Math.max(2, (v / max) * 100)}px`,
-                background: v > 0 ? 'var(--accent)' : 'var(--line)',
+                background: v > 0 ? 'var(--accent)' : 'var(--border)',
                 borderRadius: 5,
                 '--i': i,
               } as React.CSSProperties

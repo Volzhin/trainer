@@ -11,6 +11,7 @@ import {
 import { logBodyMetric } from '../db/repo'
 import { BarChart } from '../components/LineChart'
 import { BodyCompositionCard } from '../components/BodyCompositionCard'
+import { WeightCard } from '../components/WeightCard'
 import { Sheet } from '../components/Sheet'
 import { formatDate, formatTonnage, formatWeight, plural } from '../lib/calc'
 import { useApp } from '../store/app'
@@ -68,7 +69,7 @@ export function ProgressView({
         </div>
       </div>
 
-      <div className="chips" style={{ marginBottom: 14 }}>
+      <div className="chips mb-4">
         {PERIODS.map((p) => (
           <button
             key={p.key}
@@ -108,16 +109,12 @@ export function ProgressView({
         <>
           <div className="section-title">Программа</div>
           <div className="card">
-            <div style={{ fontWeight: 600 }}>Программа не назначена</div>
-            <div className="mute-sm" style={{ marginTop: 4 }}>
+            <div className="t-body-strong">Программа не назначена</div>
+            <div className="mute-sm mt-1">
               С программой прогресс считается по плану: видно, какие тренировки вы пропустили и
               какие упражнения растут, а какие стоят.
             </div>
-            <button
-              className="btn block"
-              style={{ marginTop: 12 }}
-              onClick={() => nav('/programs')}
-            >
+            <button className="btn block mt-3" onClick={() => nav('/programs')}>
               Выбрать программу
             </button>
           </div>
@@ -127,12 +124,12 @@ export function ProgressView({
       <div className="section-title">
         {report.plan && onlyProgram ? 'Упражнения программы' : 'Упражнения'}
       </div>
-      <div className="mute-sm" style={{ marginBottom: 10 }}>
+      <div className="mute-sm mb-3">
         Рабочий вес в последней тренировке и изменение расчётного максимума за {periodLabel}.
       </div>
 
       {report.plan && (
-        <div className="segmented" style={{ marginBottom: 12 }}>
+        <div className="segmented mb-3">
           <button className={onlyProgram ? 'on' : ''} onClick={() => setOnlyProgram(true)}>
             Из программы
           </button>
@@ -143,11 +140,9 @@ export function ProgressView({
       )}
 
       {shown.length === 0 ? (
-        <div className="empty" style={{ padding: 20 }}>
-          За этот период подходов не записано
-        </div>
+        <div className="empty compact">За этот период подходов не записано</div>
       ) : (
-        <div className="stack" style={{ gap: 8 }}>
+        <div className="stack tight">
           {shown.map((e) => (
             <ExerciseRow
               key={e.exercise.id}
@@ -164,7 +159,7 @@ export function ProgressView({
           data={report.weekly.map((w) => w.value)}
           labels={report.weekly.map((w) => w.label)}
         />
-        <div className="mute-sm" style={{ marginTop: 8, textAlign: 'center' }}>
+        <div className="mute-sm mt-2 text-center">
           Вес × повторения за неделю. Всего за {periodLabel} — {formatTonnage(report.volume)}
         </div>
       </div>
@@ -172,18 +167,16 @@ export function ProgressView({
       <div className="section-title">Куда уходит нагрузка</div>
       <div className="card">
         {report.muscles.length === 0 ? (
-          <div className="empty" style={{ padding: 20 }}>
-            Нет данных за период
-          </div>
+          <div className="empty compact">Нет данных за период</div>
         ) : (
           <div className="stack">
             {report.muscles.slice(0, 8).map((m) => {
               const top = report.muscles[0].sets
               return (
                 <div key={m.group}>
-                  <div className="row between" style={{ marginBottom: 4 }}>
+                  <div className="row between mb-1">
                     <span className="muted">{m.group}</span>
-                    <span className="mute-sm t-num" style={{ fontSize: 12 }}>
+                    <span className="mute-sm t-num">
                       {m.sets} {plural(m.sets, ['подход', 'подхода', 'подходов'])}
                     </span>
                   </div>
@@ -198,20 +191,17 @@ export function ProgressView({
       </div>
 
       <div className="section-title">Личные рекорды</div>
-      <div className="mute-sm" style={{ marginBottom: 10 }}>
+      <div className="mute-sm mb-3">
         Расчётный максимум на одно повторение — по формуле Эпли из лучшего подхода.
       </div>
       {report.records.length === 0 ? (
-        <div className="empty" style={{ padding: 20 }}>
-          Завершите первую тренировку
-        </div>
+        <div className="empty compact">Завершите первую тренировку</div>
       ) : (
-        <div className="stack" style={{ gap: 8 }}>
+        <div className="stack tight">
           {report.records.map((r) => (
             <button
               key={r.exerciseId}
               className="list-item"
-              style={{ width: '100%', textAlign: 'left' }}
               onClick={() => nav(`/exercises/${r.exerciseId}`)}
             >
               <div className="grow truncate">{r.name}</div>
@@ -226,6 +216,9 @@ export function ProgressView({
 
       {!readOnly && (
         <>
+          <div className="section-title">Вес</div>
+          <WeightCard userId={userId} />
+
           <div className="section-title">Тело</div>
           <BodyCompositionCard userId={userId} onOpen={() => nav('/body')} />
           <button
@@ -259,7 +252,7 @@ function PlanCard({ plan, onOpen }: { plan: PlanProgress; onOpen: () => void }) 
         <div className="row between">
           <div className="grow">
             <div style={{ fontWeight: 700, fontSize: 17 }}>{plan.program.name}</div>
-            <div className="mute-sm" style={{ marginTop: 2 }}>
+            <div className="mute-sm mt-1">
               {plan.trainerName ? `от тренера · ${plan.trainerName}` : 'ваша программа'}
             </div>
           </div>
@@ -267,7 +260,7 @@ function PlanCard({ plan, onOpen }: { plan: PlanProgress; onOpen: () => void }) 
         </div>
 
         {plan.weekdays.length > 0 && (
-          <div className="weekday-row" style={{ marginTop: 14 }}>
+          <div className="weekday-row mt-4">
             {WEEKDAYS.map((label, wd) => {
               const on = plan.weekdays.includes(wd)
               return (
@@ -280,9 +273,9 @@ function PlanCard({ plan, onOpen }: { plan: PlanProgress; onOpen: () => void }) 
           </div>
         )}
 
-        <div className="row between" style={{ marginTop: 16, marginBottom: 6 }}>
+        <div className="row between mt-4 mb-2">
           <span className="mute-sm">Сделано по плану</span>
-          <span className="mute-sm t-num" style={{ fontSize: 12 }}>
+          <span className="mute-sm t-num">
             {plan.done} из {plan.planned}
           </span>
         </div>
@@ -294,7 +287,7 @@ function PlanCard({ plan, onOpen }: { plan: PlanProgress; onOpen: () => void }) 
             }}
           />
         </div>
-        <div className="mute-sm" style={{ marginTop: 8 }}>
+        <div className="mute-sm mt-2">
           {missed === 0
             ? 'План выполняется полностью.'
             : `Пропущено ${missed} ${plural(missed, ['тренировка', 'тренировки', 'тренировок'])} из плана.`}
@@ -303,12 +296,12 @@ function PlanCard({ plan, onOpen }: { plan: PlanProgress; onOpen: () => void }) 
         </div>
 
         {plan.byRoutine.length > 0 && (
-          <div className="stack" style={{ marginTop: 14, gap: 8 }}>
+          <div className="stack tight mt-4">
             {plan.byRoutine.map(({ routine, planned, done }) => (
               <div key={routine.id}>
-                <div className="row between" style={{ marginBottom: 4 }}>
+                <div className="row between mb-1">
                   <span className="muted truncate">{routine.name}</span>
-                  <span className="mute-sm t-num" style={{ fontSize: 12 }}>
+                  <span className="mute-sm t-num">
                     {done}/{planned || '—'}
                   </span>
                 </div>
@@ -326,7 +319,7 @@ function PlanCard({ plan, onOpen }: { plan: PlanProgress; onOpen: () => void }) 
           </div>
         )}
 
-        <button className="btn sm block" style={{ marginTop: 14 }} onClick={onOpen}>
+        <button className="btn sm block mt-4" onClick={onOpen}>
           Открыть программу
         </button>
       </div>
@@ -340,12 +333,10 @@ function ExerciseRow({ row, onOpen }: { row: ExerciseProgress; onOpen: () => voi
   const untouched = sessions === 0
 
   return (
-    <button className="list-item" style={{ width: '100%', textAlign: 'left' }} onClick={onOpen}>
+    <button className="list-item" onClick={onOpen}>
       <div className="grow" style={{ minWidth: 0 }}>
-        <div className="truncate" style={{ fontWeight: 600 }}>
-          {exercise.name}
-        </div>
-        <div className="mute-sm truncate" style={{ marginTop: 2 }}>
+        <div className="truncate t-body-strong">{exercise.name}</div>
+        <div className="mute-sm truncate mt-1">
           {untouched
             ? row.routineNames.length
               ? `${row.routineNames.join(' · ')} — ещё не выполнялось`
@@ -365,19 +356,13 @@ function ExerciseRow({ row, onOpen }: { row: ExerciseProgress; onOpen: () => voi
       <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
         <div className="t-num" style={{ fontSize: 15 }}>
           {lastWeight != null ? `${formatWeight(lastWeight)} кг` : '—'}
-          {lastReps ? (
-            <span className="mute-sm" style={{ fontSize: 12 }}>
-              {' '}
-              × {lastReps}
-            </span>
-          ) : null}
+          {lastReps ? <span className="mute-sm"> × {lastReps}</span> : null}
         </div>
         {deltaKg != null && deltaKg !== 0 && (
           <div
-            className="t-num"
+            className="t-num mt-1"
             style={{
               fontSize: 12,
-              marginTop: 2,
               color: deltaKg > 0 ? 'var(--ok)' : 'var(--danger)',
             }}
           >

@@ -32,9 +32,11 @@ export function Home() {
         <div>
           <h1>Привет{profile?.name && profile.name !== 'Гость' ? `, ${profile.name}` : ''}</h1>
           <div className="sub">
-            {(sessions ?? []).length === 0
-              ? 'Выберите день и начните тренировку'
-              : `${thisWeek} ${plural(thisWeek, ['тренировка', 'тренировки', 'тренировок'])} за неделю`}
+            {sessions === undefined
+              ? ' '
+              : sessions.length === 0
+                ? 'Выберите день и начните тренировку'
+                : `${thisWeek} ${plural(thisWeek, ['тренировка', 'тренировки', 'тренировок'])} за неделю`}
           </div>
         </div>
         {!online && (

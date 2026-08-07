@@ -10,7 +10,7 @@ import {
   type ClientSummary,
 } from '../../db/coach'
 import { Sheet } from '../../components/Sheet'
-import { IconPlus, IconFlame, IconTrash, IconUsers } from '../../components/Icons'
+import { IconPlus, IconRecord, IconTrash, IconUsers } from '../../components/Icons'
 import { plural } from '../../lib/calc'
 import { useApp, useProfile } from '../../store/app'
 import { haptics } from '../../lib/native'
@@ -89,8 +89,8 @@ export function TrainerClients() {
           <div className="value">
             {stats.prs}
             {stats.prs > 0 && (
-              <span style={{ color: 'var(--pr)', marginLeft: 6 }}>
-                <IconFlame size={14} />
+              <span style={{ color: 'var(--copper)', marginLeft: 6 }}>
+                <IconRecord size={14} />
               </span>
             )}
           </div>
@@ -138,7 +138,12 @@ export function TrainerClients() {
                       {c.client.name}
                     </span>
                     <span className="row" style={{ gap: 6 }}>
-                      {c.recentPRs > 0 && <span className="badge pr">{c.recentPRs} PR</span>}
+                      {c.recentPRs > 0 && (
+                        <span className="badge pr">
+                          <IconRecord size={11} />
+                          {c.recentPRs} PR
+                        </span>
+                      )}
                     </span>
                   </div>
                   <div

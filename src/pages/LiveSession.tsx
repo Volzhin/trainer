@@ -16,7 +16,14 @@ import {
   updateSet,
 } from '../db/repo'
 import { estimate1RM, formatDuration, formatWeight, plural, totalVolume } from '../lib/calc'
-import { IconBack, IconCheck, IconPlus, IconSwap, IconTrash } from '../components/Icons'
+import {
+  IconBack,
+  IconCheck,
+  IconPlus,
+  IconRecord,
+  IconSwap,
+  IconTrash,
+} from '../components/Icons'
 import { ExercisePicker } from '../components/ExercisePicker'
 import { ExerciseTechniqueSheet } from '../components/ExerciseTechnique'
 import { VideoUploader } from '../components/ExerciseVideo'
@@ -462,7 +469,12 @@ function SetRow({
         </button>
         {(set.is_pr === 1 || oneRm > 0) && (
           <div className="prev-hint">
-            {set.is_pr === 1 && <span className="badge pr">Личный рекорд</span>}
+            {set.is_pr === 1 && (
+              <span className="badge pr">
+                <IconRecord size={11} />
+                Личный рекорд
+              </span>
+            )}
             {oneRm > 0 && (
               <span style={{ marginLeft: set.is_pr ? 8 : 0 }}>1ПМ ≈ {oneRm} кг</span>
             )}

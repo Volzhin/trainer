@@ -110,7 +110,7 @@ export function ProgramDetail() {
                     key={item.id}
                     style={{
                       padding: '12px 14px',
-                      borderTop: idx === 0 ? 'none' : '1px solid var(--line)',
+                      borderTop: idx === 0 ? 'none' : '1px solid var(--border)',
                     }}
                   >
                     <div className="row between">
@@ -173,7 +173,7 @@ export function ProgramDetail() {
               })}
 
               {editable && (
-                <div style={{ padding: 12, borderTop: '1px solid var(--line)' }}>
+                <div style={{ padding: 12, borderTop: '1px solid var(--border)' }}>
                   <button className="btn sm block" onClick={() => setPickerFor(routine.id)}>
                     <IconPlus size={15} /> Добавить упражнение
                   </button>

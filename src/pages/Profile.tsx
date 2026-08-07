@@ -125,7 +125,7 @@ export function Profile() {
       <MyTrainerCard />
 
       {profile?.plan !== 'PRO' && (
-        <div className="card" style={{ marginTop: 18, borderColor: 'var(--accent-dim)' }}>
+        <div className="card" style={{ marginTop: 18, borderColor: 'var(--accent)' }}>
           <div className="row between">
             <div className="grow">
               <div style={{ fontWeight: 600 }}>Trainer PRO</div>
@@ -350,32 +350,14 @@ function Toggle({
         {hint && <div className="mute-sm">{hint}</div>}
       </div>
       <button
+        className={`toggle${value ? ' on' : ''}`}
         onClick={() => {
           haptics.selection()
           onChange(!value)
         }}
-        style={{
-          width: 48,
-          height: 28,
-          borderRadius: 999,
-          background: value ? 'var(--accent)' : 'var(--line)',
-          position: 'relative',
-          transition: 'background 0.15s',
-        }}
         aria-pressed={value}
       >
-        <span
-          style={{
-            position: 'absolute',
-            top: 3,
-            left: value ? 23 : 3,
-            width: 22,
-            height: 22,
-            borderRadius: '50%',
-            background: '#fff',
-            transition: 'left 0.15s',
-          }}
-        />
+        <span className="toggle-knob" />
       </button>
     </div>
   )

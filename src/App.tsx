@@ -28,7 +28,7 @@ import { TrainerClientDetail } from './pages/trainer/TrainerClientDetail'
 import { TrainerProfile } from './pages/trainer/TrainerProfile'
 import { useApp, useProfile } from './store/app'
 import { getActiveSession } from './db/repo'
-import { IconPlay } from './components/Icons'
+import { IconPlay, IconRecord } from './components/Icons'
 
 export default function App() {
   const { toasts, userId } = useApp()
@@ -102,6 +102,7 @@ export default function App() {
           className={`toast${t.kind === 'pr' ? ' pr' : ''}`}
           style={{ bottom: `calc(var(--tabbar-h) + var(--safe-b) + ${84 + i * 46}px)` }}
         >
+          {t.kind === 'pr' && <IconRecord size={16} />}
           {t.text}
         </div>
       ))}

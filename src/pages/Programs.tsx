@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, currentUserId, type Program } from '../db/db'
+import { db, currentUserId } from '../db/db'
 import {
   FREE_PROGRAM_LIMIT,
   canCreateProgram,
@@ -29,7 +29,8 @@ export function Programs() {
   const [createOpen, setCreateOpen] = useState(false)
   const [name, setName] = useState('')
 
-  const programs = useLiveQuery(() => db.programs.toArray(), [], [] as Program[])
+  const programs = useLiveQuery(() => db.programs.toArray(), [])
+  const loading = programs === undefined
   const routines = useLiveQuery(() => db.routines.toArray(), [], [])
   // Персональные программы подписываем именем клиента: без этого список
   // тренера превращается в набор одинаковых «Программа · …».
@@ -124,17 +125,24 @@ export function Programs() {
       )}
 
       <div style={{ marginTop: 14 }} className="stack">
-        {visible.length === 0 && (
-          <div className="empty">
-            <div className="big">
-              <IconClipboard size={34} />
-            </div>
-            {assigned
-              ? 'Программа от тренера скоро появится'
-              : tab === 'mine'
-                ? 'Создайте свою первую программу'
-                : 'В этой категории пусто'}
+        {loading ? (
+          <div className="stack">
+            <div className="card skeleton" style={{ height: 76 }} />
+            <div className="card skeleton" style={{ height: 76 }} />
           </div>
+        ) : (
+          visible.length === 0 && (
+            <div className="empty">
+              <div className="big">
+                <IconClipboard size={34} />
+              </div>
+              {assigned
+                ? 'Программа от тренера скоро появится'
+                : tab === 'mine'
+                  ? 'Создайте свою первую программу'
+                  : 'В этой категории пусто'}
+            </div>
+          )
         )}
 
         {visible.map((p) => {
