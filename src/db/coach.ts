@@ -7,6 +7,7 @@ import {
   setActiveUser,
   type Assignment,
   type Attachment,
+  type ClientMode,
   type Contact,
   type ContactKind,
   type Feedback,
@@ -203,6 +204,15 @@ export async function redeemInvite(code: string, clientId = currentUserId()) {
 
 export async function setLinkStatus(linkId: string, status: TrainerLink['status']) {
   await db.links.update(linkId, { status, updated_at: now() })
+}
+
+/**
+ * Режим работы с клиентом выбирает тренер — от него зависит, просит ли
+ * приложение видео-отчёт. Клиент себе его не меняет: это условие работы,
+ * а не настройка интерфейса.
+ */
+export async function setLinkMode(linkId: string, mode: ClientMode) {
+  await db.links.update(linkId, { mode, updated_at: now() })
 }
 
 /** Разрыв связи доступен обеим сторонам. Данные клиента при этом остаются у клиента. */

@@ -9,8 +9,8 @@ import {
   type ReactNode,
 } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, currentUserId, type Role } from '../db/db'
-import { switchAccount } from '../db/coach'
+import { db, currentUserId, modeOf, type ClientMode, type Role } from '../db/db'
+import { switchAccount, trainerOfClient } from '../db/coach'
 import { configureNative, haptics, beep, notifyRestOver } from '../lib/native'
 
 type Toast = { id: number; text: string; kind?: 'pr' | 'default' }
@@ -163,6 +163,24 @@ export function useProfile() {
 /** Роль активного аккаунта. Пока профиль не загружен — считаем клиентом. */
 export function useRole(): Role {
   return useProfile()?.role ?? 'CLIENT'
+}
+
+/**
+ * Связка с тренером у активного клиента.
+ *
+ * undefined — базу ещё не прочитали, null — тренера нет. Разницу нужно
+ * различать: от связки зависят разделы «Чат» и «Отчёты», и «пока не знаю»
+ * это не то же самое, что «их не будет».
+ */
+export function useTrainerLink() {
+  const { userId } = useApp()
+  return useLiveQuery(() => trainerOfClient(userId), [userId])
+}
+
+/** Режим работы клиента с тренером. Без тренера режима нет. */
+export function useClientMode(): ClientMode | null {
+  const bond = useTrainerLink()
+  return bond ? modeOf(bond.link) : null
 }
 
 /**

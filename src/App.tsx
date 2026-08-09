@@ -22,6 +22,8 @@ import { BodyComposition } from './pages/BodyComposition'
 import { Nutrition } from './pages/Nutrition'
 import { MyFoods } from './pages/MyFoods'
 import { NutritionSettings } from './pages/NutritionSettings'
+import { Chat } from './pages/Chat'
+import { Reports } from './pages/Reports'
 import { Profile } from './pages/Profile'
 import { TrainerClients } from './pages/trainer/TrainerClients'
 import { TrainerClientDetail } from './pages/trainer/TrainerClientDetail'
@@ -85,6 +87,8 @@ export default function App() {
               <Route path="/nutrition" element={<Nutrition />} />
               <Route path="/nutrition/settings" element={<NutritionSettings />} />
               <Route path="/nutrition/foods" element={<MyFoods />} />
+              <Route path="/chat" element={<Chat />} />
+              <Route path="/reports" element={<Reports />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </>
