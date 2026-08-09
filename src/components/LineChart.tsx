@@ -7,13 +7,18 @@ import { useState } from 'react'
  */
 type Point = { x: number; y: number; cells?: (string | null)[] }
 
-type Series = { data: Point[]; color?: string; unit?: string; label?: string }
+/** Границы нормы из отчёта — чтобы по графику было видно не только «куда
+    движемся», но и «куда надо». */
+type Norm = { min: number; max: number }
+
+type Series = { data: Point[]; color?: string; unit?: string; label?: string; norm?: Norm }
 
 type Props = {
   data: Point[]
   color?: string
   unit?: string
   label?: string
+  norm?: Norm
   height?: number
   /** Второй ряд со своей шкалой Y справа. */
   second?: Series
@@ -25,6 +30,7 @@ export function LineChart({
   color = 'var(--accent)',
   unit = '',
   label,
+  norm,
   height = 170,
   second,
 }: Props) {
@@ -57,20 +63,31 @@ export function LineChart({
   const spanX = maxX - minX || 1
   const px = (x: number) => padX + ((x - minX) / spanX) * (w - padX * 2)
 
-  const scaleOf = (pts: Point[]) => {
-    const ys = pts.map((d) => d.y)
+  /**
+   * Границы нормы входят в шкалу наравне со значениями: если все замеры выше
+   * нормы, полоса иначе оказалась бы за краем — то есть ровно в том случае,
+   * когда она нужнее всего.
+   */
+  const scaleOf = (pts: Point[], n?: Norm) => {
+    const values = pts.map((d) => d.y)
+    // Разброс замеров и границы шкалы — разные вещи. Подписи по краям должны
+    // показывать первое: «62–84.6 кг» читалось бы как «вес доходил до 62»,
+    // хотя 62 — это нижняя граница нормы, а не чей-то замер.
+    const dmin = Math.min(...values)
+    const dmax = Math.max(...values)
+    const ys = [...values, ...(n ? [n.min, n.max] : [])]
     const min = Math.min(...ys)
     const max = Math.max(...ys)
     const span = max - min || Math.max(1, max * 0.1)
     return {
-      min,
-      max,
+      dmin,
+      dmax,
       py: (y: number) => padTop + (1 - (y - min) / span) * (h - padTop - padBottom),
     }
   }
 
-  const a = scaleOf(data)
-  const b = hasSecond ? scaleOf(second!.data) : null
+  const a = scaleOf(data, norm)
+  const b = hasSecond ? scaleOf(second!.data, second!.norm) : null
 
   const lineOf = (pts: Point[], py: (y: number) => number) =>
     pts
@@ -132,10 +149,19 @@ export function LineChart({
   const pointB = hasSecond ? nearestTo(second!.data, point.x) : undefined
 
   const cellsOf = (p: Point, u: string) => p.cells ?? [null, `${fmtVal(p.y)}${u}`]
+  const normText = (n?: Norm, u = '') =>
+    n ? `норма ${fmtVal(n.min)}–${fmtVal(n.max)}${u}` : undefined
   const readout = [
-    { color, label, cells: cellsOf(point, unit) },
+    { color, label, cells: cellsOf(point, unit), norm: normText(norm, unit) },
     ...(pointB
-      ? [{ color: secondColor, label: second?.label, cells: cellsOf(pointB, secondUnit) }]
+      ? [
+          {
+            color: secondColor,
+            label: second?.label,
+            cells: cellsOf(pointB, secondUnit),
+            norm: normText(second?.norm, secondUnit),
+          },
+        ]
       : []),
   ]
   // Пустой столбец не занимает места: у веса доли в процентах нет, и держать
@@ -166,6 +192,7 @@ export function LineChart({
                 {r.cells[c] ?? ''}
               </span>
             ))}
+            {r.norm && <span className="chart-readout-norm">{r.norm}</span>}
           </div>
         ))}
       </div>
@@ -192,6 +219,21 @@ export function LineChart({
             y2={h - padBottom}
             stroke="var(--border)"
           />
+          {/* Полоса нормы рисуется первой — она подложка, а не поверх линий.
+              При двух рядах закрашиваем только норму первого: шкалы у рядов
+              разные, и две полосы в одном поле означали бы разное, накладываясь
+              друг на друга. Норма второго остаётся текстом в показаниях. */}
+          {norm && (
+            <rect
+              x={padX}
+              y={a.py(norm.max)}
+              width={w - padX * 2}
+              height={Math.max(1, a.py(norm.min) - a.py(norm.max))}
+              fill={color}
+              opacity={0.1}
+            />
+          )}
+
           {!single && (
             <>
               <path d={area} fill={color} opacity={0.12} />
@@ -242,11 +284,11 @@ export function LineChart({
         {!hasSecond ? (
           <>
             <span className="chart-axis tl">
-              макс {Math.round(a.max)}
+              макс {Math.round(a.dmax)}
               {unit}
             </span>
             <span className="chart-axis tr">
-              мин {Math.round(a.min)}
+              мин {Math.round(a.dmin)}
               {unit}
             </span>
           </>
@@ -254,11 +296,11 @@ export function LineChart({
           <>
             {/* Диапазон своей оси и своим цветом: слева первый ряд, справа второй. */}
             <span className="chart-axis tl" style={{ color }}>
-              {fmtVal(a.min)}–{fmtVal(a.max)}
+              {fmtVal(a.dmin)}–{fmtVal(a.dmax)}
               {unit}
             </span>
             <span className="chart-axis tr" style={{ color: secondColor }}>
-              {fmtVal(b!.min)}–{fmtVal(b!.max)}
+              {fmtVal(b!.dmin)}–{fmtVal(b!.dmax)}
               {secondUnit}
             </span>
           </>

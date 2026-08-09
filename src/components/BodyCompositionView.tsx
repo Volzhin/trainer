@@ -403,6 +403,13 @@ export function BodyCompositionView({
       .map((m) => ({ x: m.logged_at, y: m[key] as number, cells: cellsFor(m, key, unit) }))
   }
 
+  /**
+   * Границы нормы печатает сам отчёт, и зависят они от роста и пола, а не от
+   * даты. Берём из ближайшего замера, где они есть: в свежем взвешивании
+   * норм может не оказаться вовсе.
+   */
+  const normFor = (key: keyof BodyMetric) => scans.find((m) => m.norms?.[key])?.norms?.[key]
+
   const trendPoints = pointsFor(trendKey)
   const trendPoints2 = trendKey2 ? pointsFor(trendKey2) : []
 
@@ -557,6 +564,7 @@ export function BodyCompositionView({
               data={trendPoints}
               unit={trendRow.unit ? ` ${trendRow.unit}` : ''}
               label={trendRow.label}
+              norm={normFor(trendKey)}
               color={color1}
               second={
                 trendRow2 && trendPoints2.length
@@ -565,6 +573,7 @@ export function BodyCompositionView({
                       color: color2,
                       unit: trendRow2.unit ? ` ${trendRow2.unit}` : '',
                       label: trendRow2.label,
+                      norm: normFor(trendKey2),
                     }
                   : undefined
               }

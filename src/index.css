@@ -805,6 +805,12 @@ a {
   color: var(--text);
 }
 
+.chart-readout-norm {
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
 .chart-wrap {
   position: relative;
 }
