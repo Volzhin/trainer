@@ -22,7 +22,7 @@ import { BodyCompositionView } from '../../components/BodyCompositionView'
 import { Sheet } from '../../components/Sheet'
 import { Group, Row } from '../../components/Group'
 import { SessionReview } from '../../components/SessionReview'
-import { ClientNutrition } from '../../components/ClientNutrition'
+// import { ClientNutrition } from '../../components/ClientNutrition'
 import { ProgressView } from '../../components/ProgressView'
 import { IconBack, IconCheck, IconPlus, IconTrash } from '../../components/Icons'
 import { formatDate, formatDuration, plural, totalVolume } from '../../lib/calc'
@@ -113,7 +113,8 @@ export function TrainerClientDetail() {
             ['overview', 'Сводка'],
             ['progress', 'Прогресс'],
             ['body', 'Тело'],
-            ['nutrition', 'Питание'],
+            // Питание снято с интерфейса вместе с разделом у клиента — см. TabBar.
+            // ['nutrition', 'Питание'],
             ['history', 'Тренировки'],
             ['notes', 'Заметки'],
           ] as const
@@ -366,7 +367,7 @@ export function TrainerClientDetail() {
         </div>
       )}
 
-      {tab === 'nutrition' && <ClientNutrition clientId={id} />}
+      {/* {tab === 'nutrition' && <ClientNutrition clientId={id} />} */}
 
       {tab === 'notes' && (
         <div style={{ marginTop: 14 }}>

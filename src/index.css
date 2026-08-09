@@ -1417,6 +1417,86 @@ button.group-row:active {
   background: var(--accent-soft);
 }
 
+/* Строка метрики теперь открывает разбор — отзыв на нажатие такой же, как
+   у карточек, иначе непонятно, что она вообще нажимается. */
+.group-row.tap {
+  cursor: pointer;
+}
+
+.group-row.tap:active {
+  background: var(--surface-2);
+}
+
+/* Шкала «ниже — норма — выше» в разборе метрики. Зоны равной ширины:
+   отчёт печатает только границы нормы, насколько широки крайние зоны в
+   числах — неизвестно. */
+.norm-scale {
+  padding-bottom: 18px;
+}
+
+.norm-scale-heads {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.norm-scale-heads .on {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.norm-scale-bar {
+  position: relative;
+  height: 6px;
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.norm-scale-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: var(--r-full);
+}
+
+.norm-scale-knob {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+  border-radius: var(--r-full);
+  background: var(--bg);
+  border: 3px solid var(--border-strong);
+}
+
+.norm-scale-bounds {
+  position: relative;
+  height: 14px;
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.norm-scale-bounds span {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.bullets {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 /* Цветовой ключ метрики: тонкая полоса вместо заливки всей иконки. */
 .key-dot {
   width: 4px;

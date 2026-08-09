@@ -141,6 +141,70 @@ const OTHER: Row[] = [
 
 const TRACKABLE = [...MAIN, ...OTHER]
 
+/**
+ * Что означает метрика и от чего она движется. Отчёт печатает голое число и
+ * пометку «выше нормы» — по ней не понять ни что мерили, ни что с этим
+ * делать. Формулировки описательные: это разбор показателя, а не назначения.
+ */
+const METRIC_INFO: Partial<Record<keyof BodyMetric, { what: string; affects: string[] }>> = {
+  weight_kg: {
+    what: 'Общая масса тела: мышцы, жир, кости, вода и всё остальное. Сам по себе вес не говорит, из чего он состоит, — за этим смотрят на жир и мышцы.',
+    affects: [
+      'Соотношение мышц и жира',
+      'Количество воды в организме',
+      'Питание и уровень физической активности',
+    ],
+  },
+  body_fat_pct: {
+    what: 'Доля жировой массы в общем весе. Меняется медленнее веса: вес скачет от воды и содержимого кишечника, процент жира — нет.',
+    affects: [
+      'Баланс калорий: сколько получено против потрачено',
+      'Силовые нагрузки — они удерживают мышцы, пока уходит жир',
+      'Сон и уровень стресса',
+    ],
+  },
+  skeletal_muscle_kg: {
+    what: 'Масса скелетных мышц — тех, которыми вы двигаете телом. Растёт медленно, месяцами, и заметнее всего в начале тренировок.',
+    affects: [
+      'Регулярные силовые тренировки и рост нагрузки',
+      'Достаточность белка в рационе',
+      'Восстановление и сон',
+    ],
+  },
+  body_water_l: {
+    what: 'Общая вода в организме: внутри клеток и между ними. Сильнее прочих метрик пляшет ото дня ко дню.',
+    affects: [
+      'Сколько выпито за сутки',
+      'Соль и углеводы в рационе',
+      'Время суток и недавняя тренировка',
+    ],
+  },
+  protein_kg: {
+    what: 'Белок в составе тела — прежде всего в мышцах и органах. Идёт рука об руку с мышечной массой.',
+    affects: ['Белок в рационе', 'Силовые нагрузки', 'Общая калорийность питания'],
+  },
+  minerals_kg: {
+    what: 'Минеральные вещества: в основном костная ткань, немного — в крови и тканях. Меняется очень медленно.',
+    affects: ['Кальций, фосфор и витамин D в рационе', 'Силовые и ударные нагрузки', 'Возраст'],
+  },
+  visceral_fat: {
+    what: 'Жир вокруг внутренних органов в брюшной полости — в отличие от подкожного, снаружи его не видно и не прощупать.',
+    affects: ['Общее количество жира в теле', 'Питание и режим сна', 'Регулярность нагрузок'],
+  },
+  bmi: {
+    what: 'Индекс массы тела: вес относительно роста в квадрате. Состав тела он не различает — у мускулистого человека выходит высоким без лишнего жира.',
+    affects: ['Вес', 'Рост'],
+  },
+  fat_free_mass_kg: {
+    what: 'Всё, кроме жира: мышцы, кости, органы и вода. Её и стараются сохранить, когда снижают вес.',
+    affects: ['Силовые нагрузки', 'Белок в рационе', 'Скорость снижения веса'],
+  },
+  bmr_kcal: {
+    what: 'Сколько энергии тело тратит в полном покое — на дыхание, сердцебиение и обмен веществ. Это не суточная норма: сверху добавляются движение и тренировки.',
+    affects: ['Безжировая масса', 'Возраст и пол', 'Длительное недоедание'],
+  },
+}
+
 /** Массы состава, которые осмысленно показывать ещё и долей от веса. */
 const AS_SHARE: (keyof BodyMetric)[] = [
   'skeletal_muscle_kg',
@@ -233,6 +297,8 @@ export function BodyCompositionView({
       return prev.length < 2 ? [...prev, key] : [prev[0], key]
     })
   const [historyOpen, setHistoryOpen] = useState(false)
+  // Какую метрику разбираем в шторке.
+  const [infoRow, setInfoRow] = useState<Row | null>(null)
 
   const metrics = useLiveQuery(() => listBodyMetrics(userId), [userId], [] as BodyMetric[])
   /**
@@ -475,6 +541,7 @@ export function BodyCompositionView({
               <MetricRow
                 key={String(row.key)}
                 row={row}
+                onOpen={() => setInfoRow(row)}
                 now={
                   row.key === 'weight_kg' || row.key === 'body_fat_pct'
                     ? latest
@@ -500,6 +567,7 @@ export function BodyCompositionView({
                   <MetricRow
                     key={String(row.key)}
                     row={row}
+                    onOpen={() => setInfoRow(row)}
                     now={composed}
                     was={composedPrev}
                     index={i}
@@ -788,6 +856,17 @@ export function BodyCompositionView({
         )}
       </Sheet>
 
+      <MetricInfoSheet
+        row={infoRow}
+        metric={
+          infoRow && (infoRow.key === 'weight_kg' || infoRow.key === 'body_fat_pct')
+            ? latest
+            : (composed ?? latest)
+        }
+        norm={infoRow ? normFor(infoRow.key) : undefined}
+        onClose={() => setInfoRow(null)}
+      />
+
       <Sheet
         open={historyOpen}
         title="Замеры"
@@ -860,6 +939,118 @@ export function BodyCompositionView({
 
 const round1 = (v: number) => Math.round(v * 10) / 10
 
+/**
+ * Шкала «ниже — норма — выше». Зоны нарисованы равными: насколько широки
+ * «ниже» и «выше» в числах, не определено — отчёт печатает только границы
+ * нормы. Внутри своей зоны отметка стоит пропорционально, а вылет дальше
+ * ширины нормы упирается в край: рисовать бесконечность нечем.
+ */
+function NormScale({
+  value,
+  norm,
+  unit,
+  status,
+}: {
+  value: number
+  norm: { min: number; max: number }
+  unit?: string
+  status?: NormStatus
+}) {
+  const span = norm.max - norm.min || 1
+  const pos =
+    value < norm.min
+      ? Math.max(0, 1 - (norm.min - value) / span) / 3
+      : value <= norm.max
+        ? 1 / 3 + (value - norm.min) / span / 3
+        : 2 / 3 + Math.min(1, (value - norm.max) / span) / 3
+
+  const color =
+    status === 'normal' ? 'var(--ok)' : status === 'high' ? 'var(--warn)' : 'var(--accent-ink)'
+
+  return (
+    <div className="norm-scale">
+      <div className="norm-scale-heads">
+        <span className={status === 'low' ? 'on' : undefined}>Ниже нормы</span>
+        <span className={status === 'normal' ? 'on' : undefined}>Норма</span>
+        <span className={status === 'high' ? 'on' : undefined}>Выше нормы</span>
+      </div>
+      <div className="norm-scale-bar">
+        <i className="norm-scale-fill" style={{ width: `${pos * 100}%`, background: color }} />
+        <i className="norm-scale-knob" style={{ left: `${pos * 100}%`, borderColor: color }} />
+      </div>
+      <div className="norm-scale-bounds">
+        <span style={{ left: '33.333%' }}>
+          {round1(norm.min)}
+          {unit ? ` ${unit}` : ''}
+        </span>
+        <span style={{ left: '66.666%' }}>
+          {round1(norm.max)}
+          {unit ? ` ${unit}` : ''}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+/** Разбор одной метрики: где значение относительно нормы и что это вообще. */
+function MetricInfoSheet({
+  row,
+  metric,
+  norm,
+  onClose,
+}: {
+  row: Row | null
+  metric?: BodyMetric
+  norm?: { min: number; max: number }
+  onClose: () => void
+}) {
+  const value = row && metric ? (metric[row.key] as number | undefined) : undefined
+  const info = row ? METRIC_INFO[row.key] : undefined
+  const status = statusFor(value, norm)
+
+  return (
+    <Sheet open={!!row} title={row?.label ?? ''} onClose={onClose}>
+      {row && (
+        <div className="stack">
+          <div className="row between" style={{ alignItems: 'center' }}>
+            <span className="metric-icon" style={{ color: row.color }}>
+              <row.Icon size={22} />
+            </span>
+            <span style={{ fontWeight: 700, fontSize: 24, fontVariantNumeric: 'tabular-nums' }}>
+              {value == null ? '—' : round1(value)}
+              <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-3)' }}>
+                {row.unit ? ` ${row.unit}` : ''}
+              </span>
+            </span>
+          </div>
+
+          {value != null && norm ? (
+            <NormScale value={value} norm={norm} unit={row.unit} status={status} />
+          ) : (
+            <div className="mute-sm">Границы нормы в отчёте не указаны.</div>
+          )}
+
+          {info && (
+            <>
+              <div>{info.what}</div>
+              <div>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>
+                  Что влияет на {row.label.toLowerCase()}
+                </div>
+                <ul className="bullets">
+                  {info.affects.map((x) => (
+                    <li key={x}>{x}</li>
+                  ))}
+                </ul>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </Sheet>
+  )
+}
+
 function Target({ label, value }: { label: string; value?: number }) {
   return (
     <div className="metric">
@@ -876,11 +1067,13 @@ function MetricRow({
   now,
   was,
   index = 0,
+  onOpen,
 }: {
   row: Row
   now: BodyMetric
   was?: BodyMetric
   index?: number
+  onOpen?: () => void
 }) {
   const value = now[row.key] as number | undefined
   const shown = useCountUp(value ?? 0, Number.isInteger(value) ? 0 : 1)
@@ -892,7 +1085,19 @@ function MetricRow({
   const good = diff == null || diff === 0 ? null : row.better === 'up' ? diff > 0 : diff < 0
 
   return (
-    <div className="group-row" style={{ '--i': index } as React.CSSProperties}>
+    <div
+      className={`group-row${onOpen ? ' tap' : ''}`}
+      style={{ '--i': index } as React.CSSProperties}
+      role={onOpen ? 'button' : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (onOpen && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault()
+          onOpen()
+        }
+      }}
+    >
       <span className="metric-icon" style={{ color: row.color }}>
         <row.Icon size={20} />
       </span>
@@ -925,6 +1130,7 @@ function MetricRow({
           </span>
         )}
       </span>
+      {onOpen && <span className="chevron">›</span>}
     </div>
   )
 }

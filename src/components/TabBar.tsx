@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import {
-  IconApple,
+  // IconApple — вернётся вместе с разделом питания
   IconChat,
   IconClipboard,
   IconDumbbell,
@@ -20,7 +20,10 @@ type Tab = { to: string; label: string; Icon: typeof IconHome; end: boolean }
  */
 const CLIENT_TABS: Tab[] = [
   { to: '/', label: 'Тренировки', Icon: IconHome, end: true },
-  { to: '/nutrition', label: 'Питание', Icon: IconApple, end: false },
+  // Раздел питания снят с интерфейса: он работает плохо, и показывать его
+  // людям рано. Код страниц и расчётов оставлен на месте — вернуть раздел
+  // значит снять комментарий здесь и в App.tsx, ничего не восстанавливая.
+  // { to: '/nutrition', label: 'Питание', Icon: IconApple, end: false },
 ]
 
 /** Появляются только с тренером: без него писать и отчитываться некому. */
