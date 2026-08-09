@@ -17,7 +17,7 @@ import {
   type UserProfile,
   type WorkoutSession,
 } from './db'
-import { estimate1RM, startOfDay } from '../lib/calc'
+import { estimate1RM, startOfDay, weekStart } from '../lib/calc'
 import {
   createInvite as remoteCreateInvite,
   deleteRemoteAttachment,
@@ -260,11 +260,6 @@ export type ClientSummary = {
   /** Рекорды за последние 14 дней. */
   recentPRs: number
   unreadFeedback: number
-}
-
-function weekStart(ts: number) {
-  const day = startOfDay(ts)
-  return day - ((new Date(day).getDay() + 6) % 7) * 86400_000
 }
 
 /** Сводка по всем клиентам тренера — основа списка и дашборда. */
