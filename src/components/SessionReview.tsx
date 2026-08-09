@@ -11,7 +11,7 @@ import { useExercises } from '../db/catalog'
 import { addFeedback, attachmentsForSession, feedbackForSession } from '../db/coach'
 import { AttachmentPlayer } from './ExerciseVideo'
 import { Sheet } from './Sheet'
-import { IconChat } from './Icons'
+import { IconChat, IconRecord } from './Icons'
 import { formatDateTime, formatDuration, formatWeight, plural, totalVolume } from '../lib/calc'
 import { estimate1RM } from '../lib/calc'
 import { useApp } from '../store/app'
@@ -126,7 +126,12 @@ export function SessionReview({
                 <div style={{ textAlign: 'center' }}>{formatWeight(s.weight_kg)} кг</div>
                 <div style={{ textAlign: 'center' }}>{s.reps_completed ?? '—'} повт.</div>
                 <div style={{ textAlign: 'right' }}>
-                  {s.is_pr === 1 && <span className="badge pr">PR</span>}
+                  {s.is_pr === 1 && (
+                    <span className="badge pr">
+                      <IconRecord size={11} />
+                      PR
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
@@ -227,7 +232,7 @@ function ExerciseReview({
             borderLeft: '2px solid var(--accent)',
             paddingLeft: 10,
             marginTop: 8,
-            color: 'var(--text-dim)',
+            color: 'var(--text-2)',
           }}
         >
           {c.text}

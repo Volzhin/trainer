@@ -7,7 +7,7 @@ import { deleteSession } from '../db/repo'
 import { feedbackForSession, markFeedbackRead, trainerOfClient } from '../db/coach'
 import { VideoUploader } from '../components/ExerciseVideo'
 import { ExerciseTechniqueSheet } from '../components/ExerciseTechnique'
-import { IconBack, IconChat, IconTrash, IconVideo } from '../components/Icons'
+import { IconBack, IconChat, IconRecord, IconTrash, IconVideo } from '../components/Icons'
 import { formatDateTime, formatDuration, formatWeight, plural, totalVolume } from '../lib/calc'
 import { useApp } from '../store/app'
 
@@ -98,7 +98,7 @@ export function SessionDetail() {
           {(comments ?? [])
             .filter((c) => !c.exercise_id)
             .map((c) => (
-              <div className="card" key={c.id} style={{ borderColor: 'var(--accent-dim)' }}>
+              <div className="card" key={c.id} style={{ borderColor: 'var(--accent)' }}>
                 <div className="row" style={{ marginBottom: 6 }}>
                   <IconChat size={16} />
                   <span className="mute-sm">{formatDateTime(c.created_at)}</span>
@@ -164,7 +164,12 @@ export function SessionDetail() {
                   <div style={{ textAlign: 'center' }}>{formatWeight(s.weight_kg)} кг</div>
                   <div style={{ textAlign: 'center' }}>{s.reps_completed ?? '—'} повт.</div>
                   <div style={{ textAlign: 'right' }}>
-                    {s.is_pr === 1 && <span className="badge pr">PR</span>}
+                    {s.is_pr === 1 && (
+                      <span className="badge pr">
+                        <IconRecord size={11} />
+                        PR
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}

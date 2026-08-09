@@ -1,21 +1,39 @@
-/* Trainer DS — design tokens
-   Подключить первым импортом в src/styles.css */
+/* Trainer DS — design tokens. Единственный источник переменных: экраны и
+   компоненты ссылаются только на имена из этого файла, ничего не дублируется
+   в других местах. Если нужен новый оттенок — заводится здесь. */
 :root {
-  /* surfaces */
-  --bg:#0b0d10; --bg-elev:rgba(17,21,27,.86); --surface:rgba(26,31,39,.88); --surface-2:rgba(44,51,62,.78);
-  --border:#2a3038; --border-strong:#3b434e;
+  /* surfaces — тёплый почти-чёрный («графит»), не холодный сине-чёрный:
+     меньше похоже на стоковый дев-тул-дарк-мод. */
+  --bg:#14110f; --surface:rgba(28,25,23,.88); --surface-2:rgba(45,40,36,.78);
+  --border:#332d29; --border-strong:#453e38;
   /* text */
-  --text:#f3f5f7; --text-2:#9aa4b2; --text-3:#69717d;
-  /* accent + status */
+  --text:#f3f1ea; --text-2:#a29a90; --text-3:#756c63;
+  /* акцент — известь, уже узнаваемый цвет приложения */
   --accent:#c9f24d; --accent-press:#b1d93c; --on-accent:#121705; --accent-soft:rgba(201,242,77,.14);
+  /* второй акцент — медь, только для личных рекордов: см. .badge.pr, DESIGN.md */
+  --copper:#d98a4f; --copper-soft:rgba(217,138,79,.16);
+  /* статусы */
   --ok:#4de3a2; --ok-soft:rgba(77,227,162,.14);
   --warn:#f2c94d; --warn-soft:rgba(242,201,77,.14);
   --danger:#ff6f5e; --danger-soft:rgba(255,111,94,.14);
   --info:#5cc4ff; --info-soft:rgba(92,196,255,.14);
-  /* elevation */
-  --shadow-1:0 1px 2px rgba(0,0,0,.45);
-  --shadow-2:0 10px 30px -12px rgba(0,0,0,.75);
-  --shadow-sheet:0 -16px 48px rgba(0,0,0,.6);
+  /* производные акцента */
+  --accent-ink: var(--accent);
+  /* фоновое свечение (мешевый градиент за скроллом) */
+  --glow-1:#2f7bff; --glow-2:#7a5cff; --glow-3:#00c2a8; --glow-4:#ff5c8a;
+  /* цвета состава тела: мышцы — акцент, жир — предупреждение (красный запрещён) */
+  --c-muscle: var(--accent-ink); --c-protein: var(--glow-2); --c-minerals: var(--ok);
+  --c-water: var(--info); --c-fat: var(--warn);
+  /* оверлей подложки шторок */
+  --overlay: rgba(0,0,0,.6);
+  /* рычажок физического переключателя — как в нативных ОС, не следует
+     теме, всегда светлый; читаемость на любом фоне держит тень */
+  --knob: #fff;
+  /* уровни возвышения: короткая плотная тень контакта + длинная мягкая рассеянная
+     + тонкая светлая линия сверху, все подкрашены в тон фона, не в чистый чёрный */
+  --shadow-1: 0 1px 2px rgba(10,8,6,.4), 0 8px 20px -14px rgba(10,8,6,.45), inset 0 1px 0 rgba(255,255,255,.04);
+  --shadow-2: 0 2px 4px rgba(10,8,6,.45), 0 16px 40px -16px rgba(10,8,6,.55), inset 0 1px 0 rgba(255,255,255,.05);
+  --shadow-sheet: 0 -16px 48px rgba(10,8,6,.6), inset 0 1px 0 rgba(255,255,255,.06);
   /* radii */
   --r-sm:8px; --r-md:12px; --r-lg:16px; --r-xl:22px; --r-2xl:28px; --r-full:999px;
   /* spacing */
@@ -34,17 +52,71 @@
 }
 
 [data-theme="light"] {
-  --bg:#f4f5f2; --bg-elev:rgba(255,255,255,.92); --surface:rgba(255,255,255,.9); --surface-2:rgba(232,236,228,.86);
+  --bg:#f4f5f2; --surface:rgba(255,255,255,.9); --surface-2:rgba(232,236,228,.86);
   --border:#e2e5dd; --border-strong:#c8cec1;
   --text:#12151a; --text-2:#5b6470; --text-3:#8b939f;
   --accent:#bce837; --accent-press:#a6d022; --on-accent:#12170a; --accent-soft:rgba(140,190,20,.16);
+  --copper:#b56a34; --copper-soft:rgba(181,106,52,.14);
   --ok:#12a06a; --ok-soft:rgba(18,160,106,.12);
   --warn:#b8860b; --warn-soft:rgba(184,134,11,.12);
   --danger:#dc4436; --danger-soft:rgba(220,68,54,.12);
   --info:#0f7fc4; --info-soft:rgba(15,127,196,.12);
-  --shadow-1:0 1px 2px rgba(20,25,15,.06);
-  --shadow-2:0 12px 32px -14px rgba(20,25,15,.24);
-  --shadow-sheet:0 -16px 44px rgba(20,25,15,.18);
+  /* акцент как цвет текста: лайм читается заливкой под тёмный текст, но на
+     светлом фоне его контраст около 1.5:1 — берём притемнённый оливковый. */
+  --accent-ink:#52700f;
+  --c-protein:#5b3fc4;
+  --glow-1:#7fb2ff; --glow-2:#b9a4ff; --glow-3:#7fe3d4; --glow-4:#ffb0c6;
+  --overlay: rgba(20,25,15,.42);
+  --shadow-1: 0 1px 2px rgba(30,22,12,.07), 0 8px 20px -14px rgba(30,22,12,.12), inset 0 1px 0 rgba(255,255,255,.6);
+  --shadow-2: 0 2px 4px rgba(30,22,12,.08), 0 16px 40px -16px rgba(30,22,12,.18), inset 0 1px 0 rgba(255,255,255,.7);
+  --shadow-sheet: 0 -16px 44px rgba(30,22,12,.16), inset 0 1px 0 rgba(255,255,255,.8);
+  color-scheme: light;
+}
+
+/* Светлая тема по системной настройке, если человек не выбрал явно. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --bg:#f4f5f2; --surface:rgba(255,255,255,.9); --surface-2:rgba(232,236,228,.86);
+    --border:#e2e5dd; --border-strong:#c8cec1;
+    --text:#12151a; --text-2:#5b6470; --text-3:#8b939f;
+    --accent:#bce837; --accent-press:#a6d022; --on-accent:#12170a; --accent-soft:rgba(140,190,20,.16);
+    --copper:#b56a34; --copper-soft:rgba(181,106,52,.14);
+    --ok:#12a06a; --ok-soft:rgba(18,160,106,.12);
+    --warn:#b8860b; --warn-soft:rgba(184,134,11,.12);
+    --danger:#dc4436; --danger-soft:rgba(220,68,54,.12);
+    --info:#0f7fc4; --info-soft:rgba(15,127,196,.12);
+    --accent-ink:#52700f;
+    --c-protein:#5b3fc4;
+    --glow-1:#7fb2ff; --glow-2:#b9a4ff; --glow-3:#7fe3d4; --glow-4:#ffb0c6;
+    --overlay: rgba(20,25,15,.42);
+    --shadow-1: 0 1px 2px rgba(30,22,12,.07), 0 8px 20px -14px rgba(30,22,12,.12), inset 0 1px 0 rgba(255,255,255,.6);
+    --shadow-2: 0 2px 4px rgba(30,22,12,.08), 0 16px 40px -16px rgba(30,22,12,.18), inset 0 1px 0 rgba(255,255,255,.7);
+    --shadow-sheet: 0 -16px 44px rgba(30,22,12,.16), inset 0 1px 0 rgba(255,255,255,.8);
+    color-scheme: light;
+  }
+}
+
+/* Второй акцент палитры: сине-фиолетовый из Nocturne (переключатель темы в
+   профиле). Тон достаточно тёмный, чтобы читаться и заливкой под светлый
+   текст, и как цвет текста на светлом фоне — отдельная притемнённая версия
+   ему не нужна. */
+:root[data-accent='indigo'] {
+  --accent:#9184d9; --accent-press:#7972a9;
+  /* Тёмная подпись на светлом фиолетовом: белая даёт 3.2 против нужных 4.5. */
+  --on-accent:#1a1526; --accent-soft:rgba(145,132,217,.16); --accent-ink:#9184d9;
+  --c-muscle:#9184d9;
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-accent='indigo']:not([data-theme='dark']) {
+    --accent:#5d5294; --accent-press:#423a6a; --on-accent:#fff;
+    --accent-soft:rgba(93,82,148,.14); --accent-ink:#5d5294; --c-muscle:#5d5294;
+  }
+}
+
+:root[data-accent='indigo'][data-theme='light'] {
+  --accent:#5d5294; --accent-press:#423a6a; --on-accent:#fff;
+  --accent-soft:rgba(93,82,148,.14); --accent-ink:#5d5294; --c-muscle:#5d5294;
 }
 
 /* Типографическая шкала */

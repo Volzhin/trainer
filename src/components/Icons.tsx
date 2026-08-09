@@ -132,9 +132,13 @@ export const IconStar = ({ size, filled }: P & { filled?: boolean }) => (
   </svg>
 )
 
-export const IconFlame = ({ size }: P) => (
+/* Личный рекорд — единственное место в приложении, где встречается медь.
+   Диск штанги вместо привычного огонька: образ ближе к тому, что человек
+   в этот момент реально держит в руках. */
+export const IconRecord = ({ size }: P) => (
   <svg {...base(size)}>
-    <path d="M12 3s5 4.5 5 9a5 5 0 0 1-10 0c0-1.5.7-2.8 1.5-3.7.3 1.2 1 2 1.9 2.2C10 8.5 12 6 12 3z" />
+    <circle cx="12" cy="12" r="8.5" />
+    <circle cx="12" cy="12" r="3" />
   </svg>
 )
 

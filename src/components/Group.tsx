@@ -100,7 +100,7 @@ export function Bar({
       <i
         style={{
           width: `${pct}%`,
-          background: !onAccent && pct >= 100 ? 'var(--success)' : undefined,
+          background: !onAccent && pct >= 100 ? 'var(--ok)' : undefined,
         }}
       />
     </div>

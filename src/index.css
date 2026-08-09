@@ -1,5 +1,4 @@
 @import './tokens.css';
-@import './bridge.css';
 @import '/fonts.css';
 
 /* Базовые размеры и служебные величины, которых нет в токенах системы. */
@@ -80,6 +79,14 @@ a {
   text-decoration: none;
 }
 
+/* Фокус с клавиатуры — один системный стиль на все интерактивные элементы,
+   а не браузерный дефолт вперемешку с местами, где его случайно отключили.
+   :focus-visible не срабатывает на клик мышью/тач — только на Tab. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* ------------------------------ каркас ------------------------------ */
 
 .app {
@@ -123,7 +130,7 @@ a {
 }
 
 .header .sub {
-  color: var(--text-dim);
+  color: var(--text-2);
   font-size: 14px;
   margin-top: 2px;
 }
@@ -146,10 +153,10 @@ a {
   height: calc(var(--tabbar-h) + var(--safe-b));
   padding-bottom: var(--safe-b);
   display: flex;
-  background: var(--glass);
+  background: var(--surface);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border);
   z-index: 40;
 }
 
@@ -168,7 +175,7 @@ a {
   justify-content: center;
   gap: 3px;
   font-size: 10px;
-  color: var(--text-mute);
+  color: var(--text-3);
   transition: color 0.15s;
 }
 
@@ -188,6 +195,7 @@ a {
   border: 1px solid var(--border);
   border-radius: var(--r-xl);
   padding: 18px;
+  box-shadow: var(--shadow-1);
 }
 
 .card + .card {
@@ -195,7 +203,7 @@ a {
 }
 
 .card.tap:active {
-  background: var(--bg-elev-2);
+  background: var(--surface-2);
 }
 
 .row {
@@ -219,13 +227,17 @@ a {
   gap: 10px;
 }
 
+.stack.tight {
+  gap: var(--space-2);
+}
+
 .muted {
-  color: var(--text-dim);
+  color: var(--text-2);
   font-size: 14px;
 }
 
 .mute-sm {
-  color: var(--text-mute);
+  color: var(--text-3);
   font-size: 12px;
 }
 
@@ -234,6 +246,23 @@ a {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Утилиты отступов по шкале токенов — вместо произвольных чисел в style=. */
+.mt-1 { margin-top: var(--space-1); }
+.mt-2 { margin-top: var(--space-2); }
+.mt-3 { margin-top: var(--space-3); }
+.mt-4 { margin-top: var(--space-4); }
+.mt-5 { margin-top: var(--space-5); }
+.mt-6 { margin-top: var(--space-6); }
+.mt-8 { margin-top: var(--space-8); }
+.mb-1 { margin-bottom: var(--space-1); }
+.mb-2 { margin-bottom: var(--space-2); }
+.mb-3 { margin-bottom: var(--space-3); }
+.mb-4 { margin-bottom: var(--space-4); }
+.mb-5 { margin-bottom: var(--space-5); }
+.mb-6 { margin-bottom: var(--space-6); }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
 
 /* ------------------------------ кнопки ------------------------------ */
 
@@ -267,9 +296,9 @@ a {
 }
 
 .btn.success {
-  background: var(--success);
-  border-color: var(--success);
-  color: var(--on-success);
+  background: var(--ok);
+  border-color: var(--ok);
+  color: var(--on-accent);
 }
 
 .btn.danger {
@@ -305,16 +334,48 @@ a {
 .icon-btn {
   width: 36px;
   height: 36px;
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   display: grid;
   place-items: center;
-  color: var(--text-dim);
-  background: var(--bg-elev-2);
-  border: 1px solid var(--line);
+  color: var(--text-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
 }
 
 .icon-btn:active {
   transform: scale(0.94);
+}
+
+.toggle {
+  position: relative;
+  width: 48px;
+  height: 28px;
+  border-radius: var(--r-full);
+  background: var(--border);
+  transition: background var(--dur) var(--ease);
+  flex: 0 0 auto;
+}
+
+.toggle.on {
+  background: var(--accent);
+}
+
+.toggle-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  /* Физический рычажок переключателя — как у нативных ОС, всегда светлый
+     независимо от темы и состояния, тень держит его видимым на любом фоне. */
+  background: var(--knob);
+  box-shadow: var(--shadow-1);
+  transition: left var(--dur) var(--ease);
+}
+
+.toggle.on .toggle-knob {
+  left: 23px;
 }
 
 /* ------------------------------- чипы ------------------------------- */
@@ -338,10 +399,10 @@ a {
   flex: 0 0 auto;
   padding: 7px 14px;
   border-radius: 999px;
-  background: var(--bg-elev);
-  border: 1px solid var(--line);
+  background: var(--surface);
+  border: 1px solid var(--border);
   font-size: 13px;
-  color: var(--text-dim);
+  color: var(--text-2);
   white-space: nowrap;
 }
 
@@ -353,20 +414,22 @@ a {
 }
 
 .badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 3px 8px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
-  background: var(--bg-elev-2);
-  color: var(--text-dim);
-  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text-2);
+  border: 1px solid var(--border);
 }
 
 .badge.pr {
-  background: rgba(240, 180, 41, 0.15);
-  color: var(--pr);
-  border-color: rgba(240, 180, 41, 0.35);
+  background: var(--copper-soft);
+  color: var(--copper);
+  border-color: transparent;
 }
 
 .badge.pro {
@@ -381,9 +444,9 @@ a {
 .select,
 .textarea {
   width: 100%;
-  background: var(--bg-elev-2);
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
   padding: 12px 14px;
   outline: none;
   font-size: 16px;
@@ -392,7 +455,8 @@ a {
 .input:focus,
 .select:focus,
 .textarea:focus {
-  border-color: var(--accent-dim);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .textarea {
@@ -408,7 +472,7 @@ a {
 
 .field label {
   font-size: 13px;
-  color: var(--text-dim);
+  color: var(--text-2);
 }
 
 .search {
@@ -422,7 +486,7 @@ a {
   transform: translateY(-50%);
   width: 18px;
   height: 18px;
-  color: var(--text-mute);
+  color: var(--text-3);
 }
 
 .search .input {
@@ -438,10 +502,11 @@ a {
 }
 
 .stat {
-  background: var(--bg-elev);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
   padding: 14px;
+  box-shadow: var(--shadow-1);
 }
 
 .stat .value {
@@ -452,7 +517,7 @@ a {
 
 .stat .label {
   font-size: 12px;
-  color: var(--text-mute);
+  color: var(--text-3);
   margin-top: 2px;
 }
 
@@ -462,19 +527,20 @@ a {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: var(--glass);
+  background: var(--surface);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   margin: 0 -16px;
   padding: calc(var(--safe-t) + 10px) 16px 10px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
 }
 
 .ex-block {
-  background: var(--bg-elev);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
   overflow: hidden;
+  box-shadow: var(--shadow-1);
 }
 
 .ex-block + .ex-block {
@@ -486,7 +552,7 @@ a {
   align-items: center;
   gap: 10px;
   padding: 13px 14px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
 }
 
 .set-grid {
@@ -501,7 +567,7 @@ a {
   padding-top: 10px;
   padding-bottom: 2px;
   font-size: 11px;
-  color: var(--text-mute);
+  color: var(--text-3);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -511,21 +577,21 @@ a {
 }
 
 .set-grid.done .num {
-  color: var(--success);
+  color: var(--ok);
 }
 
 .num {
   text-align: center;
-  color: var(--text-dim);
+  color: var(--text-2);
   font-variant-numeric: tabular-nums;
   font-size: 14px;
 }
 
 .cell-input {
   width: 100%;
-  background: var(--bg-elev-2);
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
   padding: 10px 6px;
   text-align: center;
   font-size: 17px;
@@ -537,22 +603,23 @@ a {
 .cell-input:focus {
   border-color: var(--accent);
   background: var(--bg);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .cell-input::placeholder {
-  color: var(--text-mute);
+  color: var(--text-3);
   font-weight: 400;
 }
 
 .check {
   width: 40px;
   height: 38px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   display: grid;
   place-items: center;
-  background: var(--bg-elev-2);
-  border: 1px solid var(--line);
-  color: var(--text-mute);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-3);
 }
 
 .check.on {
@@ -568,7 +635,7 @@ a {
 .prev-hint {
   grid-column: 1 / -1;
   font-size: 11px;
-  color: var(--text-mute);
+  color: var(--text-3);
   padding-left: 42px;
   margin-top: -4px;
 }
@@ -590,14 +657,14 @@ a {
   pointer-events: auto;
   width: min(560px, 100%);
   margin: 0 12px 10px;
-  background: var(--bg-elev-2);
-  border: 1px solid var(--accent-dim);
+  background: var(--surface-2);
+  border: 1px solid var(--accent);
   border-radius: 16px;
   padding: 12px 14px;
   display: flex;
   align-items: center;
   gap: 12px;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-2);
 }
 
 .rest-time {
@@ -611,7 +678,7 @@ a {
 .rest-progress {
   height: 4px;
   border-radius: 2px;
-  background: var(--line);
+  background: var(--border);
   overflow: hidden;
   margin-top: 6px;
 }
@@ -640,13 +707,14 @@ a {
   pointer-events: auto;
   width: min(560px, 100%);
   margin: 0 12px 8px;
-  background: linear-gradient(135deg, var(--accent), #3f6fe0);
+  background: linear-gradient(135deg, var(--accent), var(--accent-press));
+  color: var(--on-accent);
   border-radius: 14px;
   padding: 11px 14px;
   display: flex;
   align-items: center;
   gap: 10px;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-2);
 }
 
 /* ------------------------------ модалка ----------------------------- */
@@ -668,7 +736,7 @@ a {
   background: var(--surface);
   box-shadow: var(--shadow-sheet);
   border-radius: var(--r-2xl) var(--r-2xl) 0 0;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border);
   padding: 8px 16px calc(16px + var(--safe-b));
   overflow-y: auto;
   animation: slideup var(--dur-slow) var(--ease);
@@ -684,7 +752,7 @@ a {
   width: 44px;
   height: 5px;
   border-radius: 2px;
-  background: var(--line);
+  background: var(--border);
   margin: 6px auto 12px;
 }
 
@@ -710,26 +778,26 @@ a {
 .cal-cell {
   aspect-ratio: 1;
   border-radius: 7px;
-  background: var(--bg-elev-2);
+  background: var(--surface-2);
   display: grid;
   place-items: center;
   font-size: 11px;
-  color: var(--text-mute);
+  color: var(--text-3);
 }
 
 .cal-cell.hit {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 600;
 }
 
 .cal-cell.today {
-  outline: 1px solid var(--text-dim);
+  outline: 1px solid var(--text-2);
 }
 
 .cal-head {
   font-size: 10px;
-  color: var(--text-mute);
+  color: var(--text-3);
   text-align: center;
   text-transform: uppercase;
 }
@@ -737,7 +805,7 @@ a {
 .empty {
   text-align: center;
   padding: 40px 20px;
-  color: var(--text-mute);
+  color: var(--text-3);
 }
 
 .empty .big {
@@ -745,18 +813,55 @@ a {
   margin-bottom: 8px;
 }
 
+.empty.compact {
+  padding: var(--space-5);
+}
+
+/* Заглушка на время загрузки — отличает «ещё не пришли данные» от
+   «данных действительно нет», чтобы пустой экран не мелькал раньше времени. */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
 .list-item {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  background: var(--bg-elev);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
 }
 
 .list-item:active {
-  background: var(--bg-elev-2);
+  background: var(--surface-2);
+}
+
+button.list-item {
+  width: 100%;
+  text-align: left;
 }
 
 .list-item + .list-item {
@@ -767,8 +872,8 @@ a {
   width: 38px;
   height: 38px;
   border-radius: 11px;
-  background: var(--bg-elev-2);
-  border: 1px solid var(--line);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
   display: grid;
   place-items: center;
   font-size: 15px;
@@ -781,20 +886,23 @@ a {
   transform: translateX(-50%);
   bottom: calc(var(--tabbar-h) + var(--safe-b) + 84px);
   z-index: 70;
-  background: var(--bg-elev-2);
-  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
   border-radius: 999px;
   padding: 10px 18px;
   font-size: 14px;
   font-weight: 600;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-2);
   animation: fade 0.2s ease;
 }
 
 .toast.pr {
-  background: rgba(240, 180, 41, 0.16);
-  border-color: rgba(240, 180, 41, 0.4);
-  color: var(--pr);
+  background: var(--copper-soft);
+  border-color: color-mix(in srgb, var(--copper) 40%, transparent);
+  color: var(--copper);
 }
 
 .offline-pill {
@@ -815,6 +923,7 @@ a {
   border: 1px solid var(--border);
   border-radius: var(--r-xl);
   overflow: hidden;
+  box-shadow: var(--shadow-1);
 }
 
 .group + .group {
@@ -830,7 +939,7 @@ a {
   text-align: left;
   background: none;
   border: none;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border);
 }
 
 .group-row:first-child {
@@ -838,7 +947,7 @@ a {
 }
 
 button.group-row:active {
-  background: var(--bg-elev-2);
+  background: var(--surface-2);
 }
 
 .group-row .title {
@@ -847,19 +956,19 @@ button.group-row:active {
 
 .group-row .sub {
   font-size: 12.5px;
-  color: var(--text-mute);
+  color: var(--text-3);
   margin-top: 1px;
 }
 
 .group-row .value {
   font-size: 14px;
-  color: var(--text-dim);
+  color: var(--text-2);
   flex: 0 0 auto;
 }
 
 .chevron {
   flex: 0 0 auto;
-  color: var(--text-mute);
+  color: var(--text-3);
   display: grid;
   place-items: center;
 }
@@ -884,48 +993,15 @@ button.group-row:active {
 
 .metric .cap {
   font-size: 12px;
-  color: var(--text-mute);
+  color: var(--text-3);
   margin-top: 1px;
-}
-
-/* Крупное первичное действие экрана. */
-.hero {
-  background: linear-gradient(140deg, #3f6fe0, #5b8cff);
-  border-radius: 18px;
-  padding: 18px;
-  color: #fff;
-}
-
-.hero .eyebrow {
-  font-size: 12px;
-  opacity: 0.82;
-}
-
-.hero .title {
-  font-size: 21px;
-  font-weight: 700;
-  letter-spacing: -0.4px;
-  margin: 2px 0 14px;
-}
-
-.hero .btn {
-  background: rgba(255, 255, 255, 0.16);
-  border-color: rgba(255, 255, 255, 0.24);
-  color: #fff;
-  backdrop-filter: blur(6px);
-}
-
-.hero .btn.solid {
-  background: #fff;
-  color: var(--accent-strong);
-  border-color: #fff;
 }
 
 /* Тонкая полоса прогресса — переиспользуется в планах и объёмах. */
 .bar {
   height: 4px;
   border-radius: 2px;
-  background: var(--line);
+  background: var(--border);
   overflow: hidden;
 }
 
@@ -965,7 +1041,7 @@ button.group-row:active {
   height: 3px;
   flex: 1;
   border-radius: 2px;
-  background: var(--line);
+  background: var(--border);
 }
 
 .onboard .steps i.on {
@@ -980,7 +1056,7 @@ button.group-row:active {
 }
 
 .onboard p {
-  color: var(--text-dim);
+  color: var(--text-2);
   font-size: 15.5px;
   line-height: 1.5;
   margin: 0;
@@ -1012,8 +1088,8 @@ button.group-row:active {
   width: 100%;
   padding: 16px;
   border-radius: 16px;
-  background: var(--bg-elev);
-  border: 1px solid var(--line);
+  background: var(--surface);
+  border: 1px solid var(--border);
   text-align: left;
   transition: border-color 0.15s, background 0.15s;
 }
@@ -1021,7 +1097,7 @@ button.group-row:active {
 .pick:active,
 .pick.on {
   border-color: var(--accent);
-  background: var(--bg-elev-2);
+  background: var(--surface-2);
 }
 
 .pick .ico {
@@ -1030,14 +1106,14 @@ button.group-row:active {
   border-radius: 13px;
   display: grid;
   place-items: center;
-  background: var(--bg-elev-2);
+  background: var(--surface-2);
   font-size: 21px;
   flex: 0 0 auto;
 }
 
 .pick.on .ico {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 /* Список шагов «с чего начать» — исчезает по мере выполнения. */
@@ -1046,7 +1122,7 @@ button.group-row:active {
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border);
   width: 100%;
   text-align: left;
   background: none;
@@ -1060,7 +1136,7 @@ button.group-row:active {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  border: 1.5px solid var(--text-mute);
+  border: 1.5px solid var(--text-3);
   display: grid;
   place-items: center;
   flex: 0 0 auto;
@@ -1068,13 +1144,13 @@ button.group-row:active {
 }
 
 .checklist-row.done .mark {
-  background: var(--success);
-  border-color: var(--success);
-  color: var(--on-success);
+  background: var(--ok);
+  border-color: var(--ok);
+  color: var(--on-accent);
 }
 
 .checklist-row.done .title {
-  color: var(--text-mute);
+  color: var(--text-3);
   text-decoration: line-through;
 }
 
@@ -1176,8 +1252,8 @@ button.group-row:active {
   display: flex;
   gap: 2px;
   padding: 3px;
-  background: var(--bg-elev-2);
-  border: 1px solid var(--line);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
   border-radius: 12px;
 }
 
@@ -1187,14 +1263,14 @@ button.group-row:active {
   border-radius: 9px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-dim);
+  color: var(--text-2);
   transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
 }
 
 .segmented button.on {
-  background: var(--bg-elev);
+  background: var(--surface);
   color: var(--text);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-1);
 }
 
 /* Статус относительно нормы — чипом, а не цветной плашкой с эмодзи. */
@@ -1209,18 +1285,18 @@ button.group-row:active {
 }
 
 .status.normal {
-  color: var(--success);
-  background: var(--success-wash);
+  color: var(--ok);
+  background: var(--ok-soft);
 }
 
 .status.high {
   color: var(--warn);
-  background: var(--warn-wash);
+  background: var(--warn-soft);
 }
 
 .status.low {
   color: var(--accent-ink);
-  background: var(--accent-wash);
+  background: var(--accent-soft);
 }
 
 /* Цветовой ключ метрики: тонкая полоса вместо заливки всей иконки. */
@@ -1290,7 +1366,7 @@ button.group-row:active {
   width: 22px;
   height: 22px;
   border-radius: 7px;
-  background: var(--accent-wash);
+  background: var(--accent-soft);
   color: var(--accent-ink);
   font-size: 11.5px;
   font-weight: 700;
@@ -1314,9 +1390,9 @@ button.group-row:active {
   font-size: 12px;
   padding: 4px 10px;
   border-radius: 999px;
-  background: var(--bg-elev-2);
-  border: 1px solid var(--line);
-  color: var(--text-dim);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
 }
 
 .tag.accent {
@@ -1324,244 +1400,6 @@ button.group-row:active {
   border-color: transparent;
   color: var(--accent-ink);
   font-weight: 700;
-}
-
-/* =====================================================================
-   Переписка. Экран занимает высоту вьюпорта целиком: список прокручивается
-   сам, а панель ввода остаётся на месте — иначе на телефоне поле уезжает
-   под клавиатуру вместе со страницей.
-   ===================================================================== */
-
-.chat-screen {
-  display: flex;
-  flex-direction: column;
-  height: 100dvh;
-  max-width: 560px;
-  margin: 0 auto;
-}
-
-.chat-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: calc(var(--safe-t) + 10px) 16px 10px;
-  border-bottom: 1px solid var(--line);
-  background: var(--glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
-
-.chat-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  overscroll-behavior: contain;
-}
-
-.chat-day {
-  align-self: center;
-  font-size: 11.5px;
-  color: var(--text-mute);
-  background: var(--bg-elev-2);
-  border-radius: 999px;
-  padding: 3px 12px;
-  margin: 10px auto;
-  width: fit-content;
-}
-
-.bubble-row {
-  display: flex;
-  justify-content: flex-start;
-}
-
-.bubble-row.mine {
-  justify-content: flex-end;
-}
-
-.bubble {
-  max-width: 80%;
-  padding: 9px 12px;
-  border-radius: 16px 16px 16px 4px;
-  background: var(--bg-elev);
-  border: 1px solid var(--line);
-  animation: rise 0.28s var(--ease) both;
-}
-
-.bubble.mine {
-  border-radius: 16px 16px 4px 16px;
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-/* Кружок и картинка живут без подложки — рамка мешает форме. */
-.bubble.bare {
-  background: none;
-  border: none;
-  padding: 0;
-}
-
-.bubble-meta {
-  font-size: 11px;
-  opacity: 0.62;
-  margin-top: 3px;
-}
-
-.bubble.mine .bubble-meta {
-  color: #fff;
-}
-
-/* ----------------------------- голосовое ---------------------------- */
-
-.voice-play {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  font-size: 12px;
-  background: var(--accent-wash);
-  color: var(--accent-ink);
-}
-
-.bubble.mine .voice-play {
-  background: rgba(255, 255, 255, 0.22);
-  color: #fff;
-}
-
-.wave {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  height: 28px;
-  cursor: pointer;
-}
-
-.wave i {
-  flex: 1;
-  min-width: 2px;
-  border-radius: 2px;
-  background: var(--accent-ink);
-  transition: opacity 0.15s;
-}
-
-.bubble.mine .wave i {
-  background: #fff;
-}
-
-/* ------------------------------ кружок ------------------------------ */
-
-.circle-video {
-  width: 190px;
-  height: 190px;
-  border-radius: 50%;
-  overflow: hidden;
-  position: relative;
-  background: #000;
-  border: 2px solid var(--accent-dim);
-  cursor: pointer;
-}
-
-.circle-video video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.circle-play {
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: rgba(0, 0, 0, 0.45);
-  color: #fff;
-  backdrop-filter: blur(4px);
-}
-
-.chat-image {
-  max-width: 230px;
-  border-radius: 12px;
-  display: block;
-}
-
-.file-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  display: grid;
-  place-items: center;
-  background: var(--bg-elev-2);
-  flex: 0 0 auto;
-}
-
-.bubble.mine .file-icon {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-/* --------------------------- панель ввода --------------------------- */
-
-.chat-input {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px calc(10px + var(--safe-b));
-  border-top: 1px solid var(--line);
-  background: var(--bg-elev);
-}
-
-.chat-input .input {
-  padding: 10px 14px;
-}
-
-.chat-input.recording {
-  background: var(--danger-wash);
-}
-
-.rec-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--danger);
-  animation: blink 1.1s ease-in-out infinite;
-}
-
-@keyframes blink {
-  50% {
-    opacity: 0.25;
-  }
-}
-
-.level {
-  height: 3px;
-  border-radius: 2px;
-  background: var(--line);
-  margin-top: 6px;
-  overflow: hidden;
-}
-
-.level i {
-  display: block;
-  height: 100%;
-  background: var(--danger);
-  transition: width 0.1s linear;
-}
-
-.circle-preview {
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
-  object-fit: cover;
-  background: #000;
-  flex: 0 0 auto;
 }
 
 /* =============================== календарь ============================ */

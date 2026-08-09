@@ -181,10 +181,7 @@ function Stat({
     <div className="metric">
       <div className="num" style={{ fontSize: 20, color }}>
         {now ?? '—'}
-        <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-mute)' }}>
-          {' '}
-          {unit}
-        </span>
+        <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-3)' }}> {unit}</span>
       </div>
       <div className="cap">
         {label}
@@ -193,7 +190,7 @@ function Stat({
             style={{
               marginLeft: 5,
               fontWeight: 600,
-              color: good ? 'var(--success)' : 'var(--danger)',
+              color: good ? 'var(--ok)' : 'var(--danger)',
             }}
           >
             {diff > 0 ? '↑' : '↓'}

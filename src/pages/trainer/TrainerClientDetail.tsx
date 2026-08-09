@@ -274,7 +274,7 @@ export function TrainerClientDetail() {
 
           <div className="section-title">Вес</div>
           <div className="card">
-            <LineChart data={weightPoints} unit=" кг" color="var(--success)" />
+            <LineChart data={weightPoints} unit=" кг" color="var(--ok)" />
           </div>
 
           <button className="btn ghost danger block" style={{ marginTop: 20 }} onClick={unlink}>
@@ -408,7 +408,7 @@ function SessionFeedback({ sessionId }: { sessionId: string }) {
             borderLeft: '2px solid var(--accent)',
             paddingLeft: 10,
             marginTop: 6,
-            color: 'var(--text-dim)',
+            color: 'var(--text-2)',
           }}
         >
           {f.text}

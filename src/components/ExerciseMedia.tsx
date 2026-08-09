@@ -17,8 +17,8 @@ export function ExerciseMedia({ exercise }: { exercise: Exercise }) {
     width: '100%',
     aspectRatio: '16 / 9',
     borderRadius: 12,
-    background: 'var(--bg-elev-2)',
-    border: '1px solid var(--line)',
+    background: 'var(--surface-2)',
+    border: '1px solid var(--border)',
     objectFit: 'cover',
     display: 'block',
   }
@@ -43,7 +43,7 @@ export function ExerciseMedia({ exercise }: { exercise: Exercise }) {
         <img src={image_url} alt={name} style={frame} loading="lazy" />
       ) : (
         <div
-          style={{ ...frame, display: 'grid', placeItems: 'center', color: 'var(--text-mute)' }}
+          style={{ ...frame, display: 'grid', placeItems: 'center', color: 'var(--text-3)' }}
         >
           Нет превью
         </div>

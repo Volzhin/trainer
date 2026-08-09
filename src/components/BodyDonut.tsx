@@ -102,7 +102,7 @@ export function BodyDonut({ parts, centerLabel, centerValue, status, statusKind 
           cy={SIZE / 2}
           r={R}
           fill="none"
-          stroke="var(--line-soft)"
+          stroke="var(--border)"
           strokeWidth={STROKE}
         />
 
@@ -129,7 +129,7 @@ export function BodyDonut({ parts, centerLabel, centerValue, status, statusKind 
           x={SIZE / 2}
           y={SIZE / 2 - 12}
           textAnchor="middle"
-          fill="var(--text-dim)"
+          fill="var(--text-2)"
           fontSize="12"
         >
           {centerLabel}
@@ -176,7 +176,7 @@ export function BodyDonut({ parts, centerLabel, centerValue, status, statusKind 
             />
             <div style={{ fontWeight: 700, fontSize: 15, fontVariantNumeric: 'tabular-nums' }}>
               {a.value}
-              <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-mute)' }}>
+              <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-3)' }}>
                 {' '}
                 {a.unit}
               </span>
