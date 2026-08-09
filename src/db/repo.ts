@@ -446,7 +446,25 @@ export async function saveManualMeasurement(
 }
 
 export async function deleteBodyMetric(id: string) {
+  const row = await db.bodyMetrics.get(id)
   await db.bodyMetrics.delete(id)
+  // След удаления остаётся только в очереди: строки уже нет, и обход таблиц
+  // её не найдёт. Без этого замер жил на сервере дальше и возвращался на
+  // другом устройстве — человек удалял его снова и снова.
+  if (row) await enqueue('bodyMetrics', id, 'delete', row)
+}
+
+/**
+ * Чистит историю замеров целиком. Возвращает, сколько удалено, — счётчик
+ * идёт в подтверждение, а не берётся из отфильтрованного списка на экране:
+ * иначе обещание и результат расходятся.
+ */
+export async function deleteAllBodyMetrics(userId = currentUserId()) {
+  const rows = await db.bodyMetrics.where('user_id').equals(userId).toArray()
+  if (!rows.length) return 0
+  await db.bodyMetrics.bulkDelete(rows.map((r) => r.id))
+  for (const row of rows) await enqueue('bodyMetrics', row.id, 'delete', row)
+  return rows.length
 }
 
 export async function listBodyMetrics(userId = currentUserId()) {

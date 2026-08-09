@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type BodyMetric } from '../db/db'
 import {
+  deleteAllBodyMetrics,
   deleteBodyMetric,
   listBodyMetrics,
   saveInBodyReport,
@@ -27,7 +28,7 @@ import {
 } from './MetricIcons'
 import { Sheet } from './Sheet'
 import { IconTrash } from './Icons'
-import { formatDate } from '../lib/calc'
+import { formatDate, plural } from '../lib/calc'
 import { deriveComposition } from '../lib/anthropometry'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
@@ -43,6 +44,9 @@ export const BODY_C = {
 }
 
 const C = BODY_C
+
+/** Итог разбора одного файла: либо отчёт, либо причина отказа. */
+type Parsed = { fileName: string; report?: InBodyReport; error?: string }
 
 const STATUS_TEXT: Record<NormStatus, string> = {
   low: 'Ниже нормы',
@@ -172,9 +176,11 @@ export function BodyCompositionView({
   const fileRef = useRef<HTMLInputElement>(null)
   const t = TEXT[subject]
 
-  const [pending, setPending] = useState<{ report: InBodyReport; fileName: string } | null>(
-    null,
-  )
+  const [pending, setPending] = useState<Parsed[] | null>(null)
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
+  const [confirmWipe, setConfirmWipe] = useState(false)
+  // Отдельно от busy: иначе кнопка загрузки во время чистки пишет «Читаю отчёт…».
+  const [wiping, setWiping] = useState(false)
   const [manualOpen, setManualOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [segTab, setSegTab] = useState<'muscle' | 'fat'>('muscle')
@@ -215,28 +221,80 @@ export function BodyCompositionView({
   )
   const segmented = useMemo(() => scans.find((m) => m.muscle_segments), [scans])
 
-  const onFile = async (file?: File) => {
-    if (!file) return
+  const onFiles = async (list: FileList | null) => {
+    const files = Array.from(list ?? [])
+    if (!files.length) return
     setBusy(true)
-    try {
-      const report = await parseInBodyPdf(file)
-      haptics.impact()
-      setPending({ report, fileName: file.name })
-    } catch (e) {
-      toast(e instanceof Error ? e.message : 'Не удалось разобрать PDF')
-    } finally {
-      setBusy(false)
-      if (fileRef.current) fileRef.current.value = ''
+    setProgress({ done: 0, total: files.length })
+
+    // Читаем по одному, а не через Promise.all: pdf.js держит документ в
+    // памяти целиком, и пачка отчётов, разобранная разом, роняет вкладку на
+    // телефоне. Заодно видно, на каком файле мы сейчас.
+    const parsed: Parsed[] = []
+    for (const file of files) {
+      try {
+        parsed.push({ fileName: file.name, report: await parseInBodyPdf(file) })
+      } catch (e) {
+        const error = e instanceof Error ? e.message : 'Не удалось разобрать PDF'
+        parsed.push({ fileName: file.name, error })
+      }
+      setProgress((prev) => (prev ? { ...prev, done: prev.done + 1 } : prev))
     }
+
+    const ok = parsed.filter((x) => x.report)
+    if (ok.length) {
+      haptics.impact()
+      setPending(parsed)
+    } else {
+      // Разбирать нечего — показываем причину, а не пустой лист подтверждения.
+      toast(
+        parsed.length === 1
+          ? (parsed[0].error ?? 'Не удалось разобрать PDF')
+          : 'Ни один файл разобрать не удалось',
+      )
+    }
+
+    setBusy(false)
+    setProgress(null)
+    if (fileRef.current) fileRef.current.value = ''
   }
 
   const confirmImport = async () => {
-    if (!pending) return
-    const res = await saveInBodyReport(pending.report, pending.fileName, userId)
+    const ready = (pending ?? []).filter(
+      (x): x is Parsed & { report: InBodyReport } => !!x.report,
+    )
+    if (!ready.length) return
+    setBusy(true)
+
+    // По возрастанию даты: замер за один день перезаписывается, и при обратном
+    // порядке из пачки за одну дату в базе оставался бы самый старый отчёт.
+    const ordered = [...ready].sort((a, b) => a.report.measured_at - b.report.measured_at)
+    let added = 0
+    let replaced = 0
+    for (const item of ordered) {
+      const res = await saveInBodyReport(item.report, item.fileName, userId)
+      if (res.replaced) replaced++
+      else added++
+    }
+
     haptics.success()
-    toast(res.replaced ? 'Замер за эту дату обновлён' : 'Замер добавлен')
+    setBusy(false)
     setPending(null)
+    if (ordered.length === 1) {
+      toast(replaced ? 'Замер за эту дату обновлён' : 'Замер добавлен')
+    } else {
+      const parts = [added && `добавлено ${added}`, replaced && `обновлено ${replaced}`]
+      toast(parts.filter(Boolean).join(', '))
+    }
   }
+
+  const readyCount = (pending ?? []).filter((x) => x.report).length
+  const failedCount = (pending ?? []).filter((x) => x.error).length
+  /** Один файл показываем как раньше — со всеми метриками отчёта. */
+  const single =
+    pending && pending.length === 1 && pending[0].report
+      ? (pending[0] as Parsed & { report: InBodyReport })
+      : null
 
   const donutParts: DonutPart[] = composed
     ? ([
@@ -287,8 +345,9 @@ export function BodyCompositionView({
         ref={fileRef}
         type="file"
         accept="application/pdf,.pdf"
+        multiple
         style={{ display: 'none' }}
-        onChange={(e) => onFile(e.target.files?.[0])}
+        onChange={(e) => void onFiles(e.target.files)}
       />
 
       <div className="row between" style={{ margin: '4px 0 10px' }}>
@@ -498,8 +557,17 @@ export function BodyCompositionView({
         disabled={busy}
         onClick={() => fileRef.current?.click()}
       >
-        {busy ? 'Читаю отчёт…' : latest ? t.uploadMore : t.uploadFirst}
+        {busy
+          ? progress && progress.total > 1
+            ? `Читаю ${progress.done + 1} из ${progress.total}…`
+            : 'Читаю отчёт…'
+          : latest
+            ? t.uploadMore
+            : t.uploadFirst}
       </button>
+      <div className="mute-sm" style={{ textAlign: 'center', marginTop: 6 }}>
+        Можно выбрать сразу несколько файлов
+      </div>
 
       {/* Отчёт InBody есть не у всех: домашние весы, замер в другом зале или
           просто взвешивание тоже должны попадать в тренд. */}
@@ -518,23 +586,75 @@ export function BodyCompositionView({
         onSaved={(replaced) => toast(replaced ? 'Замер обновлён' : 'Замер добавлен')}
       />
 
-      <Sheet open={!!pending} title="Данные из отчёта" onClose={() => setPending(null)}>
-        {pending && (
+      <Sheet
+        open={!!pending}
+        title={single ? 'Данные из отчёта' : `Отчёты · ${pending?.length ?? 0}`}
+        onClose={() => setPending(null)}
+      >
+        {single && (
           <div className="stack">
             <div className="muted">
-              Отчёт от {formatDate(pending.report.measured_at)}
-              {pending.report.person ? ` · ${pending.report.person}` : ''}
+              Отчёт от {formatDate(single.report.measured_at)}
+              {single.report.person ? ` · ${single.report.person}` : ''}
             </div>
             <div className="group">
-              {metricRows(pending.report as unknown as BodyMetric).map(([label, value]) => (
+              {metricRows(single.report as unknown as BodyMetric).map(([label, value]) => (
                 <div className="group-row" key={label}>
                   <span className="grow title">{label}</span>
                   <span className="value">{value}</span>
                 </div>
               ))}
             </div>
-            <button className="btn primary block" onClick={confirmImport}>
-              Добавить замер
+            <button className="btn primary block" disabled={busy} onClick={confirmImport}>
+              {busy ? 'Сохраняю…' : 'Добавить замер'}
+            </button>
+            <div className="mute-sm" style={{ textAlign: 'center' }}>
+              {t.privacy}
+            </div>
+          </div>
+        )}
+
+        {/* Пачка: подробности каждого отчёта тут не помещаются и не нужны —
+            важно, за какие даты замеры и какие файлы не прочитались. */}
+        {pending && !single && (
+          <div className="stack">
+            <div className="group">
+              {pending.map((x, i) => (
+                <div
+                  className={`group-row${x.error ? ' danger' : ''}`}
+                  key={`${x.fileName}-${i}`}
+                >
+                  <span className="grow">
+                    <span className="title">
+                      {x.report ? formatDate(x.report.measured_at) : x.fileName}
+                    </span>
+                    <span className="sub" style={{ display: 'block' }}>
+                      {x.error ??
+                        [
+                          x.report?.weight_kg != null && `${x.report.weight_kg} кг`,
+                          x.report?.skeletal_muscle_kg != null &&
+                            `мышцы ${x.report.skeletal_muscle_kg}`,
+                          x.report?.body_fat_pct != null && `жир ${x.report.body_fat_pct}%`,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                    </span>
+                  </span>
+                </div>
+              ))}
+            </div>
+            {failedCount > 0 && (
+              <div className="mute-sm">
+                {failedCount} {plural(failedCount, ['файл', 'файла', 'файлов'])} прочитать не
+                удалось — эти пропустим.
+              </div>
+            )}
+            <button
+              className="btn primary block"
+              disabled={busy || readyCount === 0}
+              onClick={confirmImport}
+            >
+              {busy ? 'Сохраняю…' : `Добавить замеры · ${readyCount}`}
             </button>
             <div className="mute-sm" style={{ textAlign: 'center' }}>
               {t.privacy}
@@ -543,7 +663,14 @@ export function BodyCompositionView({
         )}
       </Sheet>
 
-      <Sheet open={historyOpen} title="Замеры" onClose={() => setHistoryOpen(false)}>
+      <Sheet
+        open={historyOpen}
+        title="Замеры"
+        onClose={() => {
+          setHistoryOpen(false)
+          setConfirmWipe(false)
+        }}
+      >
         <div className="group">
           {scans.map((m) => (
             <div className="group-row" key={m.id}>
@@ -572,6 +699,35 @@ export function BodyCompositionView({
             </div>
           ))}
         </div>
+
+        {/* Подтверждение вторым нажатием, а не отдельным окном: удаление
+            необратимо, но и лишний диалог поверх шторки некуда ставить.
+            Текст называет последствие целиком — вес хранится здесь же, и
+            без предупреждения его пропажа выглядела бы поломкой. */}
+        {scans.length > 0 && (
+          <button
+            className="btn danger block"
+            style={{ marginTop: 14 }}
+            disabled={wiping}
+            onClick={async () => {
+              if (!confirmWipe) {
+                setConfirmWipe(true)
+                return
+              }
+              setWiping(true)
+              const n = await deleteAllBodyMetrics(userId)
+              setWiping(false)
+              setConfirmWipe(false)
+              setHistoryOpen(false)
+              haptics.success()
+              toast(`Удалено ${n} ${plural(n, ['замер', 'замера', 'замеров'])}`)
+            }}
+          >
+            {confirmWipe
+              ? 'Точно удалить? Вместе с ними исчезнет история веса'
+              : 'Удалить все замеры'}
+          </button>
+        )}
       </Sheet>
     </>
   )
