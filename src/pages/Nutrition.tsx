@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type FoodLog, type MealSlot } from '../db/db'
 import { deleteFoodLog, loadPlan, logsForDate, sumNutrients } from '../db/nutrition'
 import { localDate } from '../lib/tdee'
 import { FoodPicker } from '../components/FoodPicker'
 import { MacroRings } from '../components/MacroRings'
+import { NutritionDayReport } from '../components/NutritionDayReport'
 import { IconBack, IconChevronRight, IconPlus, IconTrash } from '../components/Icons'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
@@ -26,7 +27,10 @@ const DAY = 86400_000
 export function Nutrition() {
   const nav = useNavigate()
   const { toast, userId } = useApp()
-  const [date, setDate] = useState(() => localDate())
+  const [params] = useSearchParams()
+  // Из списка несданного в «Отчётах» приходят сразу на нужный день: сдавать
+  // его человек будет, глядя на то, что в этот день ел.
+  const [date, setDate] = useState(() => params.get('date') || localDate())
   const [pickerSlot, setPickerSlot] = useState<MealSlot | null>(null)
 
   const version = useLiveQuery(() => db.foodLogs.count(), [])
@@ -167,6 +171,10 @@ export function Nutrition() {
           </div>
         )
       })}
+
+      {/* key по дате: при переходе на другой день черновик отчёта должен
+          начинаться заново, а не переезжать с предыдущего. */}
+      <NutritionDayReport key={date} date={date} />
 
       <div className="group" style={{ marginTop: 18 }}>
         <button className="group-row" onClick={() => nav('/nutrition/foods')}>

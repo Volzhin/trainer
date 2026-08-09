@@ -9,8 +9,10 @@ import {
   revokeInvite,
   type ClientSummary,
 } from '../../db/coach'
+import { pendingReviewCount } from '../../db/reports'
+import { unreadCount } from '../../db/chat'
 import { Sheet } from '../../components/Sheet'
-import { IconPlus, IconRecord, IconTrash, IconUsers } from '../../components/Icons'
+import { IconChat, IconPlus, IconRecord, IconTrash, IconUsers } from '../../components/Icons'
 import { plural } from '../../lib/calc'
 import { useApp, useProfile } from '../../store/app'
 import { haptics } from '../../lib/native'
@@ -40,6 +42,28 @@ export function TrainerClients() {
     [userId, deps?.join('-')],
     [] as ClientSummary[],
   )
+
+  // Сколько отчётов у каждого ждёт разбора. Запрос сам следит за таблицами
+  // отчётов и отметок, поэтому в общий счётчик deps его тянуть не нужно.
+  const pending = useLiveQuery(async () => {
+    const entries = await Promise.all(
+      (clients ?? []).map(
+        async (c) => [c.client.id, await pendingReviewCount(c.client.id)] as const,
+      ),
+    )
+    return new Map(entries)
+  }, [clients])
+
+  // Непрочитанные сообщения от клиентов. Тренер открывает этот список
+  // первым, и вопрос, оставшийся без ответа, должен быть виден отсюда.
+  const unread = useLiveQuery(async () => {
+    const entries = await Promise.all(
+      (clients ?? []).map(
+        async (c) => [c.client.id, await unreadCount(userId, c.client.id, userId)] as const,
+      ),
+    )
+    return new Map(entries)
+  }, [clients, userId])
 
   const stats = useMemo(() => {
     const list = clients ?? []
@@ -138,6 +162,15 @@ export function TrainerClients() {
                       {c.client.name}
                     </span>
                     <span className="row" style={{ gap: 6 }}>
+                      {(unread?.get(c.client.id) ?? 0) > 0 && (
+                        <span className="badge pro">
+                          <IconChat size={11} />
+                          {unread?.get(c.client.id)}
+                        </span>
+                      )}
+                      {(pending?.get(c.client.id) ?? 0) > 0 && (
+                        <span className="badge pro">{pending?.get(c.client.id)} на разбор</span>
+                      )}
                       {c.recentPRs > 0 && (
                         <span className="badge pr">
                           <IconRecord size={11} />

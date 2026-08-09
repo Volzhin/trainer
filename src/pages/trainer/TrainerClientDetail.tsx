@@ -23,6 +23,8 @@ import { Sheet } from '../../components/Sheet'
 import { Group, Row } from '../../components/Group'
 import { SessionReview } from '../../components/SessionReview'
 import { ClientNutrition } from '../../components/ClientNutrition'
+import { ClientReports } from '../../components/ClientReports'
+import { ChatThread } from '../../components/ChatThread'
 import { ProgressView } from '../../components/ProgressView'
 import { IconBack, IconCheck, IconPlus, IconTrash } from '../../components/Icons'
 import { formatDate, formatDuration, plural, totalVolume } from '../../lib/calc'
@@ -33,7 +35,7 @@ export function TrainerClientDetail() {
   const nav = useNavigate()
   const { toast, userId } = useApp()
   const [tab, setTab] = useState<
-    'overview' | 'progress' | 'body' | 'history' | 'nutrition' | 'notes'
+    'overview' | 'chat' | 'reports' | 'progress' | 'body' | 'history' | 'nutrition' | 'notes'
   >('overview')
   // Из списка клиентов можно попасть сразу к назначению программы.
   const [params, setParams] = useSearchParams()
@@ -111,6 +113,8 @@ export function TrainerClientDetail() {
         {(
           [
             ['overview', 'Сводка'],
+            ['chat', 'Чат'],
+            ['reports', 'Отчёты'],
             ['progress', 'Прогресс'],
             ['body', 'Тело'],
             ['nutrition', 'Питание'],
@@ -365,6 +369,18 @@ export function TrainerClientDetail() {
           <ProgressView userId={id} readOnly />
         </div>
       )}
+
+      {tab === 'chat' && (
+        <ChatThread
+          trainerId={userId}
+          clientId={id}
+          meId={userId}
+          meRole="TRAINER"
+          emptyHint="Напишите клиенту — сообщение появится у него в разделе «Чат»."
+        />
+      )}
+
+      {tab === 'reports' && <ClientReports clientId={id} />}
 
       {tab === 'nutrition' && <ClientNutrition clientId={id} />}
 

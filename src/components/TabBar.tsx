@@ -1,4 +1,6 @@
 import { NavLink } from 'react-router-dom'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { unreadCount } from '../db/chat'
 import {
   IconApple,
   IconChat,
@@ -9,7 +11,7 @@ import {
   IconUsers,
 } from './Icons'
 import { haptics } from '../lib/native'
-import { useRole, useTrainerLink } from '../store/app'
+import { useApp, useRole, useTrainerLink } from '../store/app'
 
 type Tab = { to: string; label: string; Icon: typeof IconHome; end: boolean }
 
@@ -40,6 +42,14 @@ const TRAINER_TABS: Tab[] = [
 export function TabBar() {
   const role = useRole()
   const bond = useTrainerLink()
+  const { userId } = useApp()
+
+  // Непрочитанное от тренера. Иначе о новом сообщении узнаёт только тот,
+  // кто и так зашёл в чат, — то есть тот, кому напоминать не нужно.
+  const unread = useLiveQuery(
+    async () => (bond ? await unreadCount(bond.trainer.id, userId, userId) : 0),
+    [bond?.trainer.id, userId],
+  )
 
   // Пока связка не прочитана, лишних разделов не показываем: появиться им
   // безболезненно, а исчезнуть под уже занесённым пальцем — нет.
@@ -60,6 +70,7 @@ export function TabBar() {
             onClick={() => haptics.selection()}
           >
             <Icon />
+            {to === '/chat' && (unread ?? 0) > 0 && <i className="unread" />}
             <span>{label}</span>
           </NavLink>
         ))}

@@ -17,6 +17,7 @@ import {
   type UserProfile,
   type WorkoutSession,
 } from './db'
+import { issueRequiredTasks } from './reports'
 import { estimate1RM, startOfDay, weekStart } from '../lib/calc'
 import {
   createInvite as remoteCreateInvite,
@@ -197,6 +198,11 @@ export async function redeemInvite(code: string, clientId = currentUserId()) {
     })
   }
   await db.invites.update(invite.code, { used_by: clientId, used_at: ts })
+
+  // Анкета, эссе и первые замеры — то, с чего начинается работа, поэтому
+  // выдаются вместе со связкой, а не ждут, пока тренер о них вспомнит.
+  // Повторная привязка ничего не дублирует — см. issueRequiredTasks.
+  await issueRequiredTasks(clientId, invite.trainer_id)
 
   const trainer = await db.profile.get(invite.trainer_id)
   return trainer?.name ?? 'Тренер'

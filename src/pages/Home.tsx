@@ -3,9 +3,10 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, currentUserId } from '../db/db'
 import { getActiveSession, listMySessions } from '../db/repo'
 import { activeAssignmentFor } from '../db/coach'
+import { openTasks } from '../db/reports'
 import { plural, startOfDay } from '../lib/calc'
 import { WorkoutCalendar } from '../components/WorkoutCalendar'
-import { IconPlay } from '../components/Icons'
+import { IconChevronRight, IconPlay } from '../components/Icons'
 import { useApp } from '../store/app'
 
 /**
@@ -22,9 +23,11 @@ export function Home() {
   const sessions = useLiveQuery(() => listMySessions(), [])
   const active = useLiveQuery(() => getActiveSession(), [])
   const assigned = useLiveQuery(() => activeAssignmentFor(currentUserId()), [sessions?.length])
+  const tasks = useLiveQuery(() => openTasks(currentUserId()), [])
 
   const weekAgo = startOfDay(Date.now()) - 6 * 86400_000
   const thisWeek = (sessions ?? []).filter((s) => s.start_time >= weekAgo).length
+  const todo = tasks ?? []
 
   return (
     <div className={`screen${active ? ' with-banner' : ''}`}>
@@ -53,6 +56,25 @@ export function Home() {
           onClick={() => nav(`/session/${active.id}`)}
         >
           <IconPlay size={18} /> Вернуться к тренировке
+        </button>
+      )}
+
+      {/* Обязательные задания блокируют начало работы с тренером, поэтому
+          напоминают о себе на главной, а выполняются в «Отчётах» — второй
+          формы для них здесь нет. */}
+      {todo.length > 0 && (
+        <button
+          className="list-item"
+          style={{ marginBottom: 16 }}
+          onClick={() => nav('/reports')}
+        >
+          <div className="grow">
+            <div style={{ fontWeight: 600 }}>
+              {todo.length} {plural(todo.length, ['задание', 'задания', 'заданий'])} от тренера
+            </div>
+            <div className="mute-sm truncate">{todo[0].title}</div>
+          </div>
+          <IconChevronRight size={16} />
         </button>
       )}
 

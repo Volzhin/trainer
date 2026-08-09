@@ -29,7 +29,12 @@ import { weekStart } from '../lib/calc'
 
 /* --------------------------- отчёт о тренировке ------------------------ */
 
-/** Отчёт заводится вместе с завершением тренировки, если его ещё нет. */
+/**
+ * Отчёт заводится лениво — в момент сдачи, а не при завершении тренировки.
+ * Строка «не сдан» на каждую тренировку ничего не добавляет: тренировка без
+ * отчёта и так означает ровно это, зато у клиента без тренера такие строки
+ * копились бы и уезжали наверх без всякой пользы.
+ */
 export async function ensureWorkoutReport(
   sessionId: string,
   userId = currentUserId(),
@@ -116,6 +121,36 @@ export async function submitNutritionDay(date: string, comment?: string) {
 export async function myNutritionDayState(date: string): Promise<ReportStatus> {
   const day = await db.nutritionDays.get(dayId(currentUserId(), date))
   return day?.status ?? 'not_submitted'
+}
+
+/**
+ * Дни, за которые есть что сдавать: те, где человек что-то записал в
+ * дневник. Пустой день отчётом не является, и предлагать сдать его —
+ * значит просить отчитаться о том, чего не было.
+ */
+export async function loggedNutritionDates(
+  from: string,
+  to: string,
+  userId = currentUserId(),
+): Promise<string[]> {
+  const logs = await db.foodLogs
+    .where('[user_id+date]')
+    .between([userId, from], [userId, to], true, true)
+    .toArray()
+  return [...new Set(logs.map((l) => l.date))].sort((a, b) => b.localeCompare(a))
+}
+
+/**
+ * Сданные дни питания клиента — лента разбора у тренера. Без окна по датам
+ * намеренно: счётчик непроверенного считает всё сданное, и лента, которая
+ * показывала бы только свежее, с ним бы расходилась.
+ */
+export async function submittedNutritionDays(clientId: string): Promise<NutritionDay[]> {
+  const rows = await db.nutritionDays
+    .where('[user_id+status]')
+    .equals([clientId, 'submitted'])
+    .toArray()
+  return rows.sort((a, b) => b.date.localeCompare(a.date))
 }
 
 /** Дни питания клиента для календаря тренера — со стадиями. */
@@ -262,6 +297,11 @@ export async function setDailyActivity(input: {
     updated_at: now(),
   }
   await db.dailyActivity.put(row)
+}
+
+/** Шаги и сон за конкретный день — то, что уже введено в форме. */
+export async function activityFor(date = localDate(), userId = currentUserId()) {
+  return db.dailyActivity.get(dayId(userId, date))
 }
 
 export async function activityRange(clientId: string, from: string, to: string) {

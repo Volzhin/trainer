@@ -1,14 +1,14 @@
-import { IconChat } from '../components/Icons'
-import { useTrainerLink } from '../store/app'
+import { ChatThread } from '../components/ChatThread'
+import { useApp, useTrainerLink } from '../store/app'
 
 /**
  * Переписка с тренером.
  *
  * Раздел появляется вместе с тренером и исчезает вместе с ним — писать
- * в пустоту приложение не предлагает. Сама переписка собирается на этапе
- * «Чат»; сообщения для неё уже описаны в базе (таблица chat).
+ * в пустоту приложение не предлагает.
  */
 export function Chat() {
+  const { userId } = useApp()
   const bond = useTrainerLink()
 
   if (bond === undefined) {
@@ -44,10 +44,13 @@ export function Chat() {
         </div>
       </div>
 
-      <div className="empty">
-        <IconChat size={22} />
-        <div style={{ marginTop: 8 }}>Сообщений пока нет</div>
-      </div>
+      <ChatThread
+        trainerId={bond.trainer.id}
+        clientId={userId}
+        meId={userId}
+        meRole="CLIENT"
+        emptyHint="Напишите тренеру — он увидит сообщение у себя в карточке."
+      />
     </div>
   )
 }

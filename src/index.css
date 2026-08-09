@@ -188,6 +188,24 @@ a {
   height: 22px;
 }
 
+/* Точка непрочитанного. Без числа: в разделе всё равно всё видно, а цифра
+   на иконке размером с ноготь читается хуже, чем сам факт «есть новое». */
+.tab {
+  position: relative;
+}
+
+.tab .unread {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  margin-left: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  border: 2px solid var(--surface);
+}
+
 /* ------------------------------- карты ------------------------------ */
 
 .card {
@@ -1983,4 +2001,77 @@ button.group-row:active {
 .finish-video .title {
   font-weight: 600;
   font-size: 14px;
+}
+
+/* ------------------------------- переписка ---------------------------- */
+
+/* Лента со своей прокруткой, а не во весь экран: у клиента чат — вкладка,
+   у тренера — раздел внутри карточки, и в обоих случаях под лентой должно
+   оставаться поле ввода, до которого не нужно долистывать. */
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 58vh;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.chat-day {
+  align-self: center;
+  font: 800 11px/1 var(--font-ui);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-3);
+  margin: var(--space-3) 0 var(--space-1);
+}
+
+.msg {
+  align-self: flex-start;
+  max-width: 82%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
+}
+
+/* Своё — акцентом, но приглушённым: подсветить каждое собственное
+   сообщение цветом главного действия значит обесценить сам акцент. */
+.msg.mine {
+  align-self: flex-end;
+  background: var(--accent-soft);
+  border-color: transparent;
+}
+
+.msg-text {
+  font-size: 15px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.msg-meta {
+  margin-top: var(--space-1);
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: right;
+}
+
+.chat-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.chat-composer .textarea {
+  min-height: var(--tap-min);
+  max-height: 140px;
+  resize: none;
 }
