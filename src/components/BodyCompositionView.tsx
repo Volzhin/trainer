@@ -30,6 +30,8 @@ import { Sheet } from './Sheet'
 import { IconTrash } from './Icons'
 import { formatDate, plural } from '../lib/calc'
 import { deriveComposition } from '../lib/anthropometry'
+import { getNutritionProfile } from '../db/nutrition'
+import { macroTargets, MACRO_PRESETS } from '../lib/tdee'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
 
@@ -233,6 +235,13 @@ export function BodyCompositionView({
   const [historyOpen, setHistoryOpen] = useState(false)
 
   const metrics = useLiveQuery(() => listBodyMetrics(userId), [userId], [] as BodyMetric[])
+  /**
+   * Раскладка макронутриентов берётся из раздела питания, а не задаётся здесь
+   * заново: иначе два экрана советовали бы разное из одних и тех же калорий.
+   * Коэффициенты тренера (coach_macros) сюда не годятся — они привязаны к его
+   * целевой калорийности, а не к норме из отчёта.
+   */
+  const nutrition = useLiveQuery(() => getNutritionProfile(userId), [userId])
 
   // Замером считается любая запись: ручной ввод и импорт отчёта равноправны.
   // Раньше фильтр по источнику прятал ручные замеры, и экран сообщал, что
@@ -332,6 +341,9 @@ export function BodyCompositionView({
       toast(parts.filter(Boolean).join(', '))
     }
   }
+
+  const split = nutrition?.macro_split ?? MACRO_PRESETS.balanced.split
+  const macros = latest?.daily_kcal != null ? macroTargets(latest.daily_kcal, split) : undefined
 
   const readyCount = (pending ?? []).filter((x) => x.report).length
   const failedCount = (pending ?? []).filter((x) => x.error).length
@@ -598,6 +610,34 @@ export function BodyCompositionView({
                   </span>
                 </span>
                 <strong>{latest.daily_kcal} ккал</strong>
+              </div>
+            )}
+            {macros && (
+              <div className="group-row" style={{ display: 'block' }}>
+                <div className="sub" style={{ marginBottom: 8 }}>
+                  Разбивка по БЖУ · {Math.round(split.protein * 100)} /{' '}
+                  {Math.round(split.fat * 100)} / {Math.round(split.carbs * 100)} % калорий
+                </div>
+                <div className="metrics">
+                  <div className="metric">
+                    <div className="cap">Белки</div>
+                    <div className="num" style={{ fontSize: 18, color: 'var(--c-protein)' }}>
+                      {macros.protein} г
+                    </div>
+                  </div>
+                  <div className="metric">
+                    <div className="cap">Жиры</div>
+                    <div className="num" style={{ fontSize: 18, color: 'var(--c-fat)' }}>
+                      {macros.fat} г
+                    </div>
+                  </div>
+                  <div className="metric">
+                    <div className="cap">Углеводы</div>
+                    <div className="num" style={{ fontSize: 18, color: 'var(--c-muscle)' }}>
+                      {macros.carbs} г
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
