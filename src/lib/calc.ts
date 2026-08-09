@@ -84,3 +84,9 @@ export function startOfDay(ts: number): number {
   d.setHours(0, 0, 0, 0)
   return d.getTime()
 }
+
+/** Понедельник недели, в которую попадает дата. Неделя тут календарная. */
+export function weekStart(ts: number): number {
+  const day = startOfDay(ts)
+  return day - ((new Date(day).getDay() + 6) % 7) * 86400_000
+}

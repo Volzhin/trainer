@@ -175,8 +175,26 @@ export interface UserProfile {
   default_rest_seconds: number
   haptics_enabled: 0 | 1
   sound_enabled: 0 | 1
+  /**
+   * Уведомления по типам. Живут в профиле рядом со звуком и вибрацией, а не
+   * отдельной таблицей: это такие же настройки устройства, и ради пяти
+   * переключателей заводить сущность с правилом доступа незачем.
+   * Отсутствующий ключ означает «включено» — молчать по умолчанию значит
+   * не напомнить человеку о том, ради чего он и пришёл.
+   */
+  notifications?: Partial<Record<NotificationKind, boolean>>
   updated_at: number
 }
+
+/** Типы напоминаний. Каждый отключается отдельно. */
+export type NotificationKind =
+  'weight' | 'measurements' | 'nutrition_report' | 'workout_report' | 'payment'
+
+/** Включено ли напоминание. Умолчание — да. */
+export const notificationOn = (
+  profile: Pick<UserProfile, 'notifications'> | null | undefined,
+  kind: NotificationKind,
+): boolean => profile?.notifications?.[kind] !== false
 
 /** Активный аккаунт устройства. Единственная строка с id = 'state'. */
 export interface AppState {
@@ -230,8 +248,26 @@ export interface TrainerLink {
   mode?: ClientMode
   /** Кто инициировал связь — влияет на то, кому показывать подтверждение. */
   initiated_by: Role
+  /** Даты оплат ведёт тренер: приложение денег не принимает. */
+  paid_at?: number
+  next_payment_at?: number
+  /**
+   * Подписанные согласия. Без них связи нет — храним отметку времени и
+   * версию текста: согласие «когда-то вообще» юридически ничего не значит,
+   * а тексты меняются.
+   */
+  consents?: Consent[]
   created_at: number
   updated_at: number
+}
+
+export type ConsentKind = 'offer' | 'personal_data'
+
+export interface Consent {
+  kind: ConsentKind
+  /** Версия текста, под которой подписались. */
+  version: string
+  signed_at: number
 }
 
 /** Режим связи с учётом старых записей без поля. */
@@ -291,6 +327,9 @@ export interface TrainerNote {
   updated_at: number
 }
 
+/** Что делать с весом в следующий раз. */
+export type Progression = 'decrease' | 'keep' | 'increase'
+
 /**
  * Комментарий тренера. Без exercise_id — общий к тренировке,
  * с exercise_id — разбор конкретного упражнения (обычно по видео).
@@ -302,8 +341,149 @@ export interface Feedback {
   session_id: string
   exercise_id?: string
   text: string
+  /**
+   * Рекомендация по весу. Есть только у разбора упражнения: к тренировке
+   * целиком она бессмысленна — вес меняют не всем подряд, а точечно.
+   */
+  progression?: Progression
   created_at: number
   is_read: 0 | 1
+  updated_at: number
+}
+
+/* ------------------------------- отчёты ------------------------------- */
+
+/**
+ * Стадия отчёта — ровно два значения, и это весь список.
+ *
+ * Проверки тренером здесь нет намеренно: она живёт отдельной записью
+ * ReportReview, которая принадлежит тренеру. Клиент такие записи не
+ * получает — сервер отдаёт ему только его собственные, — поэтому «проверен»
+ * до его устройства не доезжает вообще, а не прячется в интерфейсе.
+ *
+ * Раньше стадия лежала третьим значением здесь же и срезалась при обмене.
+ * Так было нельзя: строка отчёта принадлежит клиенту, и его правка задним
+ * числом затирала бы отметку тренера — побеждает более поздняя запись.
+ */
+export type ReportStatus = 'not_submitted' | 'submitted'
+
+/** Отчёт по тренировке: то, что клиент сдал сам. */
+export interface WorkoutReport {
+  id: string
+  user_id: string
+  session_id: string
+  status: ReportStatus
+  /** Что клиент написал, сдавая тренировку. */
+  client_comment?: string
+  submitted_at?: number
+  updated_at: number
+}
+
+/** Что именно проверено. */
+export type ReviewTarget = 'workout' | 'nutrition'
+
+/**
+ * Отметка тренера о проверке отчёта.
+ *
+ * Принадлежит тренеру и к клиенту не уезжает: правило доступа на сервере
+ * отдаёт человеку только его собственные записи и записи его клиентов.
+ * Комментарий здесь — рабочая пометка тренера; всё, что адресовано клиенту,
+ * идёт через разбор упражнений и чат, где он это увидит и прочитает.
+ */
+export interface ReportReview {
+  id: string
+  trainer_id: string
+  client_id: string
+  target: ReviewTarget
+  /** Идентификатор отчёта о тренировке или день питания (YYYY-MM-DD). */
+  ref: string
+  comment?: string
+  reviewed_at: number
+  updated_at: number
+}
+
+/**
+ * День дневника питания. Отдельно от записей еды: сытость, комментарий и
+ * стадия отчёта относятся к дню целиком, а не к отдельной котлете.
+ */
+export interface NutritionDay {
+  id: string
+  user_id: string
+  /** Локальная дата, YYYY-MM-DD — тот же ключ, что у записей еды. */
+  date: string
+  /** 5 — сытый, 1 — очень голодный. */
+  satiety?: 1 | 2 | 3 | 4 | 5
+  comment?: string
+  status: ReportStatus
+  submitted_at?: number
+  updated_at: number
+}
+
+/**
+ * Недельные рекомендации тренера.
+ *
+ * Все поля необязательны: пустое означает, что по этой метрике цели нет и
+ * приложение не должно её рисовать. Ноль и «не задано» — разные вещи, и
+ * подставлять расчётное значение вместо пропуска нельзя.
+ */
+export interface NutritionTarget {
+  id: string
+  client_id: string
+  trainer_id: string
+  /** Понедельник недели, на которую выданы цели. */
+  week_start: number
+  kcal?: number
+  protein?: number
+  fat?: number
+  carbs?: number
+  steps?: number
+  note?: string
+  created_at: number
+  updated_at: number
+}
+
+/**
+ * Шаги и сон за день.
+ *
+ * Только ручной ввод: у веб-приложения нет доступа к Apple Health и Google
+ * Fit. Поле source оставлено под будущий импорт из нативной обёртки —
+ * см. lib/health.ts.
+ */
+export interface DailyActivity {
+  id: string
+  user_id: string
+  date: string
+  steps?: number
+  sleep_minutes?: number
+  source: 'manual' | 'import'
+  updated_at: number
+}
+
+/**
+ * Задание клиенту.
+ *
+ * Не путать с Assignment: там назначенная программа, здесь поручение —
+ * анкета, эссе, замеры. Обязательные заводятся при привязке к тренеру и
+ * висят на главной, пока не выполнены.
+ */
+export type TaskKind = 'intake' | 'essay' | 'measurements' | 'inbody' | 'custom'
+export type TaskStatus = 'open' | 'done'
+
+export interface ClientTask {
+  id: string
+  client_id: string
+  trainer_id: string
+  kind: TaskKind
+  title: string
+  description?: string
+  due_at?: number
+  status: TaskStatus
+  /** Ответ клиента — для эссе это его текст. */
+  answer?: string
+  completed_at?: number
+  /** Обязательные задания нельзя отложить: они выданы при старте работы. */
+  required: 0 | 1
+  created_at: number
   updated_at: number
 }
 
@@ -484,6 +664,12 @@ class TrainerDB extends Dexie {
   nutritionProfile!: Table<NutritionProfile, string>
   foodLogs!: Table<FoodLog, string>
   foods!: Table<FoodItem, string>
+  workoutReports!: Table<WorkoutReport, string>
+  reviews!: Table<ReportReview, string>
+  nutritionDays!: Table<NutritionDay, string>
+  nutritionTargets!: Table<NutritionTarget, string>
+  dailyActivity!: Table<DailyActivity, string>
+  tasks!: Table<ClientTask, string>
 
   constructor() {
     super('trainer_db')
@@ -552,6 +738,23 @@ class TrainerDB extends Dexie {
       nutritionProfile: 'id',
       foodLogs: 'id, user_id, date, [user_id+date], logged_at',
       foods: 'id, barcode, name, used_at',
+    })
+
+    /**
+     * v7 — отчётность: отчёты по тренировкам и дням питания, недельные
+     * рекомендации, шаги со сном и задания клиенту.
+     *
+     * Отчёты индексируются по паре владелец+стадия: тренеру нужен список
+     * несданного и непроверенного, и без составного индекса это перебор
+     * всей таблицы на каждом открытии карточки клиента.
+     */
+    this.version(7).stores({
+      workoutReports: 'id, user_id, session_id, status, [user_id+status]',
+      reviews: 'id, client_id, [client_id+target], [target+ref]',
+      nutritionDays: 'id, user_id, date, status, [user_id+date], [user_id+status]',
+      nutritionTargets: 'id, client_id, [client_id+week_start]',
+      dailyActivity: 'id, user_id, date, [user_id+date]',
+      tasks: 'id, client_id, status, [client_id+status]',
     })
   }
 }

@@ -47,6 +47,12 @@ const SYNCED = [
   'foodLogs',
   'foods',
   'attachments',
+  'workoutReports',
+  'reviews',
+  'nutritionDays',
+  'nutritionTargets',
+  'dailyActivity',
+  'tasks',
 ] as const
 
 type SyncedTable = (typeof SYNCED)[number]
@@ -77,9 +83,17 @@ async function ownerOf(
     case 'assignments':
     case 'trainerNotes':
     case 'feedback':
+    // Цели и задания заводит тренер, но принадлежат они тому, для кого
+    // выданы: иначе клиент не получит ни своих норм, ни своей анкеты.
+    case 'nutritionTargets':
+    case 'tasks':
       return str(row.client_id)
 
+    // Отметка о проверке принадлежит тренеру, а не клиенту. Только поэтому
+    // она и не доезжает до клиента: сервер отдаёт человеку свои записи и
+    // записи его клиентов, а чужой разбор о себе он не запросит.
     case 'invites':
+    case 'reviews':
       return str(row.trainer_id)
 
     // Личная программа принадлежит клиенту, под которого собрана. Публичный
@@ -237,6 +251,8 @@ const TRAINER_AUTHORED: readonly string[] = [
   'routines',
   'templateItems',
   'links',
+  'nutritionTargets',
+  'tasks',
 ]
 
 /** Кого этот тренер ведёт — список приезжает вместе с данными клиентов. */
