@@ -49,5 +49,26 @@ export default defineConfig({
       devOptions: { enabled: false },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        /**
+         * Воркер pdf.js приезжает из пакета с расширением .mjs, и на этом
+         * ломался разбор отчётов: nginx не знает такого расширения и отдаёт
+         * файл как application/octet-stream, а модуль с не-JS MIME браузер
+         * исполнять отказывается. Плюс .mjs не попадал в globPatterns
+         * Workbox, то есть офлайн разбор не работал и подавно.
+         *
+         * Чиним на своей стороне, а не в конфиге сервера: тогда починка
+         * едет вместе со сборкой и не теряется при переезде на другую машину.
+         */
+        assetFileNames: (info) => {
+          const source = info.names?.[0] ?? info.name ?? ''
+          if (source.endsWith('.mjs')) return 'assets/[name]-[hash].js'
+          return 'assets/[name]-[hash][extname]'
+        },
+      },
+    },
+  },
   server: { port: 5173, host: true },
 })
