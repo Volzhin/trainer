@@ -376,6 +376,12 @@ export interface WorkoutReport {
   /** Что клиент написал, сдавая тренировку. */
   client_comment?: string
   submitted_at?: number
+  /**
+   * Что ответил тренер. Лежит здесь, а не в его отметке о проверке, именно
+   * потому, что предназначен клиенту: строка принадлежит клиенту, приезжает
+   * к нему и уезжает обратно вместе с его правками, ничего не теряя.
+   */
+  trainer_comment?: string
   updated_at: number
 }
 
@@ -383,12 +389,13 @@ export interface WorkoutReport {
 export type ReviewTarget = 'workout' | 'nutrition'
 
 /**
- * Отметка тренера о проверке отчёта.
+ * Отметка тренера о проверке отчёта. Только факт и время — ничего больше.
  *
  * Принадлежит тренеру и к клиенту не уезжает: правило доступа на сервере
  * отдаёт человеку только его собственные записи и записи его клиентов.
- * Комментарий здесь — рабочая пометка тренера; всё, что адресовано клиенту,
- * идёт через разбор упражнений и чат, где он это увидит и прочитает.
+ * Ответ тренера сюда не кладётся — он адресован клиенту и лежит на самом
+ * отчёте. Здесь остаётся ровно то, чего клиенту знать не нужно: разобрали
+ * его отчёт или он ещё в очереди.
  */
 export interface ReportReview {
   id: string
@@ -397,7 +404,6 @@ export interface ReportReview {
   target: ReviewTarget
   /** Идентификатор отчёта о тренировке или день питания (YYYY-MM-DD). */
   ref: string
-  comment?: string
   reviewed_at: number
   updated_at: number
 }
@@ -416,6 +422,8 @@ export interface NutritionDay {
   comment?: string
   status: ReportStatus
   submitted_at?: number
+  /** Ответ тренера — клиенту видно, см. WorkoutReport.trainer_comment. */
+  trainer_comment?: string
   updated_at: number
 }
 

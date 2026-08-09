@@ -130,11 +130,15 @@ export async function nutritionDaysOf(clientId: string, from: string, to: string
 /* --------------------------- проверка тренером ------------------------- */
 
 /**
- * Отметить отчёт проверенным.
+ * Отметить отчёт проверенным и ответить клиенту.
  *
- * Идентификатор выводится из цели, а не выдаётся случайно: проверка одного
- * и того же отчёта — это одна запись, сколько бы раз тренер её ни открывал.
- * Со случайными идентификаторами каждое нажатие плодило бы новую отметку.
+ * Пишет в две строки, и это не дублирование: комментарий адресован клиенту
+ * и потому ложится на его отчёт, откуда он его и прочитает. Отметка о
+ * проверке остаётся у тренера и к клиенту не едет — ему незачем знать,
+ * дошли ли до него руки.
+ *
+ * Идентификатор отметки выводится из цели, а не выдаётся случайно: проверка
+ * одного отчёта — одна запись, сколько бы раз тренер её ни открывал.
  */
 export async function reviewReport(input: {
   clientId: string
@@ -154,10 +158,21 @@ export async function reviewReport(input: {
     client_id: input.clientId,
     target: input.target,
     ref: input.ref,
-    comment: input.comment?.trim() || undefined,
     reviewed_at: ts,
     updated_at: ts,
   })
+
+  const comment = input.comment?.trim()
+  if (comment) {
+    if (input.target === 'workout') {
+      await db.workoutReports.update(input.ref, { trainer_comment: comment, updated_at: ts })
+    } else {
+      await db.nutritionDays.update(`${input.clientId}:${input.ref}`, {
+        trainer_comment: comment,
+        updated_at: ts,
+      })
+    }
+  }
   return id
 }
 
