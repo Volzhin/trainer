@@ -139,6 +139,37 @@ const OTHER: Row[] = [
 
 const TRACKABLE = [...MAIN, ...OTHER]
 
+/** Массы состава, которые осмысленно показывать ещё и долей от веса. */
+const AS_SHARE: (keyof BodyMetric)[] = [
+  'skeletal_muscle_kg',
+  'fat_free_mass_kg',
+  'protein_kg',
+  'minerals_kg',
+  'body_water_l',
+]
+
+/**
+ * Показания точки: слева доля в процентах, справа абсолютное значение —
+ * и так у каждой метрики. Видеть «18 %» и не знать, сколько это в
+ * килограммах, неудобно: по одному проценту не понять, ушёл жир или просто
+ * прибавились мышцы. А общие столбцы позволяют сравнивать ряды взглядом,
+ * не разбирая каждый заново.
+ */
+function cellsFor(m: BodyMetric, key: keyof BodyMetric, unit: string): (string | null)[] {
+  const v = m[key]
+  if (typeof v !== 'number') return []
+  const abs = unit ? `${round1(v)} ${unit}` : String(round1(v))
+
+  if (key === 'body_fat_pct') {
+    return [`${round1(v)} %`, m.body_fat_kg != null ? `${round1(m.body_fat_kg)} кг` : null]
+  }
+  if (AS_SHARE.includes(key)) {
+    return [m.weight_kg ? `${round1((v / m.weight_kg) * 100)} %` : null, abs]
+  }
+  // Вес, ИМТ, висцеральный жир: доли от веса у них нет по смыслу.
+  return [null, abs]
+}
+
 /** Чей состав тела смотрим: от этого зависят только формулировки. */
 export type BodySubject = 'self' | 'client'
 
@@ -184,7 +215,21 @@ export function BodyCompositionView({
   const [manualOpen, setManualOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [segTab, setSegTab] = useState<'muscle' | 'fat'>('muscle')
-  const [trendKey, setTrendKey] = useState<keyof BodyMetric>('weight_kg')
+  // Одна или две метрики на графике. Раньше это были два отдельных состояния
+  // и два почти одинаковых ряда чипов — по ним не читалось, чем второй ряд
+  // отличается от первого, и половина экрана на телефоне уходила на выбор.
+  const [trendKeys, setTrendKeys] = useState<(keyof BodyMetric)[]>(['weight_kg'])
+
+  const toggleTrend = (key: keyof BodyMetric) =>
+    setTrendKeys((prev) => {
+      if (prev.includes(key)) {
+        // Последнюю метрику снять нельзя — графику нечего будет рисовать.
+        return prev.length === 1 ? prev : prev.filter((k) => k !== key)
+      }
+      // Когда выбраны две и жмут третью, меняем вторую: первая — точка
+      // отсчёта, от неё и сравнивают.
+      return prev.length < 2 ? [...prev, key] : [prev[0], key]
+    })
   const [historyOpen, setHistoryOpen] = useState(false)
 
   const metrics = useLiveQuery(() => listBodyMetrics(userId), [userId], [] as BodyMetric[])
@@ -334,10 +379,26 @@ export function BodyCompositionView({
     ? statusFor(composed.weight_kg, composed.norms?.weight_kg)
     : undefined
 
+  const trendKey = trendKeys[0]
   const trendRow = TRACKABLE.find((r) => r.key === trendKey)!
-  const trendPoints = (metrics ?? [])
-    .filter((m) => typeof m[trendKey] === 'number')
-    .map((m) => ({ x: m.logged_at, y: m[trendKey] as number }))
+  const trendKey2 = trendKeys[1]
+  const trendRow2 = trendKey2 ? TRACKABLE.find((r) => r.key === trendKey2) : undefined
+
+  const pointsFor = (key: keyof BodyMetric) => {
+    const unit = TRACKABLE.find((r) => r.key === key)?.unit ?? ''
+    return (metrics ?? [])
+      .filter((m) => typeof m[key] === 'number')
+      .map((m) => ({ x: m.logged_at, y: m[key] as number, cells: cellsFor(m, key, unit) }))
+  }
+
+  const trendPoints = pointsFor(trendKey)
+  const trendPoints2 = trendKey2 ? pointsFor(trendKey2) : []
+
+  // Ряды одного цвета отличались бы только пунктиром — уводим второй в синий.
+  const colorOf = (r?: Row) => (!r || r.color === C.neutral ? 'var(--accent)' : r.color)
+  const color1 = colorOf(trendRow)
+  const color2raw = colorOf(trendRow2)
+  const color2 = color2raw === color1 ? 'var(--info)' : color2raw
 
   return (
     <>
@@ -471,8 +532,9 @@ export function BodyCompositionView({
             ).map((r) => (
               <button
                 key={String(r.key)}
-                className={`chip${trendKey === r.key ? ' active' : ''}`}
-                onClick={() => setTrendKey(r.key)}
+                className={`chip${trendKeys.includes(r.key) ? ' active' : ''}`}
+                aria-pressed={trendKeys.includes(r.key)}
+                onClick={() => toggleTrend(r.key)}
               >
                 {r.label}
               </button>
@@ -482,12 +544,26 @@ export function BodyCompositionView({
             <LineChart
               data={trendPoints}
               unit={trendRow.unit ? ` ${trendRow.unit}` : ''}
-              color={trendRow.color === C.neutral ? 'var(--accent)' : trendRow.color}
+              label={trendRow.label}
+              color={color1}
+              second={
+                trendRow2 && trendPoints2.length
+                  ? {
+                      data: trendPoints2,
+                      color: color2,
+                      unit: trendRow2.unit ? ` ${trendRow2.unit}` : '',
+                      label: trendRow2.label,
+                    }
+                  : undefined
+              }
             />
-            <div className="mute-sm" style={{ textAlign: 'center', marginTop: 6 }}>
-              {trendRow.label}
-              {trendPoints.length === 1 && ' · нужен ещё один замер, чтобы увидеть тренд'}
-            </div>
+            {(!trendRow2 || !trendPoints2.length || trendPoints.length === 1) && (
+              <div className="mute-sm" style={{ marginTop: 8 }}>
+                {trendPoints.length === 1
+                  ? 'Нужен ещё один замер, чтобы увидеть тренд'
+                  : 'Нажмите вторую метрику, чтобы сравнить'}
+              </div>
+            )}
           </div>
         </>
       )}

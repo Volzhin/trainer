@@ -1,14 +1,37 @@
-type Point = { x: number; y: number }
+import { useState } from 'react'
+
+/**
+ * cells — показания точки по столбцам. Столбцы у всех рядов одинаковые по
+ * смыслу (например, слева доля в процентах, справа абсолютное значение),
+ * поэтому глаз сравнивает ряды по вертикали, не разбирая каждый заново.
+ */
+type Point = { x: number; y: number; cells?: (string | null)[] }
+
+type Series = { data: Point[]; color?: string; unit?: string; label?: string }
 
 type Props = {
   data: Point[]
   color?: string
   unit?: string
+  label?: string
   height?: number
+  /** Второй ряд со своей шкалой Y справа. */
+  second?: Series
 }
 
 /** Лёгкий SVG-график без внешних библиотек — быстрее грузится в WebView. */
-export function LineChart({ data, color = 'var(--accent)', unit = '', height = 170 }: Props) {
+export function LineChart({
+  data,
+  color = 'var(--accent)',
+  unit = '',
+  label,
+  height = 170,
+  second,
+}: Props) {
+  // Выбранная точка. Объявлено до раннего возврата: иначе на пустых данных
+  // порядок хуков разъедется.
+  const [active, setActive] = useState<number | null>(null)
+
   if (data.length === 0) {
     return <div className="empty">Недостаточно данных</div>
   }
@@ -19,69 +42,269 @@ export function LineChart({ data, color = 'var(--accent)', unit = '', height = 1
   const padTop = 18
   const padBottom = 22
 
-  const xs = data.map((d) => d.x)
-  const ys = data.map((d) => d.y)
-  const minX = Math.min(...xs)
-  const maxX = Math.max(...xs)
-  const minY = Math.min(...ys)
-  const maxY = Math.max(...ys)
-  const spanX = maxX - minX || 1
-  const spanY = maxY - minY || Math.max(1, maxY * 0.1)
+  const hasSecond = !!second && second.data.length > 0
+  const secondColor = second?.color ?? 'var(--info)'
+  const secondUnit = second?.unit ?? ''
 
+  /**
+   * Шкала X общая — иначе ряды разъедутся по времени и сравнивать их будет
+   * не с чем. Шкалы Y у каждого своя: вес в килограммах и жир в процентах
+   * на одной оси превратились бы в прямую и щепку.
+   */
+  const allX = hasSecond ? [...data, ...second!.data].map((d) => d.x) : data.map((d) => d.x)
+  const minX = Math.min(...allX)
+  const maxX = Math.max(...allX)
+  const spanX = maxX - minX || 1
   const px = (x: number) => padX + ((x - minX) / spanX) * (w - padX * 2)
-  const py = (y: number) => padTop + (1 - (y - minY) / spanY) * (h - padTop - padBottom)
+
+  const scaleOf = (pts: Point[]) => {
+    const ys = pts.map((d) => d.y)
+    const min = Math.min(...ys)
+    const max = Math.max(...ys)
+    const span = max - min || Math.max(1, max * 0.1)
+    return {
+      min,
+      max,
+      py: (y: number) => padTop + (1 - (y - min) / span) * (h - padTop - padBottom),
+    }
+  }
+
+  const a = scaleOf(data)
+  const b = hasSecond ? scaleOf(second!.data) : null
+
+  const lineOf = (pts: Point[], py: (y: number) => number) =>
+    pts
+      .map((d, i) => `${i === 0 ? 'M' : 'L'}${px(d.x).toFixed(1)},${py(d.y).toFixed(1)}`)
+      .join(' ')
 
   const single = data.length === 1
-  const path = data
-    .map((d, i) => `${i === 0 ? 'M' : 'L'}${px(d.x).toFixed(1)},${py(d.y).toFixed(1)}`)
-    .join(' ')
-  const area = `${path} L${px(maxX).toFixed(1)},${h - padBottom} L${px(minX).toFixed(1)},${h - padBottom} Z`
+  const path = lineOf(data, a.py)
+  const area = `${path} L${px(data[data.length - 1].x).toFixed(1)},${h - padBottom} L${px(data[0].x).toFixed(1)},${h - padBottom} Z`
 
   const fmtDate = (ts: number) =>
     new Date(ts).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
 
-  return (
-    <svg className="chart" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" role="img">
-      <line
-        x1={padX}
-        y1={h - padBottom}
-        x2={w - padX}
-        y2={h - padBottom}
-        stroke="var(--border)"
-      />
-      {!single && (
-        <>
-          <path d={area} fill={color} opacity={0.12} />
-          <path
-            className="arc-draw"
-            d={path}
-            fill="none"
-            stroke={color}
-            strokeWidth={2}
-            strokeLinejoin="round"
-            style={{ strokeDasharray: 1400, '--dash': 1400 } as React.CSSProperties}
-          />
-        </>
-      )}
-      {data.map((d, i) => (
-        <circle key={i} cx={px(d.x)} cy={py(d.y)} r={single ? 4 : 2.6} fill={color} />
-      ))}
+  const fmtVal = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1))
 
-      <text x={padX} y={12} fill="var(--text-3)" fontSize={10}>
-        макс {Math.round(maxY)}
-        {unit}
-      </text>
-      <text x={w - padX} y={12} fill="var(--text-3)" fontSize={10} textAnchor="end">
-        мин {Math.round(minY)}
-        {unit}
-      </text>
-      <text x={padX} y={h - 6} fill="var(--text-3)" fontSize={10}>
-        {fmtDate(minX)}
-      </text>
-      <text x={w - padX} y={h - 6} fill="var(--text-3)" fontSize={10} textAnchor="end">
-        {fmtDate(maxX)}
-      </text>
-    </svg>
+  const nearestTo = (pts: Point[], x: number) =>
+    pts.reduce((best, p) => (Math.abs(p.x - x) < Math.abs(best.x - x) ? p : best), pts[0])
+
+  /**
+   * Ближайшая точка по горизонтали. preserveAspectRatio="none" растягивает
+   * систему координат линейно, поэтому доля от ширины переводится в единицы
+   * viewBox простым умножением.
+   */
+  const pickNearest = (clientX: number, box: DOMRect) => {
+    if (!box.width) return
+    const vx = ((clientX - box.left) / box.width) * w
+    let best = 0
+    for (let i = 1; i < data.length; i++) {
+      if (Math.abs(px(data[i].x) - vx) < Math.abs(px(data[best].x) - vx)) best = i
+    }
+    setActive(best)
+  }
+
+  const onPointer = (e: React.PointerEvent<HTMLDivElement>) =>
+    pickNearest(e.clientX, e.currentTarget.getBoundingClientRect())
+
+  const onKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      e.preventDefault()
+      const step = e.key === 'ArrowRight' ? 1 : -1
+      setActive((prev) => {
+        const from = prev ?? data.length - 1
+        return Math.min(data.length - 1, Math.max(0, from + step))
+      })
+    } else if (e.key === 'Escape') {
+      setActive(null)
+    }
+  }
+
+  /**
+   * Без наведения показываем последний замер, а не пустоту: блок показаний
+   * стоит на месте всегда, ничего не подпрыгивает, и в покое видно то, что
+   * человека и интересует — как дела сейчас.
+   */
+  const idx = Math.min(active ?? data.length - 1, data.length - 1)
+  const point = data[idx]
+  // Второй ряд меряют в свои дни, поэтому берём его ближайшую точку, а не ту
+  // же по счёту: иначе показания были бы от другой даты.
+  const pointB = hasSecond ? nearestTo(second!.data, point.x) : undefined
+
+  const cellsOf = (p: Point, u: string) => p.cells ?? [null, `${fmtVal(p.y)}${u}`]
+  const readout = [
+    { color, label, cells: cellsOf(point, unit) },
+    ...(pointB
+      ? [{ color: secondColor, label: second?.label, cells: cellsOf(pointB, secondUnit) }]
+      : []),
+  ]
+  // Пустой столбец не занимает места: у веса доли в процентах нет, и держать
+  // под неё пробел в каждой строке незачем.
+  const colCount = Math.max(...readout.map((r) => r.cells.length))
+  const cols = Array.from({ length: colCount }, (_, i) => i).filter((i) =>
+    readout.some((r) => r.cells[i]),
+  )
+
+  return (
+    <div className="chart-block">
+      <div className="chart-readout">
+        <div className="chart-readout-date">{fmtDate(point.x)}</div>
+        {readout.map((r, i) => (
+          <div className="chart-readout-row" key={i}>
+            {/* Образец нужен, только когда рядов два: у одиночного графика
+                различать нечего. */}
+            {hasSecond && (
+              <i
+                className="chart-swatch"
+                style={{ background: r.color }}
+                data-dashed={i === 1}
+              />
+            )}
+            {r.label && <span className="chart-readout-name">{r.label}</span>}
+            {cols.map((c) => (
+              <span className="chart-readout-cell" key={c}>
+                {r.cells[c] ?? ''}
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      <div
+        className="chart-wrap"
+        tabIndex={0}
+        role="group"
+        aria-label={readout
+          .map((r) => [r.label, ...r.cells.filter(Boolean)].filter(Boolean).join(' '))
+          .concat(fmtDate(point.x))
+          .join(', ')}
+        onPointerDown={onPointer}
+        onPointerMove={onPointer}
+        onPointerLeave={() => setActive(null)}
+        onPointerCancel={() => setActive(null)}
+        onKeyDown={onKey}
+      >
+        <svg className="chart" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" role="img">
+          <line
+            x1={padX}
+            y1={h - padBottom}
+            x2={w - padX}
+            y2={h - padBottom}
+            stroke="var(--border)"
+          />
+          {!single && (
+            <>
+              <path d={area} fill={color} opacity={0.12} />
+              <path
+                className="arc-draw"
+                d={path}
+                fill="none"
+                stroke={color}
+                strokeWidth={2}
+                strokeLinejoin="round"
+                style={{ strokeDasharray: 1400, '--dash': 1400 } as React.CSSProperties}
+              />
+            </>
+          )}
+
+          {/* Второй ряд — пунктиром: на чёрно-белом снимке экрана и людям с
+              нарушением цветовосприятия цвет один ряд от другого не отличит. */}
+          {b && second!.data.length > 1 && (
+            <path
+              d={lineOf(second!.data, b.py)}
+              fill="none"
+              stroke={secondColor}
+              strokeWidth={2}
+              strokeLinejoin="round"
+              strokeDasharray="5 4"
+            />
+          )}
+
+          {data.map((d, i) => (
+            <circle key={i} cx={px(d.x)} cy={a.py(d.y)} r={single ? 4 : 2.6} fill={color} />
+          ))}
+          {b &&
+            second!.data.map((d, i) => (
+              <circle key={`b${i}`} cx={px(d.x)} cy={b.py(d.y)} r={2.6} fill={secondColor} />
+            ))}
+
+          <line
+            x1={px(point.x)}
+            y1={padTop}
+            x2={px(point.x)}
+            y2={h - padBottom}
+            stroke="var(--border-strong)"
+          />
+        </svg>
+
+        {/* Подписи осей — разметкой. Внутри svg их растягивало вместе с
+            системой координат, и буквы разъезжались по горизонтали. */}
+        {!hasSecond ? (
+          <>
+            <span className="chart-axis tl">
+              макс {Math.round(a.max)}
+              {unit}
+            </span>
+            <span className="chart-axis tr">
+              мин {Math.round(a.min)}
+              {unit}
+            </span>
+          </>
+        ) : (
+          <>
+            {/* Диапазон своей оси и своим цветом: слева первый ряд, справа второй. */}
+            <span className="chart-axis tl" style={{ color }}>
+              {fmtVal(a.min)}–{fmtVal(a.max)}
+              {unit}
+            </span>
+            <span className="chart-axis tr" style={{ color: secondColor }}>
+              {fmtVal(b!.min)}–{fmtVal(b!.max)}
+              {secondUnit}
+            </span>
+          </>
+        )}
+        <span className="chart-axis bl">{fmtDate(minX)}</span>
+        <span className="chart-axis br">{fmtDate(maxX)}</span>
+
+        {/* Выбранные точки — разметкой: preserveAspectRatio="none" растягивает
+            систему координат по горизонтали, и круг в svg выходит эллипсом. */}
+        <i
+          className="chart-dot"
+          style={{
+            left: `${(px(point.x) / w) * 100}%`,
+            top: `${(a.py(point.y) / h) * 100}%`,
+            background: color,
+          }}
+          aria-hidden
+        />
+        {pointB && b && (
+          <i
+            className="chart-dot"
+            style={{
+              left: `${(px(pointB.x) / w) * 100}%`,
+              top: `${(b.py(pointB.y) / h) * 100}%`,
+              background: secondColor,
+            }}
+            aria-hidden
+          />
+        )}
+      </div>
+
+      {/* Легенда с образцами линий: при двух шкалах мало знать цвет — нужно
+          понимать, по какой оси читать ряд. */}
+      {hasSecond && label && second?.label && (
+        <div className="chart-legend">
+          <span className="chart-legend-item">
+            <i className="chart-swatch" style={{ background: color }} />
+            {label} <span className="mute-sm">слева</span>
+          </span>
+          <span className="chart-legend-item">
+            <i className="chart-swatch" style={{ background: secondColor }} data-dashed />
+            {second.label} <span className="mute-sm">справа</span>
+          </span>
+        </div>
+      )}
+    </div>
   )
 }
 

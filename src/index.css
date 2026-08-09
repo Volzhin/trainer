@@ -769,6 +769,118 @@ a {
   display: block;
 }
 
+/* Показания выбранной точки. Блок стоит над графиком и не всплывает поверх
+   него: подсказка на месте курсора прыгала за указателем и закрывала те самые
+   линии, ради которых на график и смотрят. Столбцы у рядов общие, поэтому
+   значения сравниваются взглядом по вертикали. */
+.chart-readout {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+
+.chart-readout-date {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.chart-readout-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.chart-readout-name {
+  min-width: 74px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.chart-readout-cell {
+  min-width: 68px;
+  font-family: var(--font-num);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.chart-wrap {
+  position: relative;
+}
+
+.chart-dot {
+  position: absolute;
+  z-index: 1;
+  width: 11px;
+  height: 11px;
+  transform: translate(-50%, -50%);
+  border-radius: var(--r-full);
+  border: 2px solid var(--bg);
+  pointer-events: none;
+}
+
+/* Образец линии. Пунктир вырезаем маской, а не рисуем вторым цветом:
+   образец лежит то на карточке, то на фоне, и подложка у него разная. */
+.chart-swatch {
+  width: 18px;
+  height: 3px;
+  flex: none;
+  align-self: center;
+  border-radius: var(--r-full);
+}
+
+.chart-swatch[data-dashed='true'] {
+  /* Шаг совпадает со strokeDasharray="5 4" на самом графике. */
+  -webkit-mask-image: repeating-linear-gradient(90deg, #000 0 5px, transparent 5px 9px);
+  mask-image: repeating-linear-gradient(90deg, #000 0 5px, transparent 5px 9px);
+}
+
+/* Подписи осей поверх графика. Внутри svg их растягивало по горизонтали
+   вместе с системой координат. */
+.chart-axis {
+  position: absolute;
+  font-size: 10px;
+  color: var(--text-3);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.chart-axis.tl {
+  left: 8px;
+  top: 2px;
+}
+
+.chart-axis.tr {
+  right: 8px;
+  top: 2px;
+}
+
+.chart-axis.bl {
+  left: 8px;
+  bottom: 2px;
+}
+
+.chart-axis.br {
+  right: 8px;
+  bottom: 2px;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .calendar {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
