@@ -1,26 +1,52 @@
 import { NavLink } from 'react-router-dom'
-import { IconApple, IconDumbbell, IconHome, IconList, IconUser, IconUsers } from './Icons'
+import {
+  IconApple,
+  IconChat,
+  IconClipboard,
+  IconDumbbell,
+  IconHome,
+  IconUser,
+  IconUsers,
+} from './Icons'
 import { haptics } from '../lib/native'
-import { useRole } from '../store/app'
+import { useRole, useTrainerLink } from '../store/app'
 
-const CLIENT_TABS = [
-  { to: '/', label: 'Главная', Icon: IconHome, end: true },
-  { to: '/programs', label: 'Программы', Icon: IconDumbbell, end: false },
-  { to: '/exercises', label: 'Упражнения', Icon: IconList, end: false },
+type Tab = { to: string; label: string; Icon: typeof IconHome; end: boolean }
+
+/**
+ * Разделы клиента. Библиотеки упражнений здесь нет намеренно: она живёт
+ * внутри свободной тренировки, где её и открывают. Программы тоже не раздел —
+ * до них добираются с экрана тренировок, а не наоборот.
+ */
+const CLIENT_TABS: Tab[] = [
+  { to: '/', label: 'Тренировки', Icon: IconHome, end: true },
   { to: '/nutrition', label: 'Питание', Icon: IconApple, end: false },
-  { to: '/profile', label: 'Профиль', Icon: IconUser, end: false },
 ]
 
-const TRAINER_TABS = [
+/** Появляются только с тренером: без него писать и отчитываться некому. */
+const CLIENT_BOND_TABS: Tab[] = [
+  { to: '/chat', label: 'Чат', Icon: IconChat, end: false },
+  { to: '/reports', label: 'Отчёты', Icon: IconClipboard, end: false },
+]
+
+const CLIENT_PROFILE_TAB: Tab = { to: '/profile', label: 'Профиль', Icon: IconUser, end: false }
+
+const TRAINER_TABS: Tab[] = [
   { to: '/trainer', label: 'Клиенты', Icon: IconUsers, end: true },
   { to: '/programs', label: 'Программы', Icon: IconDumbbell, end: false },
-  { to: '/exercises', label: 'Упражнения', Icon: IconList, end: false },
   { to: '/trainer/profile', label: 'Профиль', Icon: IconUser, end: false },
 ]
 
 export function TabBar() {
   const role = useRole()
-  const tabs = role === 'TRAINER' ? TRAINER_TABS : CLIENT_TABS
+  const bond = useTrainerLink()
+
+  // Пока связка не прочитана, лишних разделов не показываем: появиться им
+  // безболезненно, а исчезнуть под уже занесённым пальцем — нет.
+  const tabs =
+    role === 'TRAINER'
+      ? TRAINER_TABS
+      : [...CLIENT_TABS, ...(bond ? CLIENT_BOND_TABS : []), CLIENT_PROFILE_TAB]
 
   return (
     <nav className="tabbar">

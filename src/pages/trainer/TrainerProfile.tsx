@@ -90,9 +90,11 @@ export function TrainerProfile() {
           <span className="muted">Своих программ</span>
           <strong>{counts?.programs ?? 0}</strong>
         </div>
+        {/* Не «режим»: этим словом теперь называется формат работы с
+            клиентом — очно или онлайн. Здесь речь про сеть. */}
         <div className="row between">
-          <span className="muted">Режим</span>
-          <strong>{online ? 'онлайн' : 'оффлайн'}</strong>
+          <span className="muted">Связь</span>
+          <strong>{online ? 'есть' : 'нет сети'}</strong>
         </div>
       </div>
 

@@ -28,9 +28,8 @@ import {
 import { ExercisePicker } from '../components/ExercisePicker'
 import { ExerciseTechniqueSheet } from '../components/ExerciseTechnique'
 import { VideoUploader } from '../components/ExerciseVideo'
-import { trainerOfClient } from '../db/coach'
 import { Sheet } from '../components/Sheet'
-import { useApp, useProfile } from '../store/app'
+import { useApp, useClientMode, useProfile } from '../store/app'
 import { ensureNotificationPermission, haptics } from '../lib/native'
 
 type Block = {
@@ -60,9 +59,10 @@ export function LiveSession() {
   const [askedNotify, setAskedNotify] = useState(false)
 
   const session = useLiveQuery(() => db.sessions.get(id), [id])
-  // Кнопку съёмки показываем только тем, у кого есть тренер: без него
-  // видео некому смотреть, а лишний элемент на экране тренировки мешает.
-  const hasTrainer = !!useLiveQuery(() => trainerOfClient(), [])
+  // Кнопку съёмки показываем только на онлайн-сопровождении: без тренера
+  // видео некому смотреть, а на очной работе технику он видит сам —
+  // просить запись значит просить лишнее.
+  const videoReport = useClientMode() === 'online'
   const sets = useLiveQuery(
     () => db.sets.where('workout_session_id').equals(id).toArray(),
     [id],
@@ -294,7 +294,7 @@ export function LiveSession() {
                 <IconPlus size={15} /> Добавить подход
               </button>
             </div>
-            {hasTrainer && <VideoUploader sessionId={id} exerciseId={block.exercise.id} />}
+            {videoReport && <VideoUploader sessionId={id} exerciseId={block.exercise.id} />}
           </div>
         ))}
 
@@ -347,7 +347,7 @@ export function LiveSession() {
         {/* Видеоотчёт собирается здесь, а не по ходу тренировки: снимать и
             тут же прикреплять между подходами некогда. Ролики уже лежат в
             галерее — остаётся разложить их по упражнениям. */}
-        {hasTrainer && doneBlocks.length > 0 && (
+        {videoReport && doneBlocks.length > 0 && (
           <>
             <div className="field-group-title">Видеоотчёт тренеру</div>
             <div className="mute-sm" style={{ marginBottom: 10 }}>

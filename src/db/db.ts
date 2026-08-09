@@ -210,17 +210,33 @@ export interface Contact {
 
 export type LinkStatus = 'PENDING' | 'ACTIVE' | 'PAUSED'
 
+/**
+ * Режим работы с клиентом. Онлайн — полный цикл отчётности с видео-отчётами,
+ * очно — упрощённый: тренер и так видит технику своими глазами.
+ */
+export type ClientMode = 'online' | 'offline'
+
 /** Связь тренера и клиента. */
 export interface TrainerLink {
   id: string
   trainer_id: string
   client_id: string
   status: LinkStatus
+  /**
+   * Режим выбирает тренер после того, как клиент ввёл код. Пусто у связей,
+   * заведённых до появления поля: они читаются как онлайн, потому что до
+   * сих пор видео-отчёт был доступен всем и молча отобрать его нельзя.
+   */
+  mode?: ClientMode
   /** Кто инициировал связь — влияет на то, кому показывать подтверждение. */
   initiated_by: Role
   created_at: number
   updated_at: number
 }
+
+/** Режим связи с учётом старых записей без поля. */
+export const modeOf = (link: Pick<TrainerLink, 'mode'> | null | undefined): ClientMode =>
+  link?.mode ?? 'online'
 
 /** Одноразовый код приглашения, который тренер передаёт клиенту. */
 export interface Invite {

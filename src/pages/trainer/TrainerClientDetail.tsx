@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type Program, type WorkoutSession } from '../../db/db'
+import { db, modeOf, type Program, type WorkoutSession } from '../../db/db'
 import {
   addTrainerNote,
   assignProgram,
@@ -13,6 +13,7 @@ import {
   loadClientDetail,
   personalProgramsFor,
   removeLink,
+  setLinkMode,
 } from '../../db/coach'
 import { BarChart, LineChart } from '../../components/LineChart'
 import { ContactLinks } from '../../components/ContactLinks'
@@ -139,6 +140,36 @@ export function TrainerClientDetail() {
                 {lastSession ? formatDate(lastSession.start_time) : '—'}
               </div>
               <div className="label">последняя</div>
+            </div>
+          </div>
+
+          <div className="section-title">Режим работы</div>
+          <div className="card">
+            <div className="chips">
+              {(
+                [
+                  ['online', 'Онлайн'],
+                  ['offline', 'Очно'],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  className={`chip${modeOf(link) === value ? ' active' : ''}`}
+                  disabled={!link}
+                  onClick={async () => {
+                    if (!link || modeOf(link) === value) return
+                    await setLinkMode(link.id, value)
+                    toast(value === 'online' ? 'Режим: онлайн' : 'Режим: очно')
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="mute-sm" style={{ marginTop: 10 }}>
+              {modeOf(link) === 'online'
+                ? 'Клиент сдаёт видео-отчёты, вы разбираете технику по записи.'
+                : 'Видео-отчёт не запрашивается — технику вы видите на занятии.'}
             </div>
           </div>
 
