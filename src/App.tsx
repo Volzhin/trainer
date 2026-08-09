@@ -19,9 +19,11 @@ import { SessionDetail } from './pages/SessionDetail'
 import { History } from './pages/History'
 import { Progress } from './pages/Progress'
 import { BodyComposition } from './pages/BodyComposition'
-import { Nutrition } from './pages/Nutrition'
-import { MyFoods } from './pages/MyFoods'
-import { NutritionSettings } from './pages/NutritionSettings'
+// Раздел питания снят с интерфейса — см. TabBar. Импорты и маршруты
+// закомментированы вместе с ним, страницы остались в репозитории.
+// import { Nutrition } from './pages/Nutrition'
+// import { MyFoods } from './pages/MyFoods'
+// import { NutritionSettings } from './pages/NutritionSettings'
 import { Chat } from './pages/Chat'
 import { Reports } from './pages/Reports'
 import { Profile } from './pages/Profile'
@@ -84,9 +86,9 @@ export default function App() {
               <Route path="/history/:id" element={<SessionDetail />} />
               <Route path="/progress" element={<Progress />} />
               <Route path="/body" element={<BodyComposition />} />
-              <Route path="/nutrition" element={<Nutrition />} />
-              <Route path="/nutrition/settings" element={<NutritionSettings />} />
-              <Route path="/nutrition/foods" element={<MyFoods />} />
+              {/* <Route path="/nutrition" element={<Nutrition />} /> */}
+              {/* <Route path="/nutrition/settings" element={<NutritionSettings />} /> */}
+              {/* <Route path="/nutrition/foods" element={<MyFoods />} /> */}
               <Route path="/chat" element={<Chat />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/profile" element={<Profile />} />

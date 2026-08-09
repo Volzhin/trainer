@@ -7,8 +7,6 @@ import {
   activityFor,
   completeTask,
   currentTargets,
-  loggedNutritionDates,
-  nutritionDaysOf,
   openTasks,
   setDailyActivity,
   submitWorkoutReport,
@@ -17,7 +15,6 @@ import {
 import { formatDate, plural } from '../lib/calc'
 import { localDate } from '../lib/tdee'
 import { Sheet } from '../components/Sheet'
-import { SATIETY_LABELS } from '../components/NutritionDayReport'
 import { IconCheck, IconChevronRight } from '../components/Icons'
 import { useApp, useTrainerLink } from '../store/app'
 import { haptics } from '../lib/native'
@@ -29,9 +26,11 @@ const WINDOW_DAYS = 14
  * Отчёты клиента тренеру.
  *
  * Экран действий: выполнить задание, ввести шаги и сон, сдать тренировку.
- * Всё остальное сдаётся там, где живёт: день питания — в дневнике, под тем,
- * что за день съедено, веса и замеры — в своих разделах. Сюда они приходят
+ * Всё остальное сдаётся там, где живёт: веса и замеры — в своих разделах,
+ * день питания — в дневнике, под тем, что за день съедено. Сюда они приходят
  * строкой «не сдано» со ссылкой туда, а не второй формой ввода того же.
+ * Питание сейчас снято с интерфейса целиком, поэтому его строки здесь нет —
+ * см. комментарий ниже по файлу.
  *
  * Клиент видит у отчёта ровно два состояния — не сдан и сдан. Стадия
  * проверки тренером сюда не доходит и доходить не должна: человек не
@@ -64,7 +63,6 @@ export function Reports() {
 }
 
 function ReportsBoard({ trainerName }: { trainerName: string }) {
-  const nav = useNavigate()
   const { userId } = useApp()
 
   const tasks = useLiveQuery(() => openTasks(userId), [userId])
@@ -73,32 +71,18 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
   const reports = useLiveQuery(() => workoutReportsOf(userId), [userId])
 
   const today = localDate()
-  const from = localDate(Date.now() - (WINDOW_DAYS - 1) * 86400_000)
-  const dates = useLiveQuery(
-    () => loggedNutritionDates(from, today, userId),
-    [userId, from, today],
-  )
-  const days = useLiveQuery(() => nutritionDaysOf(userId, from, today), [userId, from, today])
 
   const [openSession, setOpenSession] = useState<WorkoutSession | null>(null)
   const [openTask, setOpenTask] = useState<ClientTask | null>(null)
 
-  const loading =
-    tasks === undefined ||
-    sessions === undefined ||
-    reports === undefined ||
-    dates === undefined ||
-    days === undefined
+  const loading = tasks === undefined || sessions === undefined || reports === undefined
 
   const reportOf = new Map((reports ?? []).map((r) => [r.session_id, r]))
-  const dayOf = new Map((days ?? []).map((d) => [d.date, d]))
   const recent = (sessions ?? []).filter(
     (s) => s.start_time >= Date.now() - WINDOW_DAYS * 86400_000,
   )
 
-  const pending =
-    recent.filter((s) => reportOf.get(s.id)?.status !== 'submitted').length +
-    (dates ?? []).filter((d) => dayOf.get(d)?.status !== 'submitted').length
+  const pending = recent.filter((s) => reportOf.get(s.id)?.status !== 'submitted').length
 
   return (
     <div className="screen">
@@ -161,28 +145,11 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
             </div>
           )}
 
-          {/* Список только показывает, что осталось несданным: сдают день в
-              самом дневнике, глядя на съеденное, а не по названию даты. */}
-          <div className="section-title">Дни питания</div>
-          {dates.length === 0 ? (
-            <div className="empty compact">
-              Дневник питания за последние {WINDOW_DAYS} дней пуст. Сдавать день, в котором
-              ничего не записано, незачем.
-            </div>
-          ) : (
-            <div>
-              {dates.map((d) => (
-                <ReportRow
-                  key={d}
-                  title={formatDate(new Date(`${d}T12:00:00`).getTime())}
-                  subtitle={satietyLabel(dayOf.get(d)?.satiety)}
-                  submitted={dayOf.get(d)?.status === 'submitted'}
-                  answered={!!dayOf.get(d)?.trainer_comment}
-                  onOpen={() => nav(`/nutrition?date=${d}`)}
-                />
-              ))}
-            </div>
-          )}
+          {/* Дни питания сдаются в самом дневнике, под тем, что за день
+              съедено, — а раздел питания снят с интерфейса (см. TabBar), и
+              вести отсюда стало некуда. Список несданного вернётся вместе с
+              разделом: снять комментарий здесь и в шапке файла, ничего не
+              восстанавливая. Форма сдачи цела — components/NutritionDayReport. */}
         </>
       )}
 
@@ -232,8 +199,6 @@ function ReportRow({
     </button>
   )
 }
-
-const satietyLabel = (v?: number) => (v ? `Сытость: ${SATIETY_LABELS[v]}` : undefined)
 
 /* ------------------------------ недельные цели ------------------------- */
 
