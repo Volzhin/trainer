@@ -443,6 +443,82 @@ export async function tasksOf(clientId: string): Promise<ClientTask[]> {
   return rows.sort((a, b) => b.created_at - a.created_at)
 }
 
+/* ------------------------- лента сданного ------------------------------ */
+
+export type SubmittedEntry = {
+  id: string
+  kind: 'weight' | 'measure' | 'inbody' | 'activity'
+  at: number
+  title: string
+  detail: string
+}
+
+/**
+ * Что клиент уже сдал — коротко и с возможностью удалить.
+ *
+ * Удаление здесь не про «передумал», а про опечатку: лишний ноль в весе
+ * перекашивает и график, и расчёт расхода, и рекомендации тренера. Пока
+ * исправить это было нельзя, человеку оставалось смотреть на сломанную
+ * статистику или чистить всю историю целиком.
+ */
+export async function submittedEntries(
+  userId = currentUserId(),
+  limit = 40,
+): Promise<SubmittedEntry[]> {
+  const metrics = await db.bodyMetrics.where('user_id').equals(userId).toArray()
+  const activity = await db.dailyActivity.where('user_id').equals(userId).toArray()
+
+  const fromMetrics = metrics.map<SubmittedEntry>((m) => {
+    const girths = [
+      m.waist_cm != null && `талия ${m.waist_cm}`,
+      m.chest_cm != null && `грудь ${m.chest_cm}`,
+      m.hip_cm != null && `бёдра ${m.hip_cm}`,
+    ].filter(Boolean)
+
+    // Взвешивание отличаем от замера по тому, что в нём есть кроме веса:
+    // «сдал вес» и «сдал замеры» — разные обещания тренеру.
+    const kind: SubmittedEntry['kind'] =
+      m.source === 'inbody' ? 'inbody' : girths.length || m.body_fat_pct != null ? 'measure' : 'weight'
+
+    return {
+      id: m.id,
+      kind,
+      at: m.logged_at,
+      title: kind === 'inbody' ? 'InBody' : kind === 'measure' ? 'Замеры' : 'Вес',
+      detail: [
+        m.weight_kg != null && `${m.weight_kg} кг`,
+        m.body_fat_pct != null && `жир ${m.body_fat_pct}%`,
+        ...girths,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    }
+  })
+
+  const fromActivity = activity
+    .filter((a) => a.steps != null || a.sleep_minutes != null)
+    .map<SubmittedEntry>((a) => ({
+      id: a.id,
+      kind: 'activity',
+      at: new Date(`${a.date}T12:00:00`).getTime(),
+      title: 'Шаги и сон',
+      detail: [
+        a.steps != null && `${a.steps} шагов`,
+        a.sleep_minutes != null && `сон ${Math.floor(a.sleep_minutes / 60)} ч`,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    }))
+
+  return [...fromMetrics, ...fromActivity].sort((a, b) => b.at - a.at).slice(0, limit)
+}
+
+/** Удалить сданную запись. Тип решает, из какой таблицы её убирать. */
+export async function deleteSubmittedEntry(entry: SubmittedEntry) {
+  if (entry.kind === 'activity') await db.dailyActivity.delete(entry.id)
+  else await db.bodyMetrics.delete(entry.id)
+}
+
 /* --------------------------- сводка недели ----------------------------- */
 
 export type WeekProgress = {

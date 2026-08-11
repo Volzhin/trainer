@@ -10,6 +10,8 @@ import {
   currentTargets,
   openTasks,
   setDailyActivity,
+  deleteSubmittedEntry,
+  submittedEntries,
   submitWorkoutReport,
   workoutReportsOf,
 } from '../db/reports'
@@ -18,7 +20,8 @@ import { localDate } from '../lib/tdee'
 import { canImportHealthData, healthProvider } from '../lib/health'
 import { Sheet } from '../components/Sheet'
 import { WeightSheet } from '../components/WeightCard'
-import { IconCheck, IconChevronRight } from '../components/Icons'
+import { MeasurementEntry } from '../components/MeasurementEntry'
+import { IconCheck, IconChevronRight, IconTrash } from '../components/Icons'
 import { useApp, useTrainerLink } from '../store/app'
 import { haptics } from '../lib/native'
 
@@ -134,11 +137,9 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
 
           {targets && <TargetsCard targets={targets} />}
 
-          {/* Пункт 4.5: вес, замеры и InBody сдаются отсюда. Вес — прямо
-              здесь: это ввод одного числа, и уводить ради него на другой
-              экран значит превратить ежедневное действие в поход. Замеры и
-              InBody живут на экране анализа тела, где рядом лежит история,
-              с которой их и сравнивают. */}
+          {/* Всё про тело сдаётся здесь, а не на экране «Анализ тела»:
+              туда приходят смотреть динамику, и предложение что-то
+              загрузить в начале мешает этому. */}
           <div className="section-title">Тело</div>
           <div className="group">
             <button className="group-row" onClick={() => setWeightOpen(true)}>
@@ -154,34 +155,13 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
                 <IconChevronRight size={16} />
               </span>
             </button>
-            <button className="group-row" onClick={() => nav('/body')}>
-              <span className="grow">
-                <span className="title">Сдать еженедельные замеры</span>
-                <span className="sub">
-                  Обхваты и процент жира
-                </span>
-              </span>
-              <span className="chevron">
-                <IconChevronRight size={16} />
-              </span>
-            </button>
-            <button className="group-row" onClick={() => nav('/body')}>
-              <span className="grow">
-                <span className="title">Сдать InBody</span>
-                <span className="sub">
-                  Загрузить PDF отчёта
-                </span>
-              </span>
-              <span className="chevron">
-                <IconChevronRight size={16} />
-              </span>
-            </button>
           </div>
+          <MeasurementEntry userId={userId} />
 
           <div className="section-title">Шаги и сон за сегодня</div>
           <ActivityCard date={today} userId={userId} />
 
-          <div className="section-title">Тренировки</div>
+          <div className="section-title">Видео-отчёты по тренировкам</div>
           {recent.length === 0 ? (
             <div className="empty compact">
               За последние {WINDOW_DAYS} дней тренировок не было — сдавать пока нечего.
@@ -212,6 +192,8 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
             </div>
             <IconChevronRight size={16} />
           </button>
+
+          <SubmittedList userId={userId} onToast={toast} />
         </>
       )}
 
@@ -227,6 +209,69 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
         onClose={() => setOpenSession(null)}
       />
     </div>
+  )
+}
+
+/**
+ * Что уже сдано — коротко, с возможностью удалить.
+ *
+ * Удаление здесь не про «передумал», а про опечатку: лишний ноль в весе
+ * перекашивает график, расчёт расхода и рекомендации тренера. Раньше
+ * исправить это было нельзя — оставалось смотреть на сломанную статистику
+ * или чистить всю историю целиком.
+ *
+ * Список свёрнут: он длинный и нужен редко, а место занимал бы всегда.
+ */
+function SubmittedList({
+  userId,
+  onToast,
+}: {
+  userId: string
+  onToast: (text: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const entries = useLiveQuery(() => (open ? submittedEntries(userId) : undefined), [userId, open])
+
+  return (
+    <>
+      <div className="section-title">Сданные отчёты</div>
+      {!open ? (
+        <button className="list-item" onClick={() => setOpen(true)}>
+          <div className="grow">
+            <div className="strong">Показать сданное</div>
+            <div className="mute-sm">Вес, замеры, InBody, шаги и сон — с возможностью удалить</div>
+          </div>
+          <IconChevronRight size={16} />
+        </button>
+      ) : entries == null ? (
+        <div className="card skeleton" style={{ height: 120 }} />
+      ) : entries.length === 0 ? (
+        <div className="empty compact">Пока ничего не сдано.</div>
+      ) : (
+        <div className="group">
+          {entries.map((e) => (
+            <div className="group-row" key={`${e.kind}-${e.id}`}>
+              <span className="grow">
+                <span className="title">
+                  {e.title} · {formatDate(e.at)}
+                </span>
+                <span className="sub">{e.detail || 'без цифр'}</span>
+              </span>
+              <button
+                className="icon-btn"
+                aria-label={`Удалить: ${e.title} от ${formatDate(e.at)}`}
+                onClick={async () => {
+                  await deleteSubmittedEntry(e)
+                  onToast('Запись удалена')
+                }}
+              >
+                <IconTrash size={16} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
   )
 }
 

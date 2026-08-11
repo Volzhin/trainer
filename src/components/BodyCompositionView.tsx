@@ -265,9 +265,17 @@ const TEXT = {
 export function BodyCompositionView({
   userId,
   subject = 'self',
+  /**
+   * Показывать ли сдачу замеров. По умолчанию нет: экран отвечает на
+   * вопрос «что с телом», и предложение что-то загрузить в его начале
+   * мешает тому, кто пришёл смотреть динамику. Сдают в «Отчётах» —
+   * см. MeasurementEntry.
+   */
+  allowEntry = false,
 }: {
   userId: string
   subject?: BodySubject
+  allowEntry?: boolean
 }) {
   const { toast } = useApp()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -744,31 +752,26 @@ export function BodyCompositionView({
         </>
       )}
 
-      <button
-        className="btn primary block mt-5"
-        disabled={busy}
-        onClick={() => fileRef.current?.click()}
-      >
-        {busy
-          ? progress && progress.total > 1
-            ? `Читаю ${progress.done + 1} из ${progress.total}…`
-            : 'Читаю отчёт…'
-          : latest
-            ? t.uploadMore
-            : t.uploadFirst}
-      </button>
-      <div className="mute-sm" style={{ textAlign: 'center', marginTop: 8 }}>
-        Можно выбрать сразу несколько файлов
-      </div>
-
-      {/* Отчёт InBody есть не у всех: домашние весы, замер в другом зале или
-          просто взвешивание тоже должны попадать в тренд. */}
-      <button
-        className="btn block mt-2"
-        onClick={() => setManualOpen(true)}
-      >
-        Ввести замер вручную
-      </button>
+      {allowEntry && (
+        <>
+          <button
+            className="btn primary block mt-5"
+            disabled={busy}
+            onClick={() => fileRef.current?.click()}
+          >
+            {busy
+              ? progress && progress.total > 1
+                ? `Читаю ${progress.done + 1} из ${progress.total}…`
+                : 'Читаю отчёт…'
+              : latest
+                ? t.uploadMore
+                : t.uploadFirst}
+          </button>
+          <button className="btn block mt-2" onClick={() => setManualOpen(true)}>
+            Ввести замер вручную
+          </button>
+        </>
+      )}
 
       <ManualMeasurementSheet
         open={manualOpen}
@@ -1132,7 +1135,7 @@ function MetricRow({
   )
 }
 
-function metricRows(m: Partial<BodyMetric>): [string, string][] {
+export function metricRows(m: Partial<BodyMetric>): [string, string][] {
   const rows: [string, string, number | undefined][] = [
     ['Вес', 'кг', m.weight_kg],
     ['Скелетные мышцы', 'кг', m.skeletal_muscle_kg],
@@ -1158,7 +1161,7 @@ function metricRows(m: Partial<BodyMetric>): [string, string][] {
  * считается процент жира и производный состав, поэтому измерительная лента
  * заменяет весы с биоимпедансом там, где их нет.
  */
-function ManualMeasurementSheet({
+export function ManualMeasurementSheet({
   open,
   userId,
   onClose,

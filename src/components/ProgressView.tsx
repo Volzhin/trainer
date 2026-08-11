@@ -8,13 +8,8 @@ import {
   type PeriodKey,
   type PlanProgress,
 } from '../db/analytics'
-import { logBodyMetric } from '../db/repo'
 import { BarChart } from '../components/LineChart'
-import { BodyCompositionCard } from '../components/BodyCompositionCard'
-import { WeightCard } from '../components/WeightCard'
-import { Sheet } from '../components/Sheet'
 import { formatDate, formatTonnage, formatWeight, plural } from '../lib/calc'
-import { useApp } from '../store/app'
 
 const WEEKDAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
 
@@ -28,20 +23,11 @@ const WEEKDAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
  * нужен тот же самый взгляд на клиента, а не его усечённая копия: две
  * версии одного отчёта неизбежно разъезжаются.
  */
-export function ProgressView({
-  userId,
-  /** У чужого прогресса нет ручного ввода замеров — только просмотр. */
-  readOnly = false,
-}: {
-  userId: string
-  readOnly?: boolean
-}) {
+export function ProgressView({ userId }: { userId: string }) {
   const nav = useNavigate()
-  const { toast } = useApp()
 
   const [period, setPeriod] = useState<PeriodKey>('4w')
   const [onlyProgram, setOnlyProgram] = useState(true)
-  const [metricOpen, setMetricOpen] = useState(false)
 
   const days = PERIODS.find((p) => p.key === period)!.days
   const report = useLiveQuery(() => loadProgress(userId, days), [userId, days])
@@ -239,27 +225,9 @@ export function ProgressView({
         </div>
       )}
 
-      {!readOnly && (
-        <>
-          <div className="section-title">Вес</div>
-          <WeightCard userId={userId} />
-
-          <div className="section-title">Тело</div>
-          <BodyCompositionCard userId={userId} onOpen={() => nav('/body')} />
-          <button
-            className="btn block mt-3"
-            onClick={() => setMetricOpen(true)}
-          >
-            Записать замер вручную
-          </button>
-
-          <BodyMetricSheet
-            open={metricOpen}
-            onClose={() => setMetricOpen(false)}
-            onSaved={() => toast('Замер сохранён')}
-          />
-        </>
-      )}
+      {/* Вес, состав тела и ввод замеров отсюда убраны: этот экран отвечает
+          на «растут ли веса», а не «что с телом». Сдают замеры в «Отчётах»,
+          смотрят их в «Анализе тела» — по одному месту на действие. */}
     </div>
   )
 }
@@ -440,76 +408,3 @@ function Spark({ points, up }: { points: { x: number; y: number }[]; up: boolean
   )
 }
 
-function BodyMetricSheet({
-  open,
-  onClose,
-  onSaved,
-}: {
-  open: boolean
-  onClose: () => void
-  onSaved: () => void
-}) {
-  const [weight, setWeight] = useState('')
-  const [fat, setFat] = useState('')
-  const [waist, setWaist] = useState('')
-
-  const num = (v: string) => {
-    const n = parseFloat(v.replace(',', '.'))
-    return Number.isFinite(n) ? n : undefined
-  }
-
-  const submit = async () => {
-    if (!weight && !fat && !waist) return
-    await logBodyMetric({
-      weight_kg: num(weight),
-      body_fat_pct: num(fat),
-      waist_cm: num(waist),
-    })
-    setWeight('')
-    setFat('')
-    setWaist('')
-    onSaved()
-    onClose()
-  }
-
-  return (
-    <Sheet open={open} title="Замер тела" onClose={onClose}>
-      <div className="stack">
-        <div className="field">
-          <label>Вес, кг</label>
-          <input
-            className="input"
-            inputMode="decimal"
-            value={weight}
-            onChange={(e) => setWeight(e.target.value)}
-            placeholder="78,5"
-            autoFocus
-          />
-        </div>
-        <div className="field">
-          <label>Процент жира, %</label>
-          <input
-            className="input"
-            inputMode="decimal"
-            value={fat}
-            onChange={(e) => setFat(e.target.value)}
-            placeholder="16"
-          />
-        </div>
-        <div className="field">
-          <label>Талия, см</label>
-          <input
-            className="input"
-            inputMode="decimal"
-            value={waist}
-            onChange={(e) => setWaist(e.target.value)}
-            placeholder="84"
-          />
-        </div>
-        <button className="btn primary block" onClick={submit}>
-          Сохранить
-        </button>
-      </div>
-    </Sheet>
-  )
-}
