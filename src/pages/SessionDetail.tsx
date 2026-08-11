@@ -116,7 +116,7 @@ export function SessionDetail() {
         <div className="card" style={{ marginTop: 12 }}>
           <div className="row" style={{ marginBottom: 4 }}>
             <IconVideo size={16} />
-            <span style={{ fontWeight: 600 }}>Видеоотчёт</span>
+            <span className="strong">Видеоотчёт</span>
           </div>
           <div className="mute-sm">
             Тренировка уже сохранена. Ролики можно прикрепить к любому упражнению ниже — хоть
@@ -142,7 +142,7 @@ export function SessionDetail() {
                   <span className="ex-thumb placeholder" />
                 )}
                 <span className="grow">
-                  <span className="truncate" style={{ display: 'block', fontWeight: 600 }}>
+                  <span className="truncate strong" style={{ display: 'block' }}>
                     {ex?.name ?? 'Упражнение'}
                   </span>
                   <span className="mute-sm">

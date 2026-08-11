@@ -107,7 +107,7 @@ export function SessionReview({
           <div className="ex-block" key={seq} style={{ marginBottom: 10 }}>
             <div className="ex-head">
               <div className="grow">
-                <div className="truncate" style={{ fontWeight: 600 }}>
+                <div className="truncate strong">
                   {ex?.name ?? 'Упражнение'}
                 </div>
                 <div className="mute-sm">

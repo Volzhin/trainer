@@ -109,7 +109,7 @@ export function ClientReports({ clientId }: { clientId: string }) {
               onClick={() => setReviewing(s)}
             >
               <div className="grow">
-                <div className="truncate" style={{ fontWeight: 600 }}>
+                <div className="truncate strong">
                   {s.title}
                 </div>
                 <div className="mute-sm truncate">
@@ -134,7 +134,7 @@ export function ClientReports({ clientId }: { clientId: string }) {
       <div className="card">
         {targets ? (
           <>
-            <div className="mute-sm" style={{ fontFamily: 'var(--font-num)' }}>
+            <div className="mute-sm figures">
               {[
                 targets.kcal && `${targets.kcal} ккал`,
                 targets.protein && `Б ${targets.protein}`,
@@ -546,7 +546,6 @@ function TargetsSheet({
         value={values[key] ?? ''}
         placeholder="—"
         onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
-        style={{ fontFamily: 'var(--font-num)' }}
       />
     </div>
   )

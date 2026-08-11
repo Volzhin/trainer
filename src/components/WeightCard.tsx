@@ -118,7 +118,6 @@ function WeightSheet({
             value={weight}
             onChange={(e) => setWeight(e.target.value)}
             placeholder="78,5"
-            style={{ fontFamily: 'var(--font-num)' }}
           />
         </div>
         <button className="btn primary block" disabled={busy || !weight} onClick={submit}>

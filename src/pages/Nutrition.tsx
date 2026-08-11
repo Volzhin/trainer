@@ -80,7 +80,7 @@ export function Nutrition() {
           <IconBack size={16} />
         </button>
         <div className="grow" style={{ textAlign: 'center' }}>
-          <div style={{ fontWeight: 600 }}>
+          <div className="strong">
             {isToday
               ? 'Сегодня'
               : new Date(`${date}T12:00:00`).toLocaleDateString('ru-RU', {
@@ -146,7 +146,7 @@ export function Nutrition() {
                       {l.nutrients.fat} У {l.nutrients.carbs}
                     </span>
                   </span>
-                  <span className="value" style={{ fontFamily: 'var(--font-num)' }}>
+                  <span className="value figures">
                     {l.nutrients.kcal}
                   </span>
                   <button

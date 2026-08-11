@@ -196,7 +196,7 @@ export function TrainerClientDetail() {
               <>
                 <div className="row between">
                   <div className="grow">
-                    <div style={{ fontWeight: 600 }}>{assignedProgram.name}</div>
+                    <div className="strong">{assignedProgram.name}</div>
                     <div className="mute-sm">
                       {assignment.schedule?.length
                         ? assignment.schedule
@@ -233,7 +233,7 @@ export function TrainerClientDetail() {
               </>
             ) : (
               <>
-                <div style={{ fontWeight: 600 }}>Программа не назначена</div>
+                <div className="strong">Программа не назначена</div>
                 <div className="muted" style={{ marginTop: 4 }}>
                   Клиент не увидит план тренировок, пока вы не назначите программу.
                 </div>
@@ -337,7 +337,7 @@ export function TrainerClientDetail() {
               <div className="card" key={s.id} style={{ marginBottom: 8 }}>
                 <div className="row between">
                   <div className="grow">
-                    <div className="truncate" style={{ fontWeight: 600 }}>
+                    <div className="truncate strong">
                       {s.title}
                     </div>
                     <div className="mute-sm">

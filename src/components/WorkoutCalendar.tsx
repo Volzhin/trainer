@@ -224,7 +224,7 @@ export function WorkoutCalendar() {
           {plannedToday ? (
             <>
               <div className="mute-sm">По плану</div>
-              <div style={{ fontWeight: 600, fontSize: 17, marginTop: 2 }}>
+              <div className="strong" style={{ fontSize: 17, marginTop: 2 }}>
                 {plannedToday.routine.name}
               </div>
             </>
@@ -262,7 +262,7 @@ export function WorkoutCalendar() {
               >
                 <div className="row between">
                   <div className="grow">
-                    <div style={{ fontWeight: 600 }} className="truncate">
+                    <div className="truncate strong">
                       {s.title}
                     </div>
                     <div className="mute-sm" style={{ marginTop: 3 }}>
@@ -302,7 +302,7 @@ export function WorkoutCalendar() {
           <div className="card">
             <div className="row between">
               <div className="grow">
-                <div style={{ fontWeight: 600 }}>{plan.program.name}</div>
+                <div className="strong">{plan.program.name}</div>
                 <div className="mute-sm" style={{ marginTop: 2 }}>
                   {plan.weeksLeft != null
                     ? `Осталось ${plan.weeksLeft} ${plural(plan.weeksLeft, ['неделя', 'недели', 'недель'])}`

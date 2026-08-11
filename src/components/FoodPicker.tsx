@@ -162,13 +162,13 @@ export function FoodPicker({
             <div className="group">
               <div className="group-row">
                 <span className="grow title">Калории</span>
-                <span className="value" style={{ fontFamily: 'var(--font-num)' }}>
+                <span className="value figures">
                   {preview.kcal} ккал
                 </span>
               </div>
               <div className="group-row">
                 <span className="grow title">Белки · Жиры · Углеводы</span>
-                <span className="value" style={{ fontFamily: 'var(--font-num)' }}>
+                <span className="value figures">
                   {preview.protein} · {preview.fat} · {preview.carbs} г
                 </span>
               </div>

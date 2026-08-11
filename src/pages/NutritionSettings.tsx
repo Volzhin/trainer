@@ -100,7 +100,7 @@ export function NutritionSettings() {
 
       {plan.fromCoach && (
         <div className="card" style={{ marginTop: 12, borderColor: 'var(--accent)' }}>
-          <div style={{ fontWeight: 600 }}>Норму назначил тренер</div>
+          <div className="strong">Норму назначил тренер</div>
           <div className="muted" style={{ marginTop: 4 }}>
             Цель и макросы заданы им, поэтому расчёт приложения на них не влияет. Свои настройки
             заработают, когда тренер снимет норму.
@@ -125,7 +125,7 @@ export function NutritionSettings() {
         <div className="card" style={{ marginTop: 10 }}>
           <div className="row between" style={{ marginBottom: 8 }}>
             <span className="mute-sm">Скорость, кг в неделю</span>
-            <span style={{ fontFamily: 'var(--font-num)', fontWeight: 600 }}>
+            <span className="figures strong">
               {plan.profile.weekly_change_kg}
             </span>
           </div>

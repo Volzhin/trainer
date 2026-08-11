@@ -59,7 +59,7 @@ export function BodyCompositionCard({
       >
         <div className="row between">
           <div className="grow">
-            <div style={{ fontWeight: 600 }}>Анализ тела</div>
+            <div className="strong">Анализ тела</div>
             <div className="mute-sm" style={{ marginTop: 3 }}>
               {subject === 'client'
                 ? 'Замеров InBody нет — можно загрузить отчёт клиента'
@@ -95,7 +95,7 @@ export function BodyCompositionCard({
     <button className="card tap" style={{ width: '100%', textAlign: 'left' }} onClick={onOpen}>
       <div className="row between">
         <div className="grow">
-          <div style={{ fontWeight: 600 }}>Анализ тела</div>
+          <div className="strong">Анализ тела</div>
           <div className="mute-sm" style={{ marginTop: 1 }}>
             Замер от {formatDate(latest.logged_at)}
           </div>

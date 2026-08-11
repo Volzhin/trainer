@@ -47,7 +47,7 @@ export function MyTrainerCard() {
             <div className="row">
               <div className="avatar">{bond.trainer.name.slice(0, 1)}</div>
               <div className="grow">
-                <div style={{ fontWeight: 600 }}>{bond.trainer.name}</div>
+                <div className="strong">{bond.trainer.name}</div>
                 <div className="mute-sm">
                   {bond.trainer.specialization ?? 'Персональный тренер'}
                 </div>

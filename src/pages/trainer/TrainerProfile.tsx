@@ -60,7 +60,7 @@ export function TrainerProfile() {
             {(profile?.name ?? 'Т').slice(0, 1)}
           </div>
           <div className="grow">
-            <div style={{ fontWeight: 600 }}>{profile?.name}</div>
+            <div className="strong">{profile?.name}</div>
             <div className="mute-sm">
               {profile?.specialization ?? 'Специализация не указана'}
             </div>

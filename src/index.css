@@ -282,6 +282,18 @@ a {
 .text-center { text-align: center; }
 .text-right { text-align: right; }
 
+/* Полужирный акцент внутри строки. Отдельный класс, потому что вес 600 —
+   единственный, которым в интерфейсе выделяют текст, и раскиданный инлайном
+   он расползается в 500 и 700 при каждой правке. */
+.strong { font-weight: 600; }
+
+/* Моноширинные цифры для мелких значений в строках и таблицах. Крупные числа
+   набирает .t-num из tokens.css — здесь только смена гарнитуры, без размера. */
+.figures {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ------------------------------ кнопки ------------------------------ */
 
 .btn {
@@ -468,6 +480,15 @@ a {
   padding: 12px 14px;
   outline: none;
   font-size: 16px;
+}
+
+/* Числовое поле набирается моноширинным само, по inputMode. Раньше это
+   дописывали инлайном в каждой форме — и там, где забывали, вес и калории
+   вдруг оказывались другим шрифтом. Правило одно, промахнуться негде. */
+.input[inputmode='numeric'],
+.input[inputmode='decimal'] {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
 }
 
 .input:focus,
@@ -1153,7 +1174,7 @@ button.group-row:active {
 }
 
 .bar.on-accent i {
-  background: #fff;
+  background: var(--on-accent);
 }
 
 /* ------------------------------ онбординг ---------------------------- */

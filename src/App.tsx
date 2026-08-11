@@ -128,7 +128,7 @@ function ActiveSessionBanner() {
       <div className="inner" onClick={() => nav(`/session/${active.id}`)}>
         <IconPlay size={16} />
         <div className="grow">
-          <div style={{ fontWeight: 600, fontSize: 14 }} className="truncate">
+          <div className="truncate strong" style={{ fontSize: 14 }}>
             {active.title}
           </div>
           <div style={{ fontSize: 12, opacity: 0.85 }}>

@@ -79,7 +79,7 @@ export function ProgramDetail() {
           <div className="row between">
             <div className="grow">
               <div className="mute-sm">Программа для клиента</div>
-              <div style={{ fontWeight: 600, marginTop: 2 }}>{clientName ?? '—'}</div>
+              <div className="strong" style={{ marginTop: 2 }}>{clientName ?? '—'}</div>
             </div>
             <button
               className="btn sm"
@@ -105,7 +105,7 @@ export function ProgramDetail() {
         >
           <div className="row between">
             <div className="grow">
-              <div style={{ fontWeight: 600 }}>{myPlan ? 'В моём плане' : 'Мой план'}</div>
+              <div className="strong">{myPlan ? 'В моём плане' : 'Мой план'}</div>
               <div className="mute-sm" style={{ marginTop: 3 }}>
                 {lockedByTrainer
                   ? `Сейчас действует программа от тренера${plan?.trainer ? ` · ${plan.trainer.name}` : ''}`
@@ -148,7 +148,7 @@ export function ProgramDetail() {
         return (
           <div key={routine.id} style={{ marginTop: 16 }}>
             <div className="row between" style={{ marginBottom: 8 }}>
-              <div style={{ fontWeight: 600 }}>{routine.name}</div>
+              <div className="strong">{routine.name}</div>
               <button
                 className="btn sm primary"
                 onClick={async () => {
@@ -481,7 +481,7 @@ function NumField({
         >
           −
         </button>
-        <span style={{ minWidth: 34, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+        <span className="strong" style={{ minWidth: 34, fontVariantNumeric: 'tabular-nums' }}>
           {value}
         </span>
         <button

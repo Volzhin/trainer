@@ -143,7 +143,7 @@ export function ExerciseDetail() {
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontWeight: 600 }}>
+              <div className="strong">
                 {formatWeight(Math.round(h.best * 10) / 10)}
               </div>
               <div className="mute-sm">1ПМ</div>

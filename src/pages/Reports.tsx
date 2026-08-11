@@ -109,7 +109,7 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
                 {tasks.map((t) => (
                   <button key={t.id} className="list-item" onClick={() => setOpenTask(t)}>
                     <div className="grow">
-                      <div style={{ fontWeight: 600 }}>{t.title}</div>
+                      <div className="strong">{t.title}</div>
                       {t.description && <div className="mute-sm truncate">{t.description}</div>}
                     </div>
                     {t.required === 1 && <span className="badge">обязательно</span>}
@@ -181,7 +181,7 @@ function ReportRow({
   return (
     <button className="list-item" onClick={onOpen}>
       <div className="grow">
-        <div className="truncate" style={{ fontWeight: 600 }}>
+        <div className="truncate strong">
           {title}
         </div>
         {subtitle && <div className="mute-sm">{subtitle}</div>}
@@ -223,7 +223,7 @@ function TargetsCard({ targets }: { targets: NutritionTarget }) {
             {rows.map(([label, value]) => (
               <div className="group-row" key={label}>
                 <span className="grow title">{label}</span>
-                <span className="value" style={{ fontFamily: 'var(--font-num)' }}>
+                <span className="value figures">
                   {value}
                 </span>
               </div>
@@ -304,7 +304,6 @@ function ActivityCard({ date, userId }: { date: string; userId: string }) {
             value={steps}
             placeholder="—"
             onChange={(e) => setDraft({ steps: e.target.value, sleep })}
-            style={{ fontFamily: 'var(--font-num)' }}
           />
         </div>
         <div className="field grow">
@@ -315,7 +314,6 @@ function ActivityCard({ date, userId }: { date: string; userId: string }) {
             value={sleep}
             placeholder="—"
             onChange={(e) => setDraft({ steps, sleep: e.target.value })}
-            style={{ fontFamily: 'var(--font-num)' }}
           />
         </div>
       </div>

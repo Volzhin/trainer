@@ -8,8 +8,12 @@ import { formatDate, formatDuration, plural, totalVolume } from '../lib/calc'
 /** Полная история тренировок. С главной убрана: там теперь только календарь. */
 export function History() {
   const nav = useNavigate()
-  const sessions = useLiveQuery(() => listMySessions(), [], [])
+  const sessions = useLiveQuery(() => listMySessions(), [])
   const allSets = useLiveQuery(() => db.sets.toArray(), [], [])
+  // Пока история не прочитана, «здесь появятся тренировки» — вранье: у человека
+  // они есть, просто ещё не доехали из базы. Пустой экран показываем только
+  // когда точно знаем, что записей нет.
+  const loading = sessions === undefined
 
   return (
     <div className="screen">
@@ -20,13 +24,20 @@ export function History() {
         <div className="grow">
           <h1 style={{ fontSize: 22 }}>История</h1>
           <div className="sub">
-            {(sessions ?? []).length}{' '}
-            {plural((sessions ?? []).length, ['тренировка', 'тренировки', 'тренировок'])}
+            {loading
+              ? ' '
+              : `${sessions.length} ${plural(sessions.length, ['тренировка', 'тренировки', 'тренировок'])}`}
           </div>
         </div>
       </div>
 
-      {(sessions ?? []).length === 0 ? (
+      {loading ? (
+        <div className="stack">
+          <div className="card skeleton" style={{ height: 64 }} />
+          <div className="card skeleton" style={{ height: 64 }} />
+          <div className="card skeleton" style={{ height: 64 }} />
+        </div>
+      ) : sessions.length === 0 ? (
         <div className="empty">
           <div className="big">
             <IconDumbbell size={34} />
@@ -35,7 +46,7 @@ export function History() {
         </div>
       ) : (
         <div className="group stagger">
-          {(sessions ?? []).map((s, i) => {
+          {sessions.map((s, i) => {
             const sets = (allSets ?? []).filter((x) => x.workout_session_id === s.id)
             return (
               <button

@@ -69,7 +69,7 @@ export function Home() {
           onClick={() => nav('/reports')}
         >
           <div className="grow">
-            <div style={{ fontWeight: 600 }}>
+            <div className="strong">
               {todo.length} {plural(todo.length, ['задание', 'задания', 'заданий'])} от тренера
             </div>
             <div className="mute-sm truncate">{todo[0].title}</div>
@@ -112,7 +112,7 @@ export function Home() {
 
             <div className="row between" style={{ marginTop: 16, marginBottom: 6 }}>
               <span className="mute-sm">На этой неделе</span>
-              <span className="mute-sm" style={{ fontFamily: 'var(--font-num)' }}>
+              <span className="mute-sm figures">
                 {assigned.doneThisWeek} из {assigned.assignment.weekly_target}
               </span>
             </div>

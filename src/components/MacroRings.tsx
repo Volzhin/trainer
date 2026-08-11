@@ -52,10 +52,10 @@ export function MacroRings({
           x="80"
           y="99"
           textAnchor="middle"
+          className="figures"
           fill="var(--text)"
           fontSize="26"
           fontWeight="700"
-          style={{ fontFamily: 'var(--font-num)' }}
         >
           {shown}
         </text>
@@ -70,7 +70,7 @@ export function MacroRings({
           <div key={r.label}>
             <div className="row between" style={{ marginBottom: 5 }}>
               <span className="mute-sm">{r.label}</span>
-              <span className="mute-sm" style={{ fontFamily: 'var(--font-num)' }}>
+              <span className="mute-sm figures">
                 {Math.round(r.value)} / {r.goal} г
               </span>
             </div>

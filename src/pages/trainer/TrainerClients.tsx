@@ -7,7 +7,6 @@ import {
   listActiveInvites,
   loadClientSummaries,
   revokeInvite,
-  type ClientSummary,
 } from '../../db/coach'
 import { pendingReviewCount } from '../../db/reports'
 import { unreadCount } from '../../db/chat'
@@ -37,11 +36,11 @@ export function TrainerClients() {
     [userId],
   )
 
-  const clients = useLiveQuery(
-    () => loadClientSummaries(userId),
-    [userId, deps?.join('-')],
-    [] as ClientSummary[],
-  )
+  const clients = useLiveQuery(() => loadClientSummaries(userId), [userId, deps?.join('-')])
+  // «Пока нет клиентов» с призывом выпустить код — сильное утверждение. Пока
+  // список не прочитан, показываем заглушки, иначе тренер с десятком клиентов
+  // при каждом заходе видит вспышку пустого экрана.
+  const loading = clients === undefined
 
   // Сколько отчётов у каждого ждёт разбора. Запрос сам следит за таблицами
   // отчётов и отметок, поэтому в общий счётчик deps его тянуть не нужно.
@@ -124,7 +123,12 @@ export function TrainerClients() {
 
       <div className="section-title">Список</div>
 
-      {(clients ?? []).length === 0 ? (
+      {loading ? (
+        <div className="stack">
+          <div className="card skeleton" style={{ height: 88 }} />
+          <div className="card skeleton" style={{ height: 88 }} />
+        </div>
+      ) : clients.length === 0 ? (
         <div className="empty">
           <div className="big">
             <IconUsers size={34} />
@@ -141,7 +145,7 @@ export function TrainerClients() {
           </button>
         </div>
       ) : (
-        (clients ?? []).map((c) => {
+        clients.map((c) => {
           const stale = (c.daysSinceLast ?? 999) > STALE_DAYS
           const progress = Math.min(
             100,
@@ -158,7 +162,7 @@ export function TrainerClients() {
                 <div className="avatar">{c.client.name.slice(0, 1)}</div>
                 <div className="grow">
                   <div className="row between">
-                    <span style={{ fontWeight: 600 }} className="truncate">
+                    <span className="truncate strong">
                       {c.client.name}
                     </span>
                     <span className="row" style={{ gap: 6 }}>

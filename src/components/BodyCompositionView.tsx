@@ -509,7 +509,7 @@ export function BodyCompositionView({
 
       {!latest && (
         <div className="card" style={{ marginBottom: 12 }}>
-          <div style={{ fontWeight: 600 }}>{t.emptyTitle}</div>
+          <div className="strong">{t.emptyTitle}</div>
           <div className="muted" style={{ marginTop: 4 }}>
             {t.emptyHint}
           </div>
@@ -1299,7 +1299,6 @@ function ManualMeasurementSheet({
               value={values.weight_kg ?? ''}
               onChange={set('weight_kg')}
               placeholder="—"
-              style={{ fontFamily: 'var(--font-num)' }}
             />
           </div>
           <div className="field grow">
@@ -1310,7 +1309,6 @@ function ManualMeasurementSheet({
               value={values.height_cm ?? (profile?.height_cm ? String(profile.height_cm) : '')}
               onChange={set('height_cm')}
               placeholder="—"
-              style={{ fontFamily: 'var(--font-num)' }}
             />
           </div>
         </div>
@@ -1362,7 +1360,7 @@ function ManualMeasurementSheet({
               {shown.map(([label, value]) => (
                 <div className="group-row" key={label}>
                   <span className="grow title">{label}</span>
-                  <span className="value" style={{ fontFamily: 'var(--font-num)' }}>
+                  <span className="value figures">
                     {value}
                   </span>
                 </div>
@@ -1383,7 +1381,6 @@ function ManualMeasurementSheet({
             value={values.body_fat_pct ?? ''}
             onChange={set('body_fat_pct')}
             placeholder="—"
-            style={{ fontFamily: 'var(--font-num)' }}
           />
         </div>
 

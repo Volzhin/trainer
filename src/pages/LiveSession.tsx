@@ -188,7 +188,7 @@ export function LiveSession() {
             <IconBack size={18} />
           </button>
           <div style={{ textAlign: 'center' }} className="grow">
-            <div style={{ fontWeight: 600 }} className="truncate">
+            <div className="truncate strong">
               {session.title}
             </div>
             <div className="mute-sm">
@@ -239,7 +239,7 @@ export function LiveSession() {
                   <span className="ex-thumb placeholder" />
                 )}
                 <span className="grow">
-                  <span className="truncate" style={{ display: 'block', fontWeight: 600 }}>
+                  <span className="truncate strong" style={{ display: 'block' }}>
                     {block.exercise.name}
                   </span>
                   <span className="mute-sm">

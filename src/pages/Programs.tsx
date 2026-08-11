@@ -169,7 +169,7 @@ export function Programs() {
             <div className="card tap" key={p.id} onClick={() => nav(`/programs/${p.id}`)}>
               <div className="row between">
                 <div className="grow">
-                  <div style={{ fontWeight: 600, fontSize: 17 }}>{p.name}</div>
+                  <div className="strong" style={{ fontSize: 17 }}>{p.name}</div>
                   <div className="mute-sm" style={{ marginTop: 3 }}>
                     {fromTrainer
                       ? 'От тренера · '
@@ -252,7 +252,7 @@ export function Programs() {
         <div className="card" style={{ marginTop: 16 }}>
           <div className="row between">
             <div className="grow">
-              <div style={{ fontWeight: 600 }}>
+              <div className="strong">
                 PRO <span className="badge pro">безлимит</span>
               </div>
               <div className="mute-sm" style={{ marginTop: 3 }}>

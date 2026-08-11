@@ -68,7 +68,7 @@ export function ClientNutrition({ clientId }: { clientId: string }) {
 
             <div className="row between" style={{ marginTop: 16, marginBottom: 6 }}>
               <span className="mute-sm">Дней с записями</span>
-              <span className="mute-sm" style={{ fontFamily: 'var(--font-num)' }}>
+              <span className="mute-sm figures">
                 {summary.daysLogged} из {summary.daysTotal}
               </span>
             </div>
@@ -95,19 +95,19 @@ export function ClientNutrition({ clientId }: { clientId: string }) {
           <div className="group">
             <div className="group-row">
               <span className="grow title">Белки</span>
-              <span className="value" style={{ fontFamily: 'var(--font-num)' }}>
+              <span className="value figures">
                 {summary.avgProtein} / {plan.macros.protein} г
               </span>
             </div>
             <div className="group-row">
               <span className="grow title">Жиры</span>
-              <span className="value" style={{ fontFamily: 'var(--font-num)' }}>
+              <span className="value figures">
                 {summary.avgFat} / {plan.macros.fat} г
               </span>
             </div>
             <div className="group-row">
               <span className="grow title">Углеводы</span>
-              <span className="value" style={{ fontFamily: 'var(--font-num)' }}>
+              <span className="value figures">
                 {summary.avgCarbs} / {plan.macros.carbs} г
               </span>
             </div>
@@ -275,7 +275,6 @@ function TargetSheet({
             inputMode="numeric"
             value={kcal}
             onChange={(e) => setKcal(e.target.value)}
-            style={{ fontFamily: 'var(--font-num)' }}
           />
         </div>
 
@@ -309,7 +308,6 @@ function TargetSheet({
                 inputMode="decimal"
                 value={value}
                 onChange={(e) => set(e.target.value)}
-                style={{ fontFamily: 'var(--font-num)' }}
               />
             </div>
           ))}

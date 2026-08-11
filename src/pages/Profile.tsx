@@ -128,7 +128,7 @@ export function Profile() {
         <div className="card" style={{ marginTop: 18, borderColor: 'var(--accent)' }}>
           <div className="row between">
             <div className="grow">
-              <div style={{ fontWeight: 600 }}>Trainer PRO</div>
+              <div className="strong">Trainer PRO</div>
               <div className="mute-sm" style={{ marginTop: 2 }}>
                 Безлимит программ, аналитика 1ПМ и экспорт истории
               </div>
@@ -321,7 +321,7 @@ function HelpSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
       <div className="stack" style={{ gap: 16 }}>
         {items.map(([title, text]) => (
           <div key={title}>
-            <div style={{ fontWeight: 600 }}>{title}</div>
+            <div className="strong">{title}</div>
             <div className="muted" style={{ marginTop: 2 }}>
               {text}
             </div>

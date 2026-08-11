@@ -124,7 +124,7 @@ export function Onboarding({ onDone }: Props) {
                 <IconMuscle size={22} />
               </span>
               <span className="grow">
-                <span style={{ fontWeight: 600, display: 'block' }}>Я тренируюсь</span>
+                <span className="strong" style={{ display: 'block' }}>Я тренируюсь</span>
                 <span className="mute-sm">Дневник тренировок, программы и прогресс</span>
               </span>
             </button>
@@ -139,7 +139,7 @@ export function Onboarding({ onDone }: Props) {
                 <IconTeacher size={22} />
               </span>
               <span className="grow">
-                <span style={{ fontWeight: 600, display: 'block' }}>Я тренер</span>
+                <span className="strong" style={{ display: 'block' }}>Я тренер</span>
                 <span className="mute-sm">Кабинет с клиентами, программы и обратная связь</span>
               </span>
             </button>
@@ -157,7 +157,7 @@ export function Onboarding({ onDone }: Props) {
                   <Glyph size={20} />
                 </span>
                 <span className="grow">
-                  <span style={{ fontWeight: 600, display: 'block' }}>{title}</span>
+                  <span className="strong" style={{ display: 'block' }}>{title}</span>
                   <span className="muted">{text}</span>
                 </span>
               </div>
