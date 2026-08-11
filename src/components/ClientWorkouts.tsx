@@ -53,9 +53,13 @@ export function ClientWorkouts({
     const sessionOf = new Map((sessions ?? []).map((s) => [s.id, s]))
     for (const r of reports ?? []) {
       if (r.status !== 'submitted') continue
+      // Без самой тренировки отчёт всё равно показываем: строки приезжают
+      // с сервера по одной, и требовать обе значит прятать сданное до тех
+      // пор, пока не доедет вторая.
       const session = sessionOf.get(r.session_id)
-      if (!session) continue
-      const date = localDate(r.submitted_at ?? session.start_time)
+      const at = r.submitted_at ?? session?.start_time
+      if (at == null) continue
+      const date = localDate(at)
       const state: ReportState = seen?.has(r.id) ? 'reviewed' : 'submitted'
       // Жёлтый перебивает зелёный: клетка означает «здесь ещё есть работа».
       if (map.get(date) !== 'submitted') map.set(date, state)
