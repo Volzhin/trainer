@@ -25,6 +25,7 @@ import { Group, Row } from '../../components/Group'
 import { SessionReview } from '../../components/SessionReview'
 import { ClientNutrition } from '../../components/ClientNutrition'
 import { ClientReports } from '../../components/ClientReports'
+import { pendingReviewCount, tasksOf } from '../../db/reports'
 import { ChatThread } from '../../components/ChatThread'
 import { ProgressView } from '../../components/ProgressView'
 import { IconBack, IconCheck, IconPlus, IconTrash } from '../../components/Icons'
@@ -110,16 +111,20 @@ export function TrainerClientDetail() {
         </div>
       </div>
 
+      {/* Порядок из пункта 5.1: профиль, прогресс, питание, тренировки, чат.
+          Дальше — разделы, которых в спецификации нет, но которые тренеру
+          нужны: разбор отчётов, состав тела и приватные заметки. Они стоят
+          после названных, а не вперемешку с ними. */}
       <div className="chips">
         {(
           [
-            ['overview', 'Сводка'],
-            ['chat', 'Чат'],
-            ['reports', 'Отчёты'],
+            ['overview', 'Профиль'],
             ['progress', 'Прогресс'],
-            ['body', 'Тело'],
             ['nutrition', 'Питание'],
             ['history', 'Тренировки'],
+            ['chat', 'Чат'],
+            ['reports', 'Отчёты'],
+            ['body', 'Тело'],
             ['notes', 'Заметки'],
           ] as const
         ).map(([key, label]) => (
@@ -177,6 +182,12 @@ export function TrainerClientDetail() {
                 : 'Видео-отчёт не запрашивается — технику вы видите на занятии.'}
             </div>
           </div>
+
+          {/* Пункт 5.2: что выдано, но не сделано или не разобрано. Стоит
+              выше оплаты и программы: это единственное на экране, что
+              требует действия прямо сейчас. */}
+          <div className="section-title">Требует внимания</div>
+          <OutstandingCard clientId={id} onOpenReports={() => setTab('reports')} />
 
           <div className="section-title">Оплата</div>
           <PaymentCard link={link ?? null} onToast={toast} />
@@ -249,19 +260,6 @@ export function TrainerClientDetail() {
                 </button>
               </>
             )}
-          </div>
-
-          <div className="stat-grid" style={{ marginTop: 16 }}>
-            <div className="stat">
-              <div className="value">{sessions.length}</div>
-              <div className="label">тренировок</div>
-            </div>
-            <div className="stat">
-              <div className="value">
-                {lastSession ? formatDate(lastSession.start_time) : '—'}
-              </div>
-              <div className="label">последняя</div>
-            </div>
           </div>
 
           {(personal ?? []).length > 0 && (
@@ -438,6 +436,66 @@ export function TrainerClientDetail() {
       />
 
       <SessionReview session={reviewing} clientId={id} onClose={() => setReviewing(null)} />
+    </div>
+  )
+}
+
+/**
+ * Что у клиента не закрыто: выданные и невыполненные задания плюс отчёты,
+ * до которых у тренера не дошли руки.
+ *
+ * Считается здесь, а не берётся из общей сводки, потому что это две разные
+ * очереди: задание ждёт клиента, отчёт ждёт тренера. Слитые в одно число,
+ * они превращаются в «что-то не так» без ответа, кто следующий ходит.
+ */
+function OutstandingCard({
+  clientId,
+  onOpenReports,
+}: {
+  clientId: string
+  onOpenReports: () => void
+}) {
+  const tasks = useLiveQuery(() => tasksOf(clientId), [clientId])
+  const pending = useLiveQuery(() => pendingReviewCount(clientId), [clientId])
+
+  if (tasks === undefined || pending === undefined) {
+    return <div className="card skeleton" style={{ height: 84 }} />
+  }
+
+  const open = tasks.filter((t) => t.status === 'open')
+  if (open.length === 0 && pending === 0) {
+    return <div className="card mute-sm">Всё закрыто: заданий не висит, отчёты разобраны.</div>
+  }
+
+  return (
+    <div className="card">
+      {open.length > 0 && (
+        <>
+          <div className="strong">
+            {open.length} {plural(open.length, ['задание', 'задания', 'заданий'])} не выполнено
+          </div>
+          <div className="mute-sm mt-1">
+            {open
+              .slice(0, 3)
+              .map((t) => t.title)
+              .join(' · ')}
+            {open.length > 3 ? ` и ещё ${open.length - 3}` : ''}
+          </div>
+        </>
+      )}
+
+      {pending > 0 && (
+        <div className={open.length > 0 ? 'mt-3' : undefined}>
+          <div className="strong" style={{ color: 'var(--warn)' }}>
+            {pending} {plural(pending, ['отчёт', 'отчёта', 'отчётов'])} ждёт разбора
+          </div>
+          <div className="mute-sm mt-1">Это ваш ход — клиент уже сдал.</div>
+        </div>
+      )}
+
+      <button className="btn sm block mt-3" onClick={onOpenReports}>
+        Открыть отчёты
+      </button>
     </div>
   )
 }
