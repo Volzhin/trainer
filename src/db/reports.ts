@@ -412,6 +412,102 @@ export async function tasksOf(clientId: string): Promise<ClientTask[]> {
   return rows.sort((a, b) => b.created_at - a.created_at)
 }
 
+/* ------------------- статистика для недельных целей -------------------- */
+
+const DAY = 86400_000
+
+export type WeeklyStats = {
+  /** Вес за две последние недели — точками для графика. */
+  weightPoints: { x: number; y: number }[]
+  /** Среднее за каждую из двух недель и разница в процентах по среднему. */
+  weightAvgPrev: number | null
+  weightAvgLast: number | null
+  weightDeltaPct: number | null
+  /** Процент жира: стартовый замер, предпоследний и последний. */
+  fatStart: number | null
+  fatPrev: number | null
+  fatLast: number | null
+  /** Средние за последнюю неделю. null — данных нет, а не ноль. */
+  avgSteps: number | null
+  avgSleepMinutes: number | null
+  avgSatiety: number | null
+}
+
+const mean = (xs: number[]): number | null =>
+  xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null
+
+/**
+ * Цифры, по которым тренер назначает цели на неделю (пункт 5.6).
+ *
+ * Считается одним проходом и отдаётся экрану целиком: раньше эти числа
+ * были разбросаны по разным блокам кабинета, и тренер выставлял калории,
+ * не видя ни веса, ни сытости.
+ *
+ * Везде, где данных не хватает, возвращается null, а не ноль: «шагов не
+ * вводили» и «прошёл ноль шагов» — разные утверждения, и второе из них
+ * приложение придумывать не вправе.
+ */
+export async function weeklyStats(clientId: string): Promise<WeeklyStats> {
+  const now_ = Date.now()
+  const weekAgo = now_ - 7 * DAY
+  const twoWeeksAgo = now_ - 14 * DAY
+
+  const metrics = await db.bodyMetrics.where('user_id').equals(clientId).sortBy('logged_at')
+
+  const weights = metrics.filter((m) => m.weight_kg != null)
+  const inWindow = weights.filter((m) => m.logged_at >= twoWeeksAgo)
+  const lastWeek = inWindow.filter((m) => m.logged_at >= weekAgo)
+  const prevWeek = inWindow.filter((m) => m.logged_at < weekAgo)
+
+  const weightAvgLast = mean(lastWeek.map((m) => m.weight_kg!))
+  const weightAvgPrev = mean(prevWeek.map((m) => m.weight_kg!))
+
+  // Разница считается по средним, а не по крайним точкам: вес за сутки
+  // гуляет на килограмм от одной воды, и два случайных взвешивания дали бы
+  // цифру, к динамике отношения не имеющую.
+  const weightDeltaPct =
+    weightAvgPrev != null && weightAvgLast != null && weightAvgPrev !== 0
+      ? Math.round(((weightAvgLast - weightAvgPrev) / weightAvgPrev) * 1000) / 10
+      : null
+
+  const fats = metrics.filter((m) => m.body_fat_pct != null)
+  const fatStart = fats.length ? fats[0].body_fat_pct! : null
+  const fatLast = fats.length ? fats[fats.length - 1].body_fat_pct! : null
+  const fatPrev = fats.length > 1 ? fats[fats.length - 2].body_fat_pct! : null
+
+  const from = localDate(weekAgo)
+  const to = localDate(now_)
+
+  const activity = await db.dailyActivity
+    .where('[user_id+date]')
+    .between([clientId, from], [clientId, to], true, true)
+    .toArray()
+
+  const days = await db.nutritionDays
+    .where('[user_id+date]')
+    .between([clientId, from], [clientId, to], true, true)
+    .toArray()
+
+  const avgSteps = mean(activity.filter((a) => a.steps != null).map((a) => a.steps!))
+  const avgSleep = mean(
+    activity.filter((a) => a.sleep_minutes != null).map((a) => a.sleep_minutes!),
+  )
+  const avgSatiety = mean(days.filter((d) => d.satiety != null).map((d) => d.satiety!))
+
+  return {
+    weightPoints: inWindow.map((m) => ({ x: m.logged_at, y: m.weight_kg! })),
+    weightAvgPrev: weightAvgPrev == null ? null : Math.round(weightAvgPrev * 10) / 10,
+    weightAvgLast: weightAvgLast == null ? null : Math.round(weightAvgLast * 10) / 10,
+    weightDeltaPct,
+    fatStart,
+    fatPrev,
+    fatLast,
+    avgSteps: avgSteps == null ? null : Math.round(avgSteps),
+    avgSleepMinutes: avgSleep == null ? null : Math.round(avgSleep),
+    avgSatiety: avgSatiety == null ? null : Math.round(avgSatiety * 10) / 10,
+  }
+}
+
 /* ------------------------- рекомендации по весу ------------------------ */
 
 /**

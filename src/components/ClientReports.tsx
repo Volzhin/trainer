@@ -7,6 +7,7 @@ import {
   currentTargets,
   reviewReport,
   reviewedRefs,
+  weeklyStats,
   setWeeklyTargets,
   submittedNutritionDays,
   tasksOf,
@@ -14,6 +15,7 @@ import {
 } from '../db/reports'
 import { formatDate, plural } from '../lib/calc'
 import { localDate } from '../lib/tdee'
+import { LineChart } from './LineChart'
 import { Sheet } from './Sheet'
 import { ReportCalendar, type ReportState } from './ReportCalendar'
 import { SATIETY_LABELS } from './NutritionDayReport'
@@ -513,6 +515,95 @@ function TaskSheet({
 
 /* --------------------------- цели на неделю ---------------------------- */
 
+/**
+ * Статистика перед выдачей целей (пункт 5.6): вес за две недели, процент
+ * жира по трём точкам и средние за неделю.
+ *
+ * Прочерк вместо нуля везде, где данных нет: «клиент не вводил шаги» и
+ * «клиент прошёл ноль шагов» — разные вещи, и вторую тренер прочитал бы
+ * как повод снижать калории.
+ */
+function WeeklyStatsBlock({ clientId, open }: { clientId: string; open: boolean }) {
+  const stats = useLiveQuery(() => (open ? weeklyStats(clientId) : undefined), [clientId, open])
+  if (!stats) return <div className="card skeleton" style={{ height: 180 }} />
+
+  const fatRow = [
+    ['старт', stats.fatStart],
+    ['пред.', stats.fatPrev],
+    ['посл.', stats.fatLast],
+  ] as const
+
+  return (
+    <div className="card">
+      <div className="mute-sm mb-2">Вес за две недели</div>
+      {stats.weightPoints.length >= 2 ? (
+        <LineChart data={stats.weightPoints} unit=" кг" height={90} />
+      ) : (
+        <div className="mute-sm">Взвешиваний за две недели меньше двух — графика нет.</div>
+      )}
+
+      <div className="row between mt-3">
+        <span className="mute-sm">Среднее: прошлая → эта неделя</span>
+        <span className="figures strong">
+          {stats.weightAvgPrev == null || stats.weightAvgLast == null
+            ? '—'
+            : `${stats.weightAvgPrev} → ${stats.weightAvgLast} кг`}
+        </span>
+      </div>
+      <div className="row between mt-1">
+        <span className="mute-sm">Разница по среднему</span>
+        <span
+          className="figures strong"
+          style={{
+            color:
+              stats.weightDeltaPct == null
+                ? undefined
+                : stats.weightDeltaPct > 0
+                  ? 'var(--warn)'
+                  : 'var(--ok)',
+          }}
+        >
+          {stats.weightDeltaPct == null
+            ? '—'
+            : `${stats.weightDeltaPct > 0 ? '+' : ''}${stats.weightDeltaPct}%`}
+        </span>
+      </div>
+
+      <div className="mute-sm mt-4 mb-2">Процент жира по замерам</div>
+      <div className="stat-grid three">
+        {fatRow.map(([label, value]) => (
+          <div className="stat" key={label}>
+            <div className="value t-num">{value == null ? '—' : `${value}%`}</div>
+            <div className="label">{label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mute-sm mt-4 mb-2">В среднем за неделю</div>
+      <div className="group">
+        <div className="group-row">
+          <span className="grow title">Шаги</span>
+          <span className="value figures">
+            {stats.avgSteps == null ? '—' : stats.avgSteps}
+          </span>
+        </div>
+        <div className="group-row">
+          <span className="grow title">Сон</span>
+          <span className="value figures">
+            {sleepLabel(stats.avgSleepMinutes ?? undefined)}
+          </span>
+        </div>
+        <div className="group-row">
+          <span className="grow title">Сытость</span>
+          <span className="value figures">
+            {stats.avgSatiety == null ? '—' : `${stats.avgSatiety} из 5`}
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function TargetsSheet({
   open,
   clientId,
@@ -597,6 +688,10 @@ function TargetsSheet({
   return (
     <Sheet open={open} title="Цели на неделю" onClose={onClose}>
       <div className="stack">
+        {/* Цифры стоят над полями, а не в другом разделе кабинета: цель
+            назначают, глядя на то, что происходило, — иначе это угадывание. */}
+        <WeeklyStatsBlock clientId={clientId} open={open} />
+
         <div className="muted">
           Пустое поле означает, что цели по этой метрике нет — приложение покажет клиенту только
           факт.
