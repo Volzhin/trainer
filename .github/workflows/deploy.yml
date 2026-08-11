@@ -18,9 +18,12 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # Версии major-тегом: патчи приезжают сами. Начиная с v5 экшены
+      # крутятся на Node 24 — на v4 GitHub уже ругался, что Node 20 снят
+      # с поддержки и запускается принудительно на 24.
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
