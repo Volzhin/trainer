@@ -184,12 +184,6 @@ export function TrainerClients() {
                       {c.client.name}
                     </span>
                     <span className="row" style={{ gap: 6 }}>
-                      {(unread?.get(c.client.id) ?? 0) > 0 && (
-                        <span className="badge pro">
-                          <IconChat size={11} />
-                          {unread?.get(c.client.id)}
-                        </span>
-                      )}
                       {(pending?.get(c.client.id) ?? 0) > 0 && (
                         <span className="badge pro">{pending?.get(c.client.id)} на разбор</span>
                       )}
@@ -212,6 +206,20 @@ export function TrainerClients() {
                         : `${c.daysSinceLast} ${plural(c.daysSinceLast, ['день', 'дня', 'дней'])} без тренировок`}
                   </div>
                 </div>
+
+                {/* Чат — отдельная цель нажатия, а не часть строки: переписка
+                    и разбор тренировок это разные разговоры, и попадать в
+                    первый через второй значит терять сообщения по дороге.
+                    Кнопка стоит всегда, а не только при непрочитанном:
+                    написать первым тренер должен мочь в одно нажатие. */}
+                <ChatButton
+                  count={unread?.get(c.client.id) ?? 0}
+                  name={c.client.name}
+                  onOpen={(e) => {
+                    e.stopPropagation()
+                    nav(`/trainer/clients/${c.client.id}?tab=chat`)
+                  }}
+                />
               </div>
 
               {c.assignedProgramName ? (
@@ -251,6 +259,36 @@ export function TrainerClients() {
 
       <InviteSheet open={inviteOpen} onClose={() => setInviteOpen(false)} onToast={toast} />
     </div>
+  )
+}
+
+/**
+ * Кнопка перехода в переписку с клиентом.
+ *
+ * Счётчик показывает непрочитанное от клиента, а не всю переписку: тренеру
+ * важно, сколько вопросов осталось без ответа. Больше девяти сворачиваем в
+ * «9+» — точное число за этим порогом ничего не меняет, а место занимает.
+ */
+function ChatButton({
+  count,
+  name,
+  onOpen,
+}: {
+  count: number
+  name: string
+  onOpen: (e: React.MouseEvent) => void
+}) {
+  return (
+    <button
+      className={`chat-btn${count > 0 ? ' unread' : ''}`}
+      onClick={onOpen}
+      aria-label={
+        count > 0 ? `Чат с ${name}, непрочитанных: ${count}` : `Написать ${name}`
+      }
+    >
+      <IconChat size={20} />
+      {count > 0 && <span className="chat-count">{count > 9 ? '9+' : count}</span>}
+    </button>
   )
 }
 

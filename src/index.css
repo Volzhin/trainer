@@ -2267,3 +2267,47 @@ button.group-row:active {
 .quote.inset {
   margin: 0 12px 10px;
 }
+
+/* Кнопка перехода в переписку в строке клиента. Цель нажатия 44×44 —
+   меньше на телефоне промахиваются мимо и попадают в строку, то есть в
+   разбор тренировок вместо чата. */
+.chat-btn {
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-md);
+  color: var(--text-3);
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+.chat-btn:active {
+  background: var(--surface-2);
+}
+
+/* С непрочитанными иконка перестаёт быть служебной и становится акцентом:
+   это единственное в строке, что требует ответа. */
+.chat-btn.unread {
+  color: var(--accent-ink);
+}
+
+.chat-count {
+  position: absolute;
+  top: 3px;
+  right: 2px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--font-num);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 17px;
+  text-align: center;
+  /* Обводка фоном карточки: без неё счётчик сливается с иконкой под ним. */
+  border: 2px solid var(--surface);
+}

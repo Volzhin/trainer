@@ -32,15 +32,38 @@ import { IconBack, IconCheck, IconPlus, IconTrash } from '../../components/Icons
 import { formatDate, formatDuration, plural, startOfDay, totalVolume } from '../../lib/calc'
 import { useApp } from '../../store/app'
 
+/**
+ * Разделы карточки клиента. Порядок из пункта 5.1 спецификации: профиль,
+ * прогресс, питание, тренировки, чат. Дальше — то, чего в спецификации нет,
+ * но что тренеру нужно: разбор отчётов, состав тела и приватные заметки.
+ *
+ * Список вынесен из разметки, потому что по нему же проверяется параметр
+ * ?tab= из адреса: две копии перечня разошлись бы при первой же правке, и
+ * ссылка на несуществующий раздел молча открывала бы «Профиль».
+ */
+const TABS = [
+  ['overview', 'Профиль'],
+  ['progress', 'Прогресс'],
+  ['nutrition', 'Питание'],
+  ['history', 'Тренировки'],
+  ['chat', 'Чат'],
+  ['reports', 'Отчёты'],
+  ['body', 'Тело'],
+  ['notes', 'Заметки'],
+] as const
+
+type Tab = (typeof TABS)[number][0]
+
 export function TrainerClientDetail() {
   const { id = '' } = useParams()
   const nav = useNavigate()
   const { toast, userId } = useApp()
-  const [tab, setTab] = useState<
-    'overview' | 'chat' | 'reports' | 'progress' | 'body' | 'history' | 'nutrition' | 'notes'
-  >('overview')
-  // Из списка клиентов можно попасть сразу к назначению программы.
+  // Из списка клиентов можно попасть сразу к назначению программы или в чат.
   const [params, setParams] = useSearchParams()
+  const [tab, setTab] = useState<Tab>(() => {
+    const asked = params.get('tab')
+    return TABS.some(([key]) => key === asked) ? (asked as Tab) : 'overview'
+  })
   const [assignOpen, setAssignOpen] = useState(params.get('assign') === '1')
   const [noteOpen, setNoteOpen] = useState(false)
   const [reviewing, setReviewing] = useState<WorkoutSession | null>(null)
@@ -111,27 +134,17 @@ export function TrainerClientDetail() {
         </div>
       </div>
 
-      {/* Порядок из пункта 5.1: профиль, прогресс, питание, тренировки, чат.
-          Дальше — разделы, которых в спецификации нет, но которые тренеру
-          нужны: разбор отчётов, состав тела и приватные заметки. Они стоят
-          после названных, а не вперемешку с ними. */}
       <div className="chips">
-        {(
-          [
-            ['overview', 'Профиль'],
-            ['progress', 'Прогресс'],
-            ['nutrition', 'Питание'],
-            ['history', 'Тренировки'],
-            ['chat', 'Чат'],
-            ['reports', 'Отчёты'],
-            ['body', 'Тело'],
-            ['notes', 'Заметки'],
-          ] as const
-        ).map(([key, label]) => (
+        {TABS.map(([key, label]) => (
           <button
             key={key}
             className={`chip${tab === key ? ' active' : ''}`}
-            onClick={() => setTab(key)}
+            onClick={() => {
+              setTab(key)
+              // Адрес не должен спорить с тем, что открыто: иначе возврат на
+              // эту страницу снова выкидывал бы в чат, из которого ушли.
+              if (params.get('tab')) setParams({}, { replace: true })
+            }}
           >
             {label}
           </button>
