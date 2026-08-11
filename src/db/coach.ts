@@ -8,6 +8,7 @@ import {
   type Assignment,
   type Attachment,
   type ClientMode,
+  type Consent,
   type Contact,
   type ContactKind,
   type Feedback,
@@ -129,10 +130,17 @@ export async function revokeInvite(code: string) {
 }
 
 /**
- * Клиент активирует код тренера. Связь создаётся сразу активной:
- * клиент сам ввёл код, то есть согласие уже выражено.
+ * Погашение кода. Подписи обязательны: по пункту 6 спецификации связи без
+ * оферты и согласия на обработку данных не существует. Проверка стоит
+ * здесь, а не только в форме, потому что связь заводится и другими путями,
+ * а условие относится к самой связи, а не к экрану, с которого её создали.
  */
-export async function redeemInvite(code: string, clientId = currentUserId()) {
+export async function redeemInvite(
+  code: string,
+  clientId = currentUserId(),
+  consents?: Consent[],
+) {
+  if (!consents?.length) throw new Error('Нужно принять оферту и согласие на обработку данных')
   const clean = code.trim().toUpperCase()
   let invite = await db.invites.get(clean)
 
@@ -184,8 +192,12 @@ export async function redeemInvite(code: string, clientId = currentUserId()) {
     throw new Error('Вы уже работаете с этим тренером')
 
   const ts = now()
+  const signed = consents.map((c) => ({ ...c, signed_at: c.signed_at || ts }))
   if (existing) {
-    await db.links.update(existing.id, { status: 'ACTIVE', updated_at: ts })
+    // Возобновляя работу, человек подписывает актуальные редакции заново —
+    // за время паузы текст мог смениться, а прежняя подпись относилась к
+    // прежней редакции.
+    await db.links.update(existing.id, { status: 'ACTIVE', consents: signed, updated_at: ts })
   } else {
     await db.links.add({
       id: linkId(invite.trainer_id, clientId),
@@ -193,6 +205,7 @@ export async function redeemInvite(code: string, clientId = currentUserId()) {
       client_id: clientId,
       status: 'ACTIVE',
       initiated_by: 'TRAINER',
+      consents: signed,
       created_at: ts,
       updated_at: ts,
     })

@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db/db'
+import { db, type Consent } from '../db/db'
 import { redeemInvite, removeLink, trainerOfClient } from '../db/coach'
 import { ContactLinks } from './ContactLinks'
+import { ConsentStep } from './ConsentStep'
 import { Sheet } from './Sheet'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
@@ -13,23 +14,33 @@ export function MyTrainerCard() {
   const [open, setOpen] = useState(false)
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
+  // Код и подписи — два шага одной формы: сначала человек доказывает, что
+  // его позвали, потом соглашается с условиями. Обратный порядок заставлял
+  // бы читать документы тех, кто ошибся кодом.
+  const [step, setStep] = useState<'code' | 'consent'>('code')
 
   const linkVersion = useLiveQuery(() => db.links.count(), [])
   const bond = useLiveQuery(() => trainerOfClient(userId), [userId, linkVersion])
 
-  const submit = async () => {
+  const submit = async (consents: Consent[]) => {
     setBusy(true)
     try {
-      const name = await redeemInvite(code, userId)
+      const name = await redeemInvite(code, userId, consents)
       haptics.success()
       toast(`Тренер ${name} подключён`)
-      setCode('')
-      setOpen(false)
+      close()
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Не удалось подключить тренера')
     } finally {
       setBusy(false)
     }
+  }
+
+  /** Закрытие всегда возвращает форму в начало: код одноразовый. */
+  const close = () => {
+    setOpen(false)
+    setCode('')
+    setStep('code')
   }
 
   const unlink = async () => {
@@ -89,31 +100,39 @@ export function MyTrainerCard() {
         )}
       </div>
 
-      <Sheet open={open} title="Код тренера" onClose={() => setOpen(false)}>
-        <div className="stack">
-          <div className="field">
-            <label>Код приглашения</label>
-            <input
-              className="input"
-              value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
-              placeholder="ABC123"
-              maxLength={6}
-              autoFocus
-              style={{ letterSpacing: 4, fontWeight: 700, textAlign: 'center', fontSize: 22 }}
-            />
+      <Sheet
+        open={open}
+        title={step === 'code' ? 'Код тренера' : 'Условия работы'}
+        onClose={close}
+      >
+        {step === 'code' ? (
+          <div className="stack">
+            <div className="field">
+              <label>Код приглашения</label>
+              <input
+                className="input"
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                placeholder="ABC123"
+                maxLength={6}
+                autoFocus
+                style={{ letterSpacing: 4, fontWeight: 700, textAlign: 'center', fontSize: 22 }}
+              />
+            </div>
+            <button
+              className="btn primary block"
+              disabled={code.length < 6}
+              onClick={() => setStep('consent')}
+            >
+              Далее
+            </button>
+            <div className="mute-sm" style={{ textAlign: 'center' }}>
+              Подключая тренера, вы открываете ему доступ к своей истории тренировок.
+            </div>
           </div>
-          <button
-            className="btn primary block"
-            disabled={busy || code.length < 6}
-            onClick={submit}
-          >
-            {busy ? 'Проверяю…' : 'Подключить'}
-          </button>
-          <div className="mute-sm" style={{ textAlign: 'center' }}>
-            Подключая тренера, вы открываете ему доступ к своей истории тренировок.
-          </div>
-        </div>
+        ) : (
+          <ConsentStep busy={busy} onBack={() => setStep('code')} onAccept={submit} />
+        )}
       </Sheet>
     </>
   )
