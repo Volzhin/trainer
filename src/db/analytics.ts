@@ -75,6 +75,14 @@ export type ProgressReport = {
   sets: number
   /** Среднее число тренировок в неделю за период. */
   perWeek: number
+  /** Тренировок на текущей неделе — не за период, а прямо сейчас. */
+  sessionsThisWeek: number
+  /**
+   * Изменение веса за неделю, кг. null — взвешиваний за период меньше двух,
+   * и говорить о динамике не из чего. Ноль означал бы «вес стоит», а это
+   * другое утверждение.
+   */
+  weightPerWeek: number | null
   plan: PlanProgress | null
   exercises: ExerciseProgress[]
   weekly: { label: string; value: number }[]
@@ -318,12 +326,45 @@ export async function loadProgress(
 
   const spanWeeks = Math.max(1, (today - (days == null ? firstDay : from)) / (7 * DAY))
 
+  // Тренировки на текущей неделе — отдельный счёт: тренер смотрит, идёт ли
+  // человек по плану сейчас, а не сколько он сделал за три месяца.
+  const weekAgo = today - 6 * DAY
+  const sessionsThisWeek = sessions.filter((s) => s.start_time >= weekAgo).length
+
+  /*
+   * Скорость изменения веса, кг в неделю.
+   *
+   * Считается по первому и последнему взвешиванию периода и делится на
+   * прошедшее между ними время, а не на длину периода: человек мог начать
+   * взвешиваться в середине, и деление на весь период занизило бы динамику
+   * ровно во столько раз, во сколько он опоздал.
+   */
+  const weights = await db.bodyMetrics
+    .where('user_id')
+    .equals(userId)
+    .and((m) => m.weight_kg != null && m.logged_at >= from)
+    .sortBy('logged_at')
+
+  let weightPerWeek: number | null = null
+  if (weights.length >= 2) {
+    const first = weights[0]
+    const last = weights[weights.length - 1]
+    const weeks = (last.logged_at - first.logged_at) / (7 * DAY)
+    // Два взвешивания в один день скоростью не являются — делить на ноль
+    // и выдавать бесконечность нельзя.
+    if (weeks >= 0.5) {
+      weightPerWeek = Math.round(((last.weight_kg! - first.weight_kg!) / weeks) * 10) / 10
+    }
+  }
+
   return {
     from,
     sessions: sessions.length,
     volume,
     sets: doneSets.length,
     perWeek: Math.round((sessions.length / spanWeeks) * 10) / 10,
+    sessionsThisWeek,
+    weightPerWeek,
     plan,
     exercises,
     weekly,

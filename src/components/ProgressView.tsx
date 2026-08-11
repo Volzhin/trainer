@@ -81,15 +81,40 @@ export function ProgressView({
         ))}
       </div>
 
-      <div className="stat-grid">
+      {/* Три показателя в линию — то, по чему тренер судит о неделе:
+          сколько сделано сейчас, обычный темп и куда идёт вес. */}
+      <div className="stat-grid three">
         <div className="stat">
-          <div className="value t-num">{report.sessions}</div>
-          <div className="label">тренировок</div>
+          <div className="value t-num">{report.sessionsThisWeek}</div>
+          <div className="label">на этой неделе</div>
         </div>
         <div className="stat">
           <div className="value t-num">{report.perWeek}</div>
           <div className="label">в среднем за неделю</div>
         </div>
+        <div className="stat">
+          {/* Прочерк, а не ноль: ноль означал бы, что вес стоит, а тут его
+              просто не измеряли достаточно часто. */}
+          <div
+            className="value t-num"
+            style={{
+              color:
+                report.weightPerWeek == null
+                  ? undefined
+                  : report.weightPerWeek > 0
+                    ? 'var(--warn)'
+                    : 'var(--ok)',
+            }}
+          >
+            {report.weightPerWeek == null
+              ? '—'
+              : `${report.weightPerWeek > 0 ? '+' : ''}${report.weightPerWeek}`}
+          </div>
+          <div className="label">вес, кг в неделю</div>
+        </div>
+      </div>
+
+      <div className="stat-grid">
         <div className="stat">
           <div className="value t-num">{formatTonnage(report.volume)}</div>
           <div className="label">поднято всего</div>
