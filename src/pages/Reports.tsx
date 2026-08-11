@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
+import { db } from '../db/db'
 import type { ClientTask, NutritionTarget, WorkoutReport, WorkoutSession } from '../db/db'
 import { listMySessions } from '../db/repo'
 import {
@@ -12,9 +13,10 @@ import {
   submitWorkoutReport,
   workoutReportsOf,
 } from '../db/reports'
-import { formatDate, plural } from '../lib/calc'
+import { formatDate, formatWeight, plural } from '../lib/calc'
 import { localDate } from '../lib/tdee'
 import { Sheet } from '../components/Sheet'
+import { WeightSheet } from '../components/WeightCard'
 import { IconCheck, IconChevronRight } from '../components/Icons'
 import { useApp, useTrainerLink } from '../store/app'
 import { haptics } from '../lib/native'
@@ -63,7 +65,8 @@ export function Reports() {
 }
 
 function ReportsBoard({ trainerName }: { trainerName: string }) {
-  const { userId } = useApp()
+  const { toast, userId } = useApp()
+  const nav = useNavigate()
 
   const tasks = useLiveQuery(() => openTasks(userId), [userId])
   const targets = useLiveQuery(() => currentTargets(userId), [userId])
@@ -74,6 +77,14 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
 
   const [openSession, setOpenSession] = useState<WorkoutSession | null>(null)
   const [openTask, setOpenTask] = useState<ClientTask | null>(null)
+  const [weightOpen, setWeightOpen] = useState(false)
+
+  // Последнее взвешивание — подпись под кнопкой. Без него непонятно, сдавал
+  // ли человек вес сегодня, и он вводит его по второму разу.
+  const lastWeight = useLiveQuery(async () => {
+    const rows = await db.bodyMetrics.where('user_id').equals(userId).sortBy('logged_at')
+    return [...rows].reverse().find((m) => m.weight_kg != null) ?? null
+  }, [userId])
 
   const loading = tasks === undefined || sessions === undefined || reports === undefined
 
@@ -122,6 +133,50 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
 
           {targets && <TargetsCard targets={targets} />}
 
+          {/* Пункт 4.5: вес, замеры и InBody сдаются отсюда. Вес — прямо
+              здесь: это ввод одного числа, и уводить ради него на другой
+              экран значит превратить ежедневное действие в поход. Замеры и
+              InBody живут на экране анализа тела, где рядом лежит история,
+              с которой их и сравнивают. */}
+          <div className="section-title">Тело</div>
+          <div className="group">
+            <button className="group-row" onClick={() => setWeightOpen(true)}>
+              <span className="grow">
+                <span className="title">Сдать вес</span>
+                <span className="sub" style={{ display: 'block' }}>
+                  {lastWeight == null
+                    ? 'ещё не вносили'
+                    : `последний — ${formatWeight(lastWeight.weight_kg)} кг, ${formatDate(lastWeight.logged_at)}`}
+                </span>
+              </span>
+              <span className="chevron">
+                <IconChevronRight size={16} />
+              </span>
+            </button>
+            <button className="group-row" onClick={() => nav('/body')}>
+              <span className="grow">
+                <span className="title">Сдать еженедельные замеры</span>
+                <span className="sub" style={{ display: 'block' }}>
+                  Обхваты и процент жира
+                </span>
+              </span>
+              <span className="chevron">
+                <IconChevronRight size={16} />
+              </span>
+            </button>
+            <button className="group-row" onClick={() => nav('/body')}>
+              <span className="grow">
+                <span className="title">Сдать InBody</span>
+                <span className="sub" style={{ display: 'block' }}>
+                  Загрузить PDF отчёта
+                </span>
+              </span>
+              <span className="chevron">
+                <IconChevronRight size={16} />
+              </span>
+            </button>
+          </div>
+
           <div className="section-title">Шаги и сон за сегодня</div>
           <ActivityCard date={today} userId={userId} />
 
@@ -146,13 +201,24 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
           )}
 
           {/* Дни питания сдаются в самом дневнике, под тем, что за день
-              съедено, — а раздел питания снят с интерфейса (см. TabBar), и
-              вести отсюда стало некуда. Список несданного вернётся вместе с
-              разделом: снять комментарий здесь и в шапке файла, ничего не
-              восстанавливая. Форма сдачи цела — components/NutritionDayReport. */}
+              съедено: отчёт о еде осмыслен рядом с едой, а не списком дат в
+              отрыве от неё. Форма — components/NutritionDayReport. */}
+          <div className="section-title">Питание</div>
+          <button className="list-item" onClick={() => nav('/nutrition')}>
+            <div className="grow">
+              <div className="strong">Открыть дневник</div>
+              <div className="mute-sm">Отчёт за день сдаётся под записями о еде</div>
+            </div>
+            <IconChevronRight size={16} />
+          </button>
         </>
       )}
 
+      <WeightSheet
+        open={weightOpen}
+        onClose={() => setWeightOpen(false)}
+        onSaved={() => toast('Вес записан')}
+      />
       <TaskSheet task={openTask} onClose={() => setOpenTask(null)} />
       <WorkoutReportSheet
         session={openSession}

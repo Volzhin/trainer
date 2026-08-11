@@ -80,7 +80,7 @@ export function WeightCard({ userId }: { userId: string }) {
   )
 }
 
-function WeightSheet({
+export function WeightSheet({
   open,
   onClose,
   onSaved,
