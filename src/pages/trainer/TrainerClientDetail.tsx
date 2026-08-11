@@ -14,7 +14,7 @@ import { LineChart } from '../../components/LineChart'
 import { ContactLinks } from '../../components/ContactLinks'
 import { BodyCompositionView } from '../../components/BodyCompositionView'
 import { Sheet } from '../../components/Sheet'
-import { ClientNutrition } from '../../components/ClientNutrition'
+import { ClientNutritionReview } from '../../components/ClientNutritionReview'
 import { ClientReports } from '../../components/ClientReports'
 import { pendingReviewCount, tasksOf, weekProgress } from '../../db/reports'
 import { ChatThread } from '../../components/ChatThread'
@@ -145,14 +145,13 @@ export function TrainerClientDetail() {
             </div>
           </div>
 
-          {/* Пункт 5.2: что выдано, но не сделано или не разобрано. Стоит
-              выше оплаты и программы: это единственное на экране, что
-              требует действия прямо сейчас. */}
-          <div className="section-title">Требует внимания</div>
-          <OutstandingCard clientId={id} onOpenReports={() => setTab('reports')} />
-
           <div className="section-title">Оплата</div>
           <PaymentCard link={link ?? null} onToast={toast} />
+
+          {/* Что выдано, но не сделано или не разобрано — единственное на
+              экране, что требует действия прямо сейчас. */}
+          <div className="section-title">Требует внимания</div>
+          <OutstandingCard clientId={id} onOpenReports={() => setTab('reports')} />
 
           <div className="section-title">Неделя</div>
           <WeekCard clientId={id} />
@@ -213,7 +212,7 @@ export function TrainerClientDetail() {
 
       {tab === 'reports' && <ClientReports clientId={id} />}
 
-      {tab === 'nutrition' && <ClientNutrition clientId={id} />}
+      {tab === 'nutrition' && <ClientNutritionReview clientId={id} />}
 
 
       <AssignSheet
