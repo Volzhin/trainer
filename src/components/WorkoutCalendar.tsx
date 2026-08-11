@@ -9,7 +9,8 @@ import {
   startEmptySession,
 } from '../db/repo'
 import { activeAssignmentFor, plannedDates, plannedForDate } from '../db/coach'
-import { IconBack, IconChevronRight, IconPlay, IconRepeat } from '../components/Icons'
+import { IconBack, IconChevronRight, IconDumbbell, IconPlay, IconRepeat } from '../components/Icons'
+import { Sheet } from './Sheet'
 import { formatDuration, plural, startOfDay, totalVolume } from '../lib/calc'
 import { haptics } from '../lib/native'
 import { useApp } from '../store/app'
@@ -119,15 +120,31 @@ export function WorkoutCalendar() {
       : `${label(from)} — ${label(to)}`
   }, [days])
 
-  const startToday = async () => {
+  const [startOpen, setStartOpen] = useState(false)
+
+  /**
+   * Следующая тренировка из программы: день, стоящий на выбранной дате, а
+   * если на неё плана нет — первый день программы.
+   */
+  const nextRoutine = plannedToday?.routine ?? plan?.routines?.[0]
+
+  const startProgram = async () => {
+    if (!nextRoutine) return
     haptics.impact()
-    // Если на выбранный день есть план — запускаем именно его день программы.
-    const routineId = plannedToday?.routine.id ?? plan?.routines?.[0]?.id
-    const id = routineId ? await startSessionFromRoutine(routineId) : await startEmptySession()
+    const id = await startSessionFromRoutine(nextRoutine.id)
     if (!id) {
       toast('В этом дне программы пока нет упражнений')
       return
     }
+    setStartOpen(false)
+    nav(`/session/${id}`)
+  }
+
+  /** Свободная тренировка: упражнения добавляются внутри неё из библиотеки. */
+  const startFree = async () => {
+    haptics.impact()
+    const id = await startEmptySession()
+    setStartOpen(false)
     nav(`/session/${id}`)
   }
 
@@ -235,10 +252,9 @@ export function WorkoutCalendar() {
             <button
               className="btn primary block"
               style={{ marginTop: 14 }}
-              onClick={startToday}
+              onClick={() => setStartOpen(true)}
             >
-              <IconPlay size={17} />{' '}
-              {plannedToday ? `Начать: ${plannedToday.routine.name}` : 'Начать тренировку'}
+              <IconPlay size={17} /> Начать тренировку
             </button>
           )}
         </div>
@@ -316,6 +332,46 @@ export function WorkoutCalendar() {
           </div>
         </>
       )}
+
+      {/* Выбор из двух, а не одна «умная» кнопка: раньше она сама решала,
+          что запустить, и человек не знал заранее, получит он свой план или
+          пустую тренировку. Пункт из программы появляется только с
+          назначенной программой — предлагать несуществующее нечестно. */}
+      <Sheet open={startOpen} title="Начать тренировку" onClose={() => setStartOpen(false)}>
+        <div className="stack">
+          {nextRoutine ? (
+            <button className="list-item" onClick={startProgram}>
+              <span className="metric-icon" style={{ color: 'var(--accent-ink)' }}>
+                <IconPlay size={18} />
+              </span>
+              <span className="grow">
+                <span className="title">Следующая из программы</span>
+                <span className="sub" style={{ display: 'block' }}>
+                  {nextRoutine.name}
+                </span>
+              </span>
+              <IconChevronRight size={16} />
+            </button>
+          ) : (
+            <div className="mute-sm">
+              Программа не назначена — тренировку из плана запускать пока не из чего.
+            </div>
+          )}
+
+          <button className="list-item" onClick={startFree}>
+            <span className="metric-icon">
+              <IconDumbbell size={18} />
+            </span>
+            <span className="grow">
+              <span className="title">Свободная тренировка</span>
+              <span className="sub" style={{ display: 'block' }}>
+                Упражнения добавите по ходу
+              </span>
+            </span>
+            <IconChevronRight size={16} />
+          </button>
+        </div>
+      </Sheet>
     </div>
   )
 }
