@@ -28,6 +28,7 @@ import {
 import { ExercisePicker } from '../components/ExercisePicker'
 import { ExerciseTechniqueSheet } from '../components/ExerciseTechnique'
 import { VideoUploader } from '../components/ExerciseVideo'
+import { CoachHint } from '../components/CoachHint'
 import { Sheet } from '../components/Sheet'
 import { useApp, useClientMode, useProfile } from '../store/app'
 import { ensureNotificationPermission, haptics } from '../lib/native'
@@ -267,6 +268,10 @@ export function LiveSession() {
                 <IconTrash size={17} />
               </button>
             </div>
+
+            {/* Слово тренера стоит выше таблицы подходов: оно должно попасть
+                на глаза до того, как человек наберёт вес, а не после. */}
+            <CoachHint exerciseId={block.exercise.id} />
 
             <div className="set-grid head">
               <div className="num">#</div>
