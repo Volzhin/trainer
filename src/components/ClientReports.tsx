@@ -15,6 +15,7 @@ import {
 import { formatDate, plural } from '../lib/calc'
 import { localDate } from '../lib/tdee'
 import { Sheet } from './Sheet'
+import { ReportCalendar, type ReportState } from './ReportCalendar'
 import { SATIETY_LABELS } from './NutritionDayReport'
 import { Group, Row } from './Group'
 import { IconCheck, IconPlus } from './Icons'
@@ -79,6 +80,25 @@ export function ClientReports({ clientId }: { clientId: string }) {
     s.target === 'workout' ? seenWorkouts.has(s.ref) : seenDays.has(s.ref)
 
   const pending = queue.filter((s) => !isReviewed(s))
+
+  /*
+   * Состояния по дням для календарей. Ключ — локальная дата: тренер
+   * смотрит на сетку дней, а не на идентификаторы отчётов.
+   *
+   * Проверенный день перекрывает сданный, если в один день их несколько:
+   * жёлтая клетка означает «здесь ещё есть работа», и гасить её, пока
+   * что-то не разобрано, нельзя.
+   */
+  const workoutStates = new Map<string, ReportState>()
+  for (const r of submittedWorkouts) {
+    const date = localDate(r.submitted_at ?? 0)
+    const state: ReportState = seenWorkouts.has(r.id) ? 'reviewed' : 'submitted'
+    if (workoutStates.get(date) !== 'submitted') workoutStates.set(date, state)
+  }
+
+  const nutritionStates = new Map<string, ReportState>(
+    days.map((d) => [d.date, seenDays.has(d.date) ? 'reviewed' : 'submitted'] as const),
+  )
   const openTasks = tasks.filter((t) => t.status === 'open')
   const doneTasks = tasks.filter((t) => t.status === 'done')
 
@@ -95,6 +115,30 @@ export function ClientReports({ clientId }: { clientId: string }) {
           <div className="value">{openTasks.length}</div>
           <div className="label">заданий не выполнено</div>
         </div>
+      </div>
+
+      <div className="section-title">Тренировки по дням</div>
+      <div className="card">
+        <ReportCalendar
+          states={workoutStates}
+          onPick={(date) => {
+            const hit = queue.find(
+              (s) => s.target === 'workout' && localDate(s.submittedAt ?? 0) === date,
+            )
+            if (hit) setReviewing(hit)
+          }}
+        />
+      </div>
+
+      <div className="section-title">Питание по дням</div>
+      <div className="card">
+        <ReportCalendar
+          states={nutritionStates}
+          onPick={(date) => {
+            const hit = queue.find((s) => s.target === 'nutrition' && s.ref === date)
+            if (hit) setReviewing(hit)
+          }}
+        />
       </div>
 
       <div className="section-title">Сданные отчёты</div>

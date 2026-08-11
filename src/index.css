@@ -540,6 +540,43 @@ a {
   gap: 10px;
 }
 
+/* Календарь отчётов у тренера. Ровно два состояния цвета, как в пункте 5.4
+   спецификации: сдан и проверен. Цвет заливает всю клетку, а не точку в
+   углу, — с расстояния вытянутой руки сетка должна читаться сразу. */
+.cal-day.report-submitted {
+  background: var(--warn);
+  border-color: var(--warn);
+  color: var(--bg);
+}
+
+.cal-day.report-reviewed {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: var(--bg);
+}
+
+/* Дни без отчёта нажимать не на что — гасим отклик, но не прячем дату. */
+.cal-day:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* Образцы цвета в легенде. */
+.report-key {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--r-sm);
+  flex: none;
+}
+
+.report-key.submitted {
+  background: var(--warn);
+}
+
+.report-key.reviewed {
+  background: var(--ok);
+}
+
 /* Три показателя в строку. На 375px плитка сужается до ~105px — числа
    набраны моноширинным и в такую ширину помещаются, а подпись переносится
    на вторую строку, поэтому высота плиток остаётся общей. */
