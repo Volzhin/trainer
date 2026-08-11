@@ -212,7 +212,16 @@ export interface AppState {
    * данными иначе никогда бы их не выгрузила — её строки оказались бы
    * «старее» чужого курсора.
    */
-  cursors?: Record<string, { pulled?: number; pushed?: number }>
+  cursors?: Record<
+    string,
+    {
+      /** Устаревшая отметка забора по часам автора — см. pullCursor в sync.ts. */
+      pulled?: number
+      /** Отметка забора по часам сервера (поле seq). */
+      pulledSeq?: number
+      pushed?: number
+    }
+  >
 }
 
 export type ThemePref = 'auto' | 'light' | 'dark'

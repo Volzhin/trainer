@@ -156,14 +156,26 @@ const stampOf = (row: Record<string, unknown>): number =>
 
 // --- Курсоры ---
 
-const cursorsOf = async (): Promise<Record<string, { pulled?: number; pushed?: number }>> =>
+const cursorsOf = async (): Promise<
+  Record<string, { pulled?: number; pulledSeq?: number; pushed?: number }>
+> =>
   (await db.appState.get(APP_STATE_ID))?.cursors ?? {}
 
 /** Метка последнего принятого изменения с сервера для текущего аккаунта. */
+/**
+ * Докуда уже забрали чужие изменения — по часам сервера (поле seq).
+ *
+ * Имя нарочно новое. Прежний курсор pulled считался по часам того, кто
+ * записал, и у него мог оказаться момент из будущего — тогда всё, что
+ * приходило потом с других устройств, молча не проходило условие. Сменив
+ * имя, мы начинаем с нуля: один раз выкачивается всё заново, зато без
+ * унаследованной кривой отметки. Повторная выкачка безвредна — apply
+ * пропускает записи, которые старше местных.
+ */
 async function pullCursor(): Promise<number> {
   const me = authUser()
   if (!me) return 0
-  return (await cursorsOf())[me.id]?.pulled ?? 0
+  return (await cursorsOf())[me.id]?.pulledSeq ?? 0
 }
 
 /** Метка, до которой локальные правки уже уехали наверх. */
@@ -173,7 +185,7 @@ async function pushCursor(): Promise<number> {
   return (await cursorsOf())[me.id]?.pushed ?? 0
 }
 
-async function setCursors(patch: { pulled?: number; pushed?: number }) {
+async function setCursors(patch: { pulled?: number; pulledSeq?: number; pushed?: number }) {
   const me = authUser()
   const state = await db.appState.get(APP_STATE_ID)
   if (!me || !state) return
@@ -336,7 +348,9 @@ export async function pull(): Promise<number> {
     if (!res.items.length) break
 
     for (const rec of res.items) {
-      newest = Math.max(newest, rec.updated)
+      // Курсор двигаем по серверной метке, а не по авторской: иначе он
+      // снова начнёт зависеть от чужих часов.
+      if (typeof rec.seq === 'number') newest = Math.max(newest, rec.seq)
       if (await apply(rec)) applied++
     }
 
@@ -344,7 +358,7 @@ export async function pull(): Promise<number> {
     page++
   }
 
-  if (newest > since) await setCursors({ pulled: newest })
+  if (newest > since) await setCursors({ pulledSeq: newest })
   return applied
 }
 
@@ -619,11 +633,12 @@ async function onRealtime(e: {
   await apply(e.record as unknown as RemoteRecord)
 
   // Курсор двигаем вместе с событием, чтобы страховочный опрос не тянул
-  // уже применённое заново.
-  const updated = Number(e.record.updated)
-  if (Number.isFinite(updated)) {
+  // уже применённое заново. По seq, а не по updated: курсор и опрос должны
+  // считать по одной шкале, иначе они разъедутся и опрос начнёт пропускать.
+  const seq = Number(e.record.seq)
+  if (Number.isFinite(seq)) {
     const since = await pullCursor()
-    if (updated > since) await setCursors({ pulled: updated })
+    if (seq > since) await setCursors({ pulledSeq: seq })
   }
 }
 
@@ -640,6 +655,6 @@ export function stopSync() {
 export async function initialPull(): Promise<void> {
   const user = authUser()
   if (!user) return
-  await setCursors({ pulled: 0 })
+  await setCursors({ pulledSeq: 0 })
   await pull()
 }

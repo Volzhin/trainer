@@ -52,12 +52,16 @@ async function main() {
       text('tbl', { required: true }),
       text('rid', { required: true }),
       num('updated', { required: true }),
+      // Порядковая метка по часам сервера — очередь доставки. Ставится
+      // хуком seq.pb.js, клиент её не присылает. Подробности там же.
+      num('seq'),
       bool('deleted'),
       json('payload', 5 * 1024 * 1024),
     ],
     indexes: [
       'CREATE UNIQUE INDEX `idx_records_owner_tbl_rid` ON `records` (`owner`, `tbl`, `rid`)',
       'CREATE INDEX `idx_records_owner_updated` ON `records` (`owner`, `updated`)',
+      'CREATE INDEX `idx_records_seq` ON `records` (`seq`)',
     ],
     listRule: OWNER_OR_TRAINER,
     viewRule: OWNER_OR_TRAINER,
@@ -109,7 +113,63 @@ async function main() {
     deleteRule: 'trainer = @request.auth.id',
   })
 
+  await backfillSeq(token)
+
   console.log('Схема применена')
+}
+
+/**
+ * Проставляет seq записям, лежавшим до его появления.
+ *
+ * Без этого они невидимы для нового устройства: оно начинает с нуля и
+ * просит «всё, где seq больше нуля», а у старых записей его нет. То есть
+ * человек, поставивший приложение заново, не получил бы свою историю.
+ *
+ * Идемпотентно: берёт только записи без seq, поэтому на следующем деплое
+ * не делает ничего. Значение ставит хук — нам достаточно тронуть запись.
+ */
+async function backfillSeq(token) {
+  let touched = 0
+  let failed = 0
+  // Страницу берём всегда первую: обработанные записи выпадают из выборки
+  // сами, а листание по меняющемуся набору пропускает строки.
+  for (let pass = 0; pass < 200; pass++) {
+    // Только seq = 0: у числового поля незаполненное значение это ноль, а
+    // сравнение с null PocketBase на таком поле разбирать не обязан — и
+    // ошибка фильтра уронила бы весь шаг деплоя.
+    const page = await api(
+      token,
+      '/api/collections/records/records?filter=' +
+        encodeURIComponent('seq = 0') +
+        '&perPage=200',
+    )
+    const items = page.items ?? []
+    if (!items.length) break
+
+    let progressed = false
+    for (const row of items) {
+      // seq выставит хук; сюда шлём поле, которое и так равно себе, чтобы
+      // не менять данные и не сбить разрешение конфликтов по updated.
+      try {
+        await api(token, `/api/collections/records/records/${row.id}`, 'PATCH', {
+          updated: row.updated,
+        })
+        touched++
+        progressed = true
+      } catch (e) {
+        // Одна упрямая строка не должна валить деплой: остальные важнее,
+        // а эта попадёт в следующий проход.
+        failed++
+        console.warn(`records: ${row.id} не обновился — ${e.message}`)
+      }
+    }
+
+    // Ни одной не удалось — дальше проходы будут бесконечно брать ту же
+    // страницу. Выходим, чтобы не крутиться впустую.
+    if (!progressed) break
+  }
+  if (touched) console.log(`records: seq проставлен ${touched} записям`)
+  if (failed) console.warn(`records: не удалось обновить ${failed} — повторим на следующем деплое`)
 }
 
 /** Профиль лежит прямо в auth-коллекции: так правила доступа умеют ходить

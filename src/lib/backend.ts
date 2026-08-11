@@ -274,7 +274,14 @@ export type RemoteRecord = {
   owner: string
   tbl: string
   rid: string
+  /** Часы автора: по ним решается, чья версия новее. */
   updated: number
+  /**
+   * Часы сервера: по ним строится очередь доставки. Пусто у записей,
+   * лежавших до появления поля, — деплой проставляет им seq отдельным
+   * проходом, см. backfillSeq в server/schema.mjs.
+   */
+  seq?: number
   deleted?: boolean
   payload: unknown
 }
@@ -287,10 +294,17 @@ type Page<T> = {
 }
 
 /** Страница изменений начиная с метки. Тренеру приезжают и записи клиентов. */
+/**
+ * Забирает всё, что появилось на сервере после отметки.
+ *
+ * Отметка идёт по seq — часам сервера. По updated её строить нельзя: там
+ * часы того, кто записал, и достаточно минуты расхождения между
+ * устройствами, чтобы чужие записи навсегда провалились мимо условия.
+ */
 export async function pullRecords(since: number, page = 1, perPage = 200) {
-  const filter = encodeURIComponent(`updated > ${since}`)
+  const filter = encodeURIComponent(`seq > ${since}`)
   return request<Page<RemoteRecord>>(
-    `/api/collections/records/records?filter=${filter}&sort=updated&page=${page}&perPage=${perPage}`,
+    `/api/collections/records/records?filter=${filter}&sort=seq,id&page=${page}&perPage=${perPage}`,
   )
 }
 
