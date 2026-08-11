@@ -15,6 +15,7 @@ import {
 } from '../db/reports'
 import { formatDate, formatWeight, plural } from '../lib/calc'
 import { localDate } from '../lib/tdee'
+import { canImportHealthData, healthProvider } from '../lib/health'
 import { Sheet } from '../components/Sheet'
 import { WeightSheet } from '../components/WeightCard'
 import { IconCheck, IconChevronRight } from '../components/Icons'
@@ -326,6 +327,9 @@ const minutesToHours = (m?: number) => (m ? String(Math.round((m / 60) * 10) / 1
 function ActivityCard({ date, userId }: { date: string; userId: string }) {
   const { toast } = useApp()
   const saved = useLiveQuery(() => activityFor(date, userId), [date, userId])
+  // Умеет ли источник забирать данные сам. В вебе — нет, и решает это
+  // провайдер, а не проверка платформы, разбросанная по экранам.
+  const canImport = useLiveQuery(() => canImportHealthData(), [])
 
   /**
    * Черновик отдельно от сохранённого. Пока его нет, поля показывают базу —
@@ -384,11 +388,19 @@ function ActivityCard({ date, userId }: { date: string; userId: string }) {
         </div>
       </div>
 
-      {/* Про автоматическую подгрузку из Apple Health и Google Fit здесь не
-          обещано ничего: браузер к ним доступа не имеет, см. lib/health.ts. */}
-      <div className="mute-sm" style={{ marginTop: 10 }}>
-        Вводится вручную — приложению в браузере шаги и сон не отдаёт ни одна система.
-      </div>
+      {/* Про автоматическую подгрузку решает провайдер, а не этот экран:
+          в вебе он всегда отвечает «не умею», и обещания импорта здесь не
+          появляется. Когда приложение упакуют в нативную обёртку и
+          провайдера подменят, кнопка возникнет сама — см. lib/health.ts. */}
+      {canImport ? (
+        <div className="mute-sm" style={{ marginTop: 10 }}>
+          Можно подтянуть из «{healthProvider().name}» или ввести руками.
+        </div>
+      ) : (
+        <div className="mute-sm" style={{ marginTop: 10 }}>
+          Вводится вручную — приложению в браузере шаги и сон не отдаёт ни одна система.
+        </div>
+      )}
 
       <button
         className="btn primary block"
