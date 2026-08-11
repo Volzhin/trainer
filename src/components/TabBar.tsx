@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { unreadCount } from '../db/chat'
 import {
-  // IconApple — вернётся вместе с разделом питания
+  IconApple,
   IconChat,
   IconClipboard,
   IconDumbbell,
@@ -22,10 +22,7 @@ type Tab = { to: string; label: string; Icon: typeof IconHome; end: boolean }
  */
 const CLIENT_TABS: Tab[] = [
   { to: '/', label: 'Тренировки', Icon: IconHome, end: true },
-  // Раздел питания снят с интерфейса: он работает плохо, и показывать его
-  // людям рано. Код страниц и расчётов оставлен на месте — вернуть раздел
-  // значит снять комментарий здесь и в App.tsx, ничего не восстанавливая.
-  // { to: '/nutrition', label: 'Питание', Icon: IconApple, end: false },
+  { to: '/nutrition', label: 'Питание', Icon: IconApple, end: false },
 ]
 
 /** Появляются только с тренером: без него писать и отчитываться некому. */

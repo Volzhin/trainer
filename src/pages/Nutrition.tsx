@@ -42,8 +42,10 @@ export function Nutrition() {
   const plan = useLiveQuery(() => loadPlan(userId), [userId, version])
 
   const eaten = useMemo(() => sumNutrients(logs ?? []), [logs])
-  const target = plan?.target ?? 0
-  const left = Math.max(0, target - eaten.kcal)
+  // Цели может не быть вовсе — тогда экран показывает только съеденное.
+  // Раньше здесь стоял ноль, и любая еда объявлялась превышением нормы.
+  const target = plan?.target ?? null
+  const over = target != null && eaten.kcal > target
 
   const shiftDay = (dir: -1 | 1) => {
     haptics.selection()
@@ -108,11 +110,26 @@ export function Nutrition() {
           macros={plan?.macros ?? { protein: 0, fat: 0, carbs: 0 }}
         />
         <div className="row between" style={{ marginTop: 16 }}>
-          <span className="mute-sm">{eaten.kcal > target ? 'Превышение' : 'Осталось'}</span>
-          <span style={{ fontFamily: 'var(--font-num)', fontWeight: 700 }}>
-            {eaten.kcal > target ? eaten.kcal - target : left} ккал
-          </span>
+          {target == null ? (
+            <>
+              <span className="mute-sm">Съедено</span>
+              <span className="figures strong">{eaten.kcal} ккал</span>
+            </>
+          ) : (
+            <>
+              <span className="mute-sm">{over ? 'Превышение' : 'Осталось'}</span>
+              <span className="figures strong">
+                {over ? eaten.kcal - target : target - eaten.kcal} ккал
+              </span>
+            </>
+          )}
         </div>
+        {target == null && (
+          <div className="mute-sm mt-2">
+            Тренер пока не выдал норму по калориям — записи сохраняются, цель появится
+            вместе с рекомендациями.
+          </div>
+        )}
       </div>
 
       {plan?.fromCoach && plan.profile.coach_note && (

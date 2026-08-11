@@ -30,6 +30,15 @@ export function ClientNutrition({ clientId }: { clientId: string }) {
   const { plan } = summary
   const noData = summary.daysLogged === 0
 
+  // Чем заполнить форму назначения, когда тренер ещё ничего не выдавал:
+  // расчёт по формуле — это подсказка, а не назначенная норма, поэтому она
+  // живёт только здесь и на экран клиента не попадает.
+  const suggestedKcal = plan.target ?? plan.formula
+  const suggestedTargets = {
+    kcal: suggestedKcal,
+    ...macroTargets(suggestedKcal, plan.profile.macro_split),
+  }
+
   return (
     <div style={{ marginTop: 14 }}>
       <div className="segmented" style={{ marginBottom: 12 }}>
@@ -52,17 +61,27 @@ export function ClientNutrition({ clientId }: { clientId: string }) {
                 <div className="num">{summary.avgKcal}</div>
                 <div className="cap">в среднем, ккал</div>
               </div>
+              {/* Норму мог не выдавать никто — тогда и отклонения нет.
+                  Прочерк честнее нуля: ноль читался бы как «точно в цель». */}
               <div className="metric">
                 <div
                   className="num"
                   style={{
-                    color: Math.abs(summary.deviation) > 300 ? 'var(--warn)' : 'var(--ok)',
+                    color:
+                      summary.deviation == null
+                        ? undefined
+                        : Math.abs(summary.deviation) > 300
+                          ? 'var(--warn)'
+                          : 'var(--ok)',
                   }}
                 >
-                  {summary.deviation > 0 ? '+' : ''}
-                  {summary.deviation}
+                  {summary.deviation == null
+                    ? '—'
+                    : `${summary.deviation > 0 ? '+' : ''}${summary.deviation}`}
                 </div>
-                <div className="cap">отклонение от нормы</div>
+                <div className="cap">
+                  {summary.deviation == null ? 'норма не задана' : 'отклонение от нормы'}
+                </div>
               </div>
             </div>
 
@@ -182,7 +201,7 @@ export function ClientNutrition({ clientId }: { clientId: string }) {
         open={assignOpen}
         clientId={clientId}
         coachId={userId}
-        suggested={{ kcal: plan.target, ...plan.macros }}
+        suggested={suggestedTargets}
         current={
           plan.fromCoach
             ? { kcal: plan.target, ...plan.macros, note: plan.profile.coach_note }
@@ -208,25 +227,38 @@ function TargetSheet({
   open: boolean
   clientId: string
   coachId: string
+  /** Чем заполнить форму, если тренер ещё ничего не назначал. */
   suggested: { kcal: number; protein: number; fat: number; carbs: number }
-  current?: { kcal: number; protein: number; fat: number; carbs: number; note?: string }
+  /**
+   * Что назначено сейчас. Любая метрика может быть пустой: тренер вправе
+   * задать одни калории и не трогать граммы.
+   */
+  current?: {
+    kcal: number | null
+    protein: number | null
+    fat: number | null
+    carbs: number | null
+    note?: string
+  }
   onClose: () => void
   onSaved: () => void
 }) {
-  const start = current ?? suggested
-  const [kcal, setKcal] = useState(String(start.kcal))
-  const [protein, setProtein] = useState(String(start.protein))
-  const [fat, setFat] = useState(String(start.fat))
-  const [carbs, setCarbs] = useState(String(start.carbs))
+  // Незаданная метрика остаётся пустым полем, а не нулём: пустое поле
+  // означает «цели нет», и подставлять туда ноль значит выдать цель
+  // «не есть вовсе».
+  const field = (v: number | null | undefined) => (v == null ? '' : String(v))
+  const [kcal, setKcal] = useState(field(current?.kcal ?? suggested.kcal))
+  const [protein, setProtein] = useState(field(current?.protein ?? suggested.protein))
+  const [fat, setFat] = useState(field(current?.fat ?? suggested.fat))
+  const [carbs, setCarbs] = useState(field(current?.carbs ?? suggested.carbs))
   const [note, setNote] = useState(current?.note ?? '')
 
   useEffect(() => {
     if (!open) return
-    const s = current ?? suggested
-    setKcal(String(s.kcal))
-    setProtein(String(s.protein))
-    setFat(String(s.fat))
-    setCarbs(String(s.carbs))
+    setKcal(field(current?.kcal ?? suggested.kcal))
+    setProtein(field(current?.protein ?? suggested.protein))
+    setFat(field(current?.fat ?? suggested.fat))
+    setCarbs(field(current?.carbs ?? suggested.carbs))
     setNote(current?.note ?? '')
   }, [open])
 

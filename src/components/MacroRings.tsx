@@ -11,17 +11,18 @@ export function MacroRings({
   macros,
 }: {
   eaten: Nutrients
-  target: number
-  macros: { protein: number; fat: number; carbs: number }
+  /** null — цели нет, кольцо остаётся незакрашенным, а полосы без делений. */
+  target: number | null
+  macros: { protein: number | null; fat: number | null; carbs: number | null }
 }) {
   const shown = useCountUp(eaten.kcal, 0, 700)
   const pct = target ? Math.min(1, eaten.kcal / target) : 0
-  const over = target > 0 && eaten.kcal > target
+  const over = target != null && target > 0 && eaten.kcal > target
 
   const R = 62
   const C = 2 * Math.PI * R
 
-  const rows: { label: string; value: number; goal: number; color: string }[] = [
+  const rows: { label: string; value: number; goal: number | null; color: string }[] = [
     { label: 'Белки', value: eaten.protein, goal: macros.protein, color: 'var(--accent-ink)' },
     { label: 'Жиры', value: eaten.fat, goal: macros.fat, color: 'var(--warn)' },
     { label: 'Углеводы', value: eaten.carbs, goal: macros.carbs, color: 'var(--info)' },
@@ -62,7 +63,7 @@ export function MacroRings({
       </svg>
 
       <div className="mute-sm" style={{ textAlign: 'center', marginTop: 2 }}>
-        цель {target} ккал
+        {target == null ? 'цель не задана' : `цель ${target} ккал`}
       </div>
 
       <div className="stack" style={{ gap: 12, marginTop: 18 }}>
@@ -70,8 +71,12 @@ export function MacroRings({
           <div key={r.label}>
             <div className="row between" style={{ marginBottom: 5 }}>
               <span className="mute-sm">{r.label}</span>
+              {/* Без цели показываем только факт: «120 / 0 г» читалось бы
+                  как невыполненная норма, которой никто не ставил. */}
               <span className="mute-sm figures">
-                {Math.round(r.value)} / {r.goal} г
+                {r.goal == null
+                  ? `${Math.round(r.value)} г`
+                  : `${Math.round(r.value)} / ${r.goal} г`}
               </span>
             </div>
             <div className="bar">

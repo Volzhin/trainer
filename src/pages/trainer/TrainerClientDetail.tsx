@@ -23,7 +23,7 @@ import { BodyCompositionView } from '../../components/BodyCompositionView'
 import { Sheet } from '../../components/Sheet'
 import { Group, Row } from '../../components/Group'
 import { SessionReview } from '../../components/SessionReview'
-// import { ClientNutrition } from '../../components/ClientNutrition'
+import { ClientNutrition } from '../../components/ClientNutrition'
 import { ClientReports } from '../../components/ClientReports'
 import { ChatThread } from '../../components/ChatThread'
 import { ProgressView } from '../../components/ProgressView'
@@ -118,8 +118,7 @@ export function TrainerClientDetail() {
             ['reports', 'Отчёты'],
             ['progress', 'Прогресс'],
             ['body', 'Тело'],
-            // Питание снято с интерфейса вместе с разделом у клиента — см. TabBar.
-            // ['nutrition', 'Питание'],
+            ['nutrition', 'Питание'],
             ['history', 'Тренировки'],
             ['notes', 'Заметки'],
           ] as const
@@ -387,7 +386,7 @@ export function TrainerClientDetail() {
 
       {tab === 'reports' && <ClientReports clientId={id} />}
 
-      {/* {tab === 'nutrition' && <ClientNutrition clientId={id} />} */}
+      {tab === 'nutrition' && <ClientNutrition clientId={id} />}
 
       {tab === 'notes' && (
         <div style={{ marginTop: 14 }}>

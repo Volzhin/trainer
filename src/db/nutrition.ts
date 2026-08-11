@@ -10,6 +10,8 @@ import {
   type Nutrients,
 } from './db'
 import { scaleNutrients } from '../lib/foodApi'
+import { trainerOfClient } from './coach'
+import { currentTargets } from './reports'
 import {
   ACTIVITY_LEVELS,
   bmr,
@@ -300,9 +302,14 @@ export async function buildDayPoints(userId = currentUserId()): Promise<DayPoint
 export type NutritionPlan = {
   profile: NutritionProfile
   expenditure: ExpenditureResult
-  /** Целевая калорийность с учётом цели по скорости изменения веса. */
-  target: number
-  macros: { protein: number; fat: number; carbs: number }
+  /**
+   * Целевая калорийность. null означает «цели нет» — так бывает, когда
+   * человек работает с тренером, а тот норму по калориям не выдал. Ноль
+   * сюда подставлять нельзя: экран тогда объявит превышением любую еду.
+   */
+  target: number | null
+  /** Цели по макронутриентам. Каждая отдельно необязательна по той же причине. */
+  macros: { protein: number | null; fat: number | null; carbs: number | null }
   /** Оценка по формуле — показываем, пока не набралось данных. */
   formula: number
   /** Норму поставил тренер, а не алгоритм. */
@@ -333,15 +340,36 @@ export async function loadPlan(userId = currentUserId()): Promise<NutritionPlan>
   const expenditure = estimateExpenditure(days, formula)
   const tdee = expenditure.tdee + (profile.manual_offset ?? 0)
 
-  // Норма тренера главнее расчёта: спорить с ним внутри приложения нельзя.
-  const fromCoach = profile.coach_kcal != null
+  /*
+   * Откуда берётся цель.
+   *
+   * Если человек работает с тренером, целями считается только то, что тренер
+   * выдал сам, — недельные рекомендации (setWeeklyTargets). Пустая метрика
+   * так и остаётся пустой: приложение не подставляет вместо неё свой расчёт,
+   * иначе клиент принял бы формулу за назначение тренера и ел бы по ней.
+   *
+   * Поля coach_* — прежний способ назначать норму, читаются как запасной,
+   * чтобы у клиентов со старыми данными цель не пропала.
+   *
+   * Без тренера цель считается формулой: спорить не с кем, а дневник без
+   * ориентира превращается в список съеденного.
+   */
+  const link = await trainerOfClient(userId)
+  const weekly = link ? await currentTargets(userId) : null
+  const fromCoach = !!link
+
   const target = fromCoach
-    ? profile.coach_kcal!
+    ? (weekly?.kcal ?? profile.coach_kcal ?? null)
     : targetKcal(tdee, profile.weekly_change_kg ?? 0)
-  const macros =
-    fromCoach && profile.coach_macros
-      ? profile.coach_macros
-      : macroTargets(target, profile.macro_split)
+
+  const fallbackMacros = macroTargets(target ?? formula, profile.macro_split)
+  const macros = fromCoach
+    ? {
+        protein: weekly?.protein ?? profile.coach_macros?.protein ?? null,
+        fat: weekly?.fat ?? profile.coach_macros?.fat ?? null,
+        carbs: weekly?.carbs ?? profile.coach_macros?.carbs ?? null,
+      }
+    : fallbackMacros
 
   return {
     profile,
@@ -361,10 +389,10 @@ export type NutritionSummary = {
   avgProtein: number
   avgFat: number
   avgCarbs: number
-  /** Отклонение среднего от цели, ккал. */
-  deviation: number
+  /** Отклонение среднего от цели, ккал. null — цели не задано. */
+  deviation: number | null
   points: { x: number; y: number }[]
-  target: number
+  target: number | null
   plan: NutritionPlan
 }
 
@@ -402,7 +430,9 @@ export async function nutritionSummary(
     avgProtein: Math.round(sum.p / n),
     avgFat: Math.round(sum.f / n),
     avgCarbs: Math.round(sum.c / n),
-    deviation: Math.round(sum.kcal / n - plan.target),
+    // Без цели отклонять не от чего — «на 1500 больше нормы» без нормы
+    // значит ровно ничего.
+    deviation: plan.target == null ? null : Math.round(sum.kcal / n - plan.target),
     points: entries.map(([date, v]) => ({
       x: new Date(`${date}T12:00:00`).getTime(),
       y: v.kcal,
