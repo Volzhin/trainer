@@ -70,7 +70,7 @@ export function TrainerProfile() {
           </button>
         </div>
         {profile?.bio && (
-          <div className="muted" style={{ marginTop: 10 }}>
+          <div className="muted mt-3">
             {profile.bio}
           </div>
         )}
@@ -197,7 +197,7 @@ function TrainerForm({ onDone }: { onDone: () => void }) {
       </div>
       <div className="divider" />
       <div className="field-group-title">Где с вами связаться</div>
-      <div className="mute-sm" style={{ marginBottom: 10 }}>
+      <div className="mute-sm mb-3">
         Клиент увидит эти ссылки в карточке тренера и напишет вам в один тап.
       </div>
       <ContactEditor

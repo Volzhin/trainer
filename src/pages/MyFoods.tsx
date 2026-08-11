@@ -52,12 +52,12 @@ export function MyFoods() {
       </button>
 
       {(foods ?? []).length === 0 ? (
-        <div className="empty" style={{ marginTop: 16 }}>
+        <div className="empty mt-4">
           Пока пусто. Заведите домашнее блюдо или товар, которого нет в базе, — дальше он будет
           подставляться в дневник в одно нажатие.
         </div>
       ) : (
-        <div className="group" style={{ marginTop: 16 }}>
+        <div className="group mt-4">
           {(foods ?? []).map((f) => {
             const used = usage?.get(f.id) ?? 0
             return (
@@ -70,7 +70,7 @@ export function MyFoods() {
                   <span className="title truncate" style={{ display: 'block' }}>
                     {f.name}
                   </span>
-                  <span className="sub" style={{ display: 'block' }}>
+                  <span className="sub">
                     {f.brand ? `${f.brand} · ` : ''}
                     {f.per100.kcal} ккал · Б {f.per100.protein} · Ж {f.per100.fat} · У{' '}
                     {f.per100.carbs} на 100 {f.unit}
@@ -94,7 +94,7 @@ export function MyFoods() {
         </div>
       )}
 
-      <div className="mute-sm" style={{ marginTop: 12 }}>
+      <div className="mute-sm mt-3">
         Записи в дневнике хранят копию состава на момент добавления, поэтому правки и удаление
         продукта не меняют прошлые дни.
       </div>

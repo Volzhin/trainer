@@ -97,7 +97,7 @@ export function Exercises() {
         </button>
       </div>
 
-      <div className="group stagger" style={{ marginTop: 14 }}>
+      <div className="group stagger mt-4">
         {list.length === 0 && (
           <div className="empty">Ничего не нашлось. Можно создать своё упражнение.</div>
         )}
@@ -110,7 +110,7 @@ export function Exercises() {
           >
             <span className="grow">
               <span className="title">{ex.name}</span>
-              <span className="sub" style={{ display: 'block' }}>
+              <span className="sub">
                 {ex.muscle_group} · {ex.equipment}
               </span>
             </span>
@@ -121,8 +121,7 @@ export function Exercises() {
 
       {list.length > visible.length && (
         <button
-          className="btn block"
-          style={{ marginTop: 12 }}
+          className="btn block mt-3"
           onClick={() => setLimit((v) => v + 120)}
         >
           Показать ещё · осталось {list.length - visible.length}

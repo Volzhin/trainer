@@ -109,7 +109,7 @@ export function Onboarding({ onDone }: Props) {
             <IconDumbbell size={44} />
           </div>
           <h2>Как вы будете пользоваться приложением?</h2>
-          <p style={{ marginBottom: 24 }}>
+          <p className="mb-6">
             От этого зависят экраны — их можно переключить позже в профиле.
           </p>
           <div className="actions">
@@ -150,7 +150,7 @@ export function Onboarding({ onDone }: Props) {
       {step === 1 && (
         <div className="body">
           <h2>{role === 'TRAINER' ? 'Что вы получаете' : 'Что вы получаете'}</h2>
-          <div className="stack" style={{ marginTop: 22, gap: 18 }}>
+          <div className="stack" style={{ marginTop: 24, gap: 18 }}>
             {points.map(([Glyph, title, text]) => (
               <div className="row" key={title} style={{ alignItems: 'flex-start' }}>
                 <span className="metric-icon" style={{ color: 'var(--accent)' }}>

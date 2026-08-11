@@ -235,7 +235,7 @@ export function LiveSession() {
         </div>
       </div>
 
-      <div style={{ marginTop: 14 }}>
+      <div className="mt-4">
         {blocks.length === 0 && (
           <div className="empty">
             <div className="big">
@@ -330,8 +330,7 @@ export function LiveSession() {
         ))}
 
         <button
-          className="btn block"
-          style={{ marginTop: 12 }}
+          className="btn block mt-3"
           onClick={() => setPickerOpen(true)}
         >
           <IconPlus size={17} /> Добавить упражнение
@@ -392,7 +391,7 @@ export function LiveSession() {
           setFrozenElapsed(null)
         }}
       >
-        <div className="stat-grid" style={{ marginBottom: 14 }}>
+        <div className="stat-grid mb-4">
           <div className="stat">
             <div className="value">{formatDuration(frozenElapsed ?? 0)}</div>
             <div className="label">длительность</div>
@@ -408,7 +407,7 @@ export function LiveSession() {
         {videoReport && doneBlocks.length > 0 && (
           <>
             <div className="field-group-title">Видеоотчёт тренеру</div>
-            <div className="mute-sm" style={{ marginBottom: 10 }}>
+            <div className="mute-sm mb-3">
               Необязательно. Можно пропустить и прикрепить позже — тренировка останется в
               истории.
             </div>
@@ -428,7 +427,7 @@ export function LiveSession() {
           </>
         )}
 
-        <div className="field" style={{ marginTop: 14, marginBottom: 14 }}>
+        <div className="field" style={{ marginTop: 16, marginBottom: 16 }}>
           <label>Заметка к тренировке</label>
           <textarea
             className="textarea"
@@ -463,7 +462,7 @@ export function LiveSession() {
           </button>
         </div>
         {doneCount > 0 && (
-          <div className="mute-sm" style={{ marginTop: 10, textAlign: 'center' }}>
+          <div className="mute-sm" style={{ marginTop: 12, textAlign: 'center' }}>
             Неотмеченные подходы не попадут в статистику.
           </div>
         )}

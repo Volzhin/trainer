@@ -42,7 +42,7 @@ export function ContactLinks({
       </a>
 
       {rest.length > 0 && (
-        <div className="group" style={{ marginTop: 10 }}>
+        <div className="group mt-3">
           {rest.map((c) => (
             <a
               className="group-row"
@@ -53,7 +53,7 @@ export function ContactLinks({
             >
               <span className="grow">
                 <span className="title">{contactLabel(c.kind)}</span>
-                <span className="sub" style={{ display: 'block' }}>
+                <span className="sub">
                   {contactDisplay(c)}
                 </span>
               </span>

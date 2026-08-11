@@ -154,7 +154,7 @@ export function Profile() {
       <MyTrainerCard />
 
       {profile?.plan !== 'PRO' && (
-        <div className="card" style={{ marginTop: 18, borderColor: 'var(--accent)' }}>
+        <div className="card" style={{ marginTop: 20, borderColor: 'var(--accent)' }}>
           <div className="row between">
             <div className="grow">
               <div className="strong">Trainer PRO</div>
@@ -192,7 +192,7 @@ export function Profile() {
 
       <Group title="Оформление">
         <div className="group-row" style={{ display: 'block' }}>
-          <div className="title" style={{ marginBottom: 8 }}>
+          <div className="title mb-2">
             Тема
           </div>
           <ThemePicker />
@@ -297,7 +297,7 @@ export function Profile() {
               <span>Месяц</span>
               <strong>499 ₽</strong>
             </div>
-            <div className="row between" style={{ marginTop: 8 }}>
+            <div className="row between mt-2">
               <span>
                 Год <span className="badge">−40%</span>
               </span>
@@ -488,7 +488,7 @@ function EditProfileSheet({ open, onClose }: { open: boolean; onClose: () => voi
         </div>
         <div className="divider" />
         <div className="field-group-title">Где с вами связаться</div>
-        <div className="mute-sm" style={{ marginBottom: 10 }}>
+        <div className="mute-sm mb-3">
           Тренер напишет вам туда, где вам удобно отвечать.
         </div>
         <ContactEditor

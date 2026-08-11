@@ -508,9 +508,9 @@ export function BodyCompositionView({
       </div>
 
       {!latest && (
-        <div className="card" style={{ marginBottom: 12 }}>
+        <div className="card mb-3">
           <div className="strong">{t.emptyTitle}</div>
-          <div className="muted" style={{ marginTop: 4 }}>
+          <div className="muted mt-1">
             {t.emptyHint}
           </div>
         </div>
@@ -526,7 +526,7 @@ export function BodyCompositionView({
             statusKind={weightStatus}
           />
           {composed !== latest && (
-            <div className="mute-sm" style={{ textAlign: 'center', marginTop: 10 }}>
+            <div className="mute-sm" style={{ textAlign: 'center', marginTop: 12 }}>
               Состав по замеру от {formatDate(composed.logged_at)}
             </div>
           )}
@@ -582,7 +582,7 @@ export function BodyCompositionView({
       {segmented?.muscle_segments && (
         <>
           <div className="section-title">Анализ тела по сегментам</div>
-          <div className="segmented" style={{ marginBottom: 12 }}>
+          <div className="segmented mb-3">
             <button
               className={segTab === 'muscle' ? 'on' : ''}
               onClick={() => setSegTab('muscle')}
@@ -602,7 +602,7 @@ export function BodyCompositionView({
               total={segTab === 'muscle' ? segmented.skeletal_muscle_kg : segmented.body_fat_kg}
             />
             {segmented !== latest && (
-              <div className="mute-sm" style={{ textAlign: 'center', marginTop: 10 }}>
+              <div className="mute-sm" style={{ textAlign: 'center', marginTop: 12 }}>
                 По замеру от {formatDate(segmented.logged_at)}
               </div>
             )}
@@ -613,7 +613,7 @@ export function BodyCompositionView({
       {trendPoints.length > 0 && (
         <>
           <div className="section-title">Динамика</div>
-          <div className="chips" style={{ marginBottom: 10 }}>
+          <div className="chips mb-3">
             {TRACKABLE.filter((r) =>
               (metrics ?? []).some((m) => typeof m[r.key] === 'number'),
             ).map((r) => (
@@ -647,7 +647,7 @@ export function BodyCompositionView({
               }
             />
             {(!trendRow2 || !trendPoints2.length || trendPoints.length === 1) && (
-              <div className="mute-sm" style={{ marginTop: 8 }}>
+              <div className="mute-sm mt-2">
                 {trendPoints.length === 1
                   ? 'Нужен ещё один замер, чтобы увидеть тренд'
                   : 'Нажмите вторую метрику, чтобы сравнить'}
@@ -668,7 +668,7 @@ export function BodyCompositionView({
                 </span>
                 <span className="grow">
                   <span className="title">Оптимальный вес</span>
-                  <span className="sub" style={{ display: 'block' }}>
+                  <span className="sub">
                     По росту и балансу мышц, жира и воды
                   </span>
                 </span>
@@ -682,7 +682,7 @@ export function BodyCompositionView({
                 </span>
                 <span className="grow">
                   <span className="title">Приём калорий</span>
-                  <span className="sub" style={{ display: 'block' }}>
+                  <span className="sub">
                     Ежедневный
                   </span>
                 </span>
@@ -691,7 +691,7 @@ export function BodyCompositionView({
             )}
             {macros && (
               <div className="group-row" style={{ display: 'block' }}>
-                <div className="sub" style={{ marginBottom: 8 }}>
+                <div className="sub mb-2">
                   Разбивка по БЖУ · {Math.round(split.protein * 100)} /{' '}
                   {Math.round(split.fat * 100)} / {Math.round(split.carbs * 100)} % калорий
                 </div>
@@ -737,7 +737,7 @@ export function BodyCompositionView({
               />
               <Target label="Мышцы" value={0} />
             </div>
-            <div className="mute-sm" style={{ marginTop: 10 }}>
+            <div className="mute-sm mt-3">
               Сколько осталось до оптимального веса при сохранении мышечной массы.
             </div>
           </div>
@@ -745,8 +745,7 @@ export function BodyCompositionView({
       )}
 
       <button
-        className="btn primary block"
-        style={{ marginTop: 20 }}
+        className="btn primary block mt-5"
         disabled={busy}
         onClick={() => fileRef.current?.click()}
       >
@@ -758,15 +757,14 @@ export function BodyCompositionView({
             ? t.uploadMore
             : t.uploadFirst}
       </button>
-      <div className="mute-sm" style={{ textAlign: 'center', marginTop: 6 }}>
+      <div className="mute-sm" style={{ textAlign: 'center', marginTop: 8 }}>
         Можно выбрать сразу несколько файлов
       </div>
 
       {/* Отчёт InBody есть не у всех: домашние весы, замер в другом зале или
           просто взвешивание тоже должны попадать в тренд. */}
       <button
-        className="btn block"
-        style={{ marginTop: 8 }}
+        className="btn block mt-2"
         onClick={() => setManualOpen(true)}
       >
         Ввести замер вручную
@@ -821,7 +819,7 @@ export function BodyCompositionView({
                     <span className="title">
                       {x.report ? formatDate(x.report.measured_at) : x.fileName}
                     </span>
-                    <span className="sub" style={{ display: 'block' }}>
+                    <span className="sub">
                       {x.error ??
                         [
                           x.report?.weight_kg != null && `${x.report.weight_kg} кг`,
@@ -880,7 +878,7 @@ export function BodyCompositionView({
             <div className="group-row" key={m.id}>
               <span className="grow">
                 <span className="title">{formatDate(m.logged_at)}</span>
-                <span className="sub" style={{ display: 'block' }}>
+                <span className="sub">
                   {[
                     m.weight_kg != null && `${m.weight_kg} кг`,
                     m.skeletal_muscle_kg != null && `мышцы ${m.skeletal_muscle_kg}`,
@@ -910,8 +908,7 @@ export function BodyCompositionView({
             без предупреждения его пропажа выглядела бы поломкой. */}
         {scans.length > 0 && (
           <button
-            className="btn danger block"
-            style={{ marginTop: 14 }}
+            className="btn danger block mt-4"
             disabled={wiping}
             onClick={async () => {
               if (!confirmWipe) {
@@ -1034,7 +1031,7 @@ function MetricInfoSheet({
             <>
               <div>{info.what}</div>
               <div>
-                <div style={{ fontWeight: 700, marginBottom: 6 }}>
+                <div style={{ fontWeight: 700, marginBottom: 8 }}>
                   Что влияет на {row.label.toLowerCase()}
                 </div>
                 <ul className="bullets">
@@ -1320,7 +1317,7 @@ function ManualMeasurementSheet({
               <span className="grow">
                 <span className="title">{f.label}</span>
                 {f.hint && (
-                  <span className="sub" style={{ display: 'block' }}>
+                  <span className="sub">
                     {f.hint}
                   </span>
                 )}

@@ -258,8 +258,7 @@ export function FoodPicker({
             <div className="empty" style={{ padding: 20 }}>
               Ничего не нашлось.
               <button
-                className="btn block"
-                style={{ marginTop: 12 }}
+                className="btn block mt-3"
                 onClick={() => setCreating({})}
               >
                 Создать «{query.trim()}»
@@ -297,7 +296,7 @@ function FoodRow({ food, onPick }: { food: FoodItem; onPick: (f: FoodItem) => vo
             </span>
           )}
         </span>
-        <span className="sub" style={{ display: 'block' }}>
+        <span className="sub">
           {food.brand ? `${food.brand} · ` : ''}
           {food.per100.kcal} ккал на 100 {food.unit}
         </span>

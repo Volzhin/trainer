@@ -27,21 +27,19 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
           </div>
           <div
             className="mute-sm"
-            style={{ marginTop: 10, wordBreak: 'break-word', fontFamily: 'var(--font-num)' }}
+            style={{ marginTop: 12, wordBreak: 'break-word', fontFamily: 'var(--font-num)' }}
           >
             {error.message}
           </div>
         </div>
         <button
-          className="btn primary block"
-          style={{ marginTop: 14 }}
+          className="btn primary block mt-4"
           onClick={() => this.setState({ error: null })}
         >
           Попробовать снова
         </button>
         <button
-          className="btn block"
-          style={{ marginTop: 8 }}
+          className="btn block mt-2"
           onClick={() => location.reload()}
         >
           Перезагрузить приложение

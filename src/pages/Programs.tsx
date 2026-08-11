@@ -126,7 +126,7 @@ export function Programs() {
       )}
 
       {!assigned && tab === 'catalog' && (
-        <div className="chips" style={{ marginTop: 6 }}>
+        <div className="chips mt-2">
           {GOALS.map((g) => (
             <button
               key={g}
@@ -139,7 +139,7 @@ export function Programs() {
         </div>
       )}
 
-      <div style={{ marginTop: 14 }} className="stack">
+      <div className="stack mt-4">
         {loading ? (
           <div className="stack">
             <div className="card skeleton" style={{ height: 76 }} />
@@ -213,12 +213,12 @@ export function Programs() {
                 )}
               </div>
               {p.description && (
-                <div className="muted" style={{ marginTop: 8 }}>
+                <div className="muted mt-2">
                   {p.description}
                 </div>
               )}
               {days.length > 0 && (
-                <div className="stack" style={{ marginTop: 12 }}>
+                <div className="stack mt-3">
                   {days
                     .sort((a, b) => a.day_order - b.day_order)
                     .map((d) => (
@@ -249,7 +249,7 @@ export function Programs() {
       </div>
 
       {!assigned && profile?.plan === 'FREE' && tab === 'mine' && (
-        <div className="card" style={{ marginTop: 16 }}>
+        <div className="card mt-4">
           <div className="row between">
             <div className="grow">
               <div className="strong">
@@ -262,8 +262,7 @@ export function Programs() {
             </div>
           </div>
           <button
-            className="btn primary block"
-            style={{ marginTop: 12 }}
+            className="btn primary block mt-3"
             onClick={() => nav('/profile')}
           >
             Подробнее о PRO

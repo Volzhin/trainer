@@ -105,7 +105,7 @@ export function ClientReports({ clientId }: { clientId: string }) {
   const doneTasks = tasks.filter((t) => t.status === 'done')
 
   return (
-    <div style={{ marginTop: 14 }}>
+    <div className="mt-4">
       <div className="stat-grid">
         <div className="stat">
           <div className="value" style={{ color: pending.length ? 'var(--warn)' : undefined }}>
@@ -199,8 +199,7 @@ export function ClientReports({ clientId }: { clientId: string }) {
               </div>
             )}
             <button
-              className="btn sm block"
-              style={{ marginTop: 12 }}
+              className="btn sm block mt-3"
               onClick={() => setTargetsOpen(true)}
             >
               Обновить цели
@@ -210,8 +209,7 @@ export function ClientReports({ clientId }: { clientId: string }) {
           <>
             <div className="muted">Цели на эту неделю не выданы.</div>
             <button
-              className="btn primary block"
-              style={{ marginTop: 14 }}
+              className="btn primary block mt-4"
               onClick={() => setTargetsOpen(true)}
             >
               Выдать цели
@@ -246,7 +244,7 @@ export function ClientReports({ clientId }: { clientId: string }) {
           ))}
         </Group>
       )}
-      <button className="btn block" style={{ marginTop: 12 }} onClick={() => setTaskOpen(true)}>
+      <button className="btn block mt-3" onClick={() => setTaskOpen(true)}>
         <IconPlus size={16} /> Выдать задание
       </button>
 
@@ -354,13 +352,13 @@ function ReviewSheet({
       <div className="mute-sm">{subject.subtitle}</div>
 
       {subject.comment && (
-        <div className="card" style={{ marginTop: 12 }}>
+        <div className="card mt-3">
           <div className="mute-sm">Что написал клиент</div>
-          <div style={{ marginTop: 4 }}>{subject.comment}</div>
+          <div className="mt-1">{subject.comment}</div>
         </div>
       )}
 
-      <div className="stack" style={{ marginTop: 14 }}>
+      <div className="stack mt-4">
         <div className="field">
           <label>Ответ клиенту</label>
           <textarea
@@ -416,7 +414,7 @@ function ActivityList({
             <div className="cap">сна в среднем</div>
           </div>
         </div>
-        <div className="mute-sm" style={{ marginTop: 12 }}>
+        <div className="mute-sm mt-3">
           Данные за {withData.length} {plural(withData.length, ['день', 'дня', 'дней'])} из{' '}
           {WINDOW_DAYS}
         </div>

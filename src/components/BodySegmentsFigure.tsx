@@ -101,7 +101,7 @@ export function BodySegmentsFigure({
   return (
     <div className="body-panel">
       {total != null && (
-        <div className="row between" style={{ marginBottom: 4 }}>
+        <div className="row between mb-1">
           <span className="mute-sm">
             {kind === 'muscle' ? 'Содержание мышц' : 'Содержание жира'}
           </span>

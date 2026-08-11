@@ -69,7 +69,7 @@ export function ConsentStep({
               onClick={() => setReading(doc.kind)}
             >
               <span className="title">{doc.title}</span>
-              <span className="sub" style={{ display: 'block' }}>
+              <span className="sub">
                 {doc.summary} · читать
               </span>
             </button>

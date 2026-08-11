@@ -66,7 +66,7 @@ export function MacroRings({
         {target == null ? 'цель не задана' : `цель ${target} ккал`}
       </div>
 
-      <div className="stack" style={{ gap: 12, marginTop: 18 }}>
+      <div className="stack" style={{ gap: 12, marginTop: 20 }}>
         {rows.map((r) => (
           <div key={r.label}>
             <div className="row between" style={{ marginBottom: 5 }}>

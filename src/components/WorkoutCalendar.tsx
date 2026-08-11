@@ -157,7 +157,7 @@ export function WorkoutCalendar() {
 
   return (
     <div>
-      <div className="row between" style={{ marginBottom: 12 }}>
+      <div className="row between mb-3">
         <div>
           <div style={{ fontWeight: 700, textTransform: 'capitalize' }}>{monthLabel}</div>
           <button
@@ -250,8 +250,7 @@ export function WorkoutCalendar() {
           )}
           {selected >= today && (
             <button
-              className="btn primary block"
-              style={{ marginTop: 14 }}
+              className="btn primary block mt-4"
               onClick={() => setStartOpen(true)}
             >
               <IconPlay size={17} /> Начать тренировку
@@ -270,7 +269,7 @@ export function WorkoutCalendar() {
                   {
                     width: '100%',
                     textAlign: 'left',
-                    marginBottom: 10,
+                    marginBottom: 12,
                     '--i': i,
                   } as React.CSSProperties
                 }
@@ -292,13 +291,12 @@ export function WorkoutCalendar() {
                   </span>
                 </div>
                 {s.notes && (
-                  <div className="mute-sm" style={{ marginTop: 8 }}>
+                  <div className="mute-sm mt-2">
                     {s.notes}
                   </div>
                 )}
                 <span
-                  className="btn sm block"
-                  style={{ marginTop: 12 }}
+                  className="btn sm block mt-3"
                   onClick={(e) => {
                     e.stopPropagation()
                     void repeat(s.id)
@@ -346,7 +344,7 @@ export function WorkoutCalendar() {
               </span>
               <span className="grow">
                 <span className="title">Следующая из программы</span>
-                <span className="sub" style={{ display: 'block' }}>
+                <span className="sub">
                   {nextRoutine.name}
                 </span>
               </span>
@@ -364,7 +362,7 @@ export function WorkoutCalendar() {
             </span>
             <span className="grow">
               <span className="title">Свободная тренировка</span>
-              <span className="sub" style={{ display: 'block' }}>
+              <span className="sub">
                 Упражнения добавите по ходу
               </span>
             </span>

@@ -38,7 +38,7 @@ export function AttachmentPlayer({
   if (!url) return null
 
   return (
-    <div style={{ marginTop: 8 }}>
+    <div className="mt-2">
       {attachment.kind === 'video' ? (
         <video
           src={url}
@@ -50,7 +50,7 @@ export function AttachmentPlayer({
       ) : (
         <img src={url} alt="Техника выполнения" style={{ width: '100%', borderRadius: 12 }} />
       )}
-      <div className="row between" style={{ marginTop: 6 }}>
+      <div className="row between mt-2">
         <span className="mute-sm">
           {attachment.kind === 'video' ? 'Видео' : 'Фото'} ·{' '}
           {(attachment.size / 1024 / 1024).toFixed(1)} МБ

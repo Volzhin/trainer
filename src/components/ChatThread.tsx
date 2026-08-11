@@ -69,7 +69,7 @@ export function ChatThread({
       {messages.length === 0 ? (
         <div className="empty">
           <IconChat size={22} />
-          <div style={{ marginTop: 8 }}>{emptyHint}</div>
+          <div className="mt-2">{emptyHint}</div>
         </div>
       ) : (
         <div className="chat-log" ref={logRef}>

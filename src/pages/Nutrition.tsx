@@ -77,7 +77,7 @@ export function Nutrition() {
         </button>
       </div>
 
-      <div className="cal-nav" style={{ marginBottom: 14 }}>
+      <div className="cal-nav mb-4">
         <button className="icon-btn" onClick={() => shiftDay(-1)} aria-label="Предыдущий день">
           <IconBack size={16} />
         </button>
@@ -107,9 +107,9 @@ export function Nutrition() {
         <MacroRings
           eaten={eaten}
           target={target}
-          macros={plan?.macros ?? { protein: 0, fat: 0, carbs: 0 }}
+          macros={plan?.macros ?? { protein: null, fat: null, carbs: null }}
         />
-        <div className="row between" style={{ marginTop: 16 }}>
+        <div className="row between mt-4">
           {target == null ? (
             <>
               <span className="mute-sm">Съедено</span>
@@ -133,9 +133,9 @@ export function Nutrition() {
       </div>
 
       {plan?.fromCoach && plan.profile.coach_note && (
-        <div className="card" style={{ marginTop: 10, borderColor: 'var(--accent)' }}>
+        <div className="card" style={{ marginTop: 12, borderColor: 'var(--accent)' }}>
           <div className="mute-sm">Комментарий тренера</div>
-          <div style={{ marginTop: 4 }}>{plan.profile.coach_note}</div>
+          <div className="mt-1">{plan.profile.coach_note}</div>
         </div>
       )}
 
@@ -157,7 +157,7 @@ export function Nutrition() {
                 <div className="group-row" key={l.id}>
                   <span className="grow">
                     <span className="title">{l.name}</span>
-                    <span className="sub" style={{ display: 'block' }}>
+                    <span className="sub">
                       {l.amount} {l.unit}
                       {l.brand ? ` · ${l.brand}` : ''} · Б {l.nutrients.protein} Ж{' '}
                       {l.nutrients.fat} У {l.nutrients.carbs}
@@ -193,11 +193,11 @@ export function Nutrition() {
           начинаться заново, а не переезжать с предыдущего. */}
       <NutritionDayReport key={date} date={date} />
 
-      <div className="group" style={{ marginTop: 18 }}>
+      <div className="group mt-5">
         <button className="group-row" onClick={() => nav('/nutrition/foods')}>
           <span className="grow">
             <span className="title">Мои продукты</span>
-            <span className="sub" style={{ display: 'block' }}>
+            <span className="sub">
               Домашние блюда и то, чего нет в базе
             </span>
           </span>

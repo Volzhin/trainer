@@ -48,7 +48,7 @@ export function Row({ icon, title, sub, value, onClick, chevron, danger, childre
           {title}
         </span>
         {sub && (
-          <span className="sub" style={{ display: 'block' }}>
+          <span className="sub">
             {sub}
           </span>
         )}

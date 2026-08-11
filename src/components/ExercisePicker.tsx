@@ -41,7 +41,7 @@ export function ExercisePicker({
 
   return (
     <Sheet open={open} title={title} onClose={onClose}>
-      <div className="search" style={{ marginBottom: 10 }}>
+      <div className="search mb-3">
         <IconSearch />
         <input
           className="input"
@@ -52,7 +52,7 @@ export function ExercisePicker({
         />
       </div>
 
-      <div className="chips" style={{ marginBottom: 12 }}>
+      <div className="chips mb-3">
         {['Все', ...facets.muscles].map((m) => (
           <button
             key={m}

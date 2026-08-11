@@ -140,11 +140,11 @@ export function CustomFoodForm({
           placeholder={computedKcal ? `${computedKcal} — посчитаем сами` : '0'}
         />
         {mismatch ? (
-          <div className="mute-sm" style={{ marginTop: 6, color: 'var(--warn)' }}>
+          <div className="mute-sm" style={{ marginTop: 8, color: 'var(--warn)' }}>
             По белкам, жирам и углеводам выходит {computedKcal} ккал. Проверьте упаковку.
           </div>
         ) : !kcal.trim() && computedKcal > 0 ? (
-          <div className="mute-sm" style={{ marginTop: 6 }}>
+          <div className="mute-sm mt-2">
             Оставьте пустым — запишем {computedKcal} ккал по макронутриентам.
           </div>
         ) : null}

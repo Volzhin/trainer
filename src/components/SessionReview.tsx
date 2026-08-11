@@ -82,16 +82,16 @@ export function SessionReview({
 
   return (
     <Sheet open={!!session} title={session.title} onClose={onClose}>
-      <div className="mute-sm" style={{ marginBottom: 12 }}>
+      <div className="mute-sm mb-3">
         {formatDateTime(session.start_time)} ·{' '}
         {formatDuration((session.end_time ?? session.start_time) - session.start_time)} ·{' '}
         {Math.round(totalVolume(sets ?? []))} кг
       </div>
 
       {session.notes && (
-        <div className="card" style={{ marginBottom: 12 }}>
+        <div className="card mb-3">
           <div className="mute-sm">Заметка клиента</div>
-          <div style={{ marginTop: 4 }}>{session.notes}</div>
+          <div className="mt-1">{session.notes}</div>
         </div>
       )}
 
@@ -106,7 +106,7 @@ export function SessionReview({
           0,
         )
         return (
-          <div className="ex-block" key={seq} style={{ marginBottom: 10 }}>
+          <div className="ex-block" key={seq} style={{ marginBottom: 12 }}>
             <div className="ex-head">
               <div className="grow">
                 <div className="truncate strong">
@@ -177,8 +177,7 @@ export function SessionReview({
         placeholder="Общий комментарий: самочувствие, нагрузка, что меняем"
       />
       <button
-        className="btn primary block"
-        style={{ marginTop: 10 }}
+        className="btn primary block mt-3"
         disabled={busy || !text.trim()}
         onClick={send}
       >
@@ -291,7 +290,7 @@ function ExerciseReview({
       </div>
 
       {open ? (
-        <div className="stack" style={{ marginTop: 8 }}>
+        <div className="stack mt-2">
           <textarea
             className="textarea"
             style={{ minHeight: 64 }}
@@ -310,7 +309,7 @@ function ExerciseReview({
           </div>
         </div>
       ) : (
-        <button className="btn sm block" style={{ marginTop: 8 }} onClick={() => setOpen(true)}>
+        <button className="btn sm block mt-2" onClick={() => setOpen(true)}>
           <IconChat size={15} />
           {videos.length ? 'Разобрать технику' : 'Комментарий к упражнению'}
         </button>

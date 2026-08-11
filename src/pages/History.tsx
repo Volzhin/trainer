@@ -60,7 +60,7 @@ export function History() {
                 </span>
                 <span className="grow">
                   <span className="title">{s.title}</span>
-                  <span className="sub" style={{ display: 'block' }}>
+                  <span className="sub">
                     {formatDate(s.start_time)} · {sets.length}{' '}
                     {plural(sets.length, ['подход', 'подхода', 'подходов'])} ·{' '}
                     {Math.round(totalVolume(sets))} кг ·{' '}

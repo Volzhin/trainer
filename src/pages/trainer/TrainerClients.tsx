@@ -137,8 +137,7 @@ export function TrainerClients() {
           <br />
           Выпустите код приглашения и передайте его клиенту.
           <button
-            className="btn primary block"
-            style={{ marginTop: 16 }}
+            className="btn primary block mt-4"
             onClick={() => setInviteOpen(true)}
           >
             Пригласить клиента
@@ -154,8 +153,7 @@ export function TrainerClients() {
           return (
             <div
               key={c.link.id}
-              className="card tap"
-              style={{ marginBottom: 10 }}
+              className="card tap mb-3"
               onClick={() => nav(`/trainer/clients/${c.client.id}`)}
             >
               <div className="row">
@@ -197,8 +195,8 @@ export function TrainerClients() {
               </div>
 
               {c.assignedProgramName ? (
-                <div style={{ marginTop: 10 }}>
-                  <div className="row between mute-sm" style={{ marginBottom: 4 }}>
+                <div className="mt-3">
+                  <div className="row between mute-sm mb-1">
                     <span className="truncate">{c.assignedProgramName}</span>
                     <span style={{ flex: '0 0 auto' }}>
                       {c.sessionsThisWeek} / {c.weeklyTarget} за неделю
@@ -217,8 +215,7 @@ export function TrainerClients() {
                 /* Клиент без программы — главное, что требует действия тренера,
                    поэтому призыв стоит прямо в строке, а не внутри карточки. */
                 <button
-                  className="btn sm primary block"
-                  style={{ marginTop: 12 }}
+                  className="btn sm primary block mt-3"
                   onClick={(e) => {
                     e.stopPropagation()
                     nav(`/trainer/clients/${c.client.id}?assign=1`)

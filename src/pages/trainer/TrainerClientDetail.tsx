@@ -140,7 +140,7 @@ export function TrainerClientDetail() {
 
       {tab === 'overview' && (
         <>
-          <div className="stat-grid" style={{ marginTop: 14 }}>
+          <div className="stat-grid mt-4">
             <div className="stat">
               <div className="value">{sessions.length}</div>
               <div className="label">тренировок</div>
@@ -176,7 +176,7 @@ export function TrainerClientDetail() {
                 </button>
               ))}
             </div>
-            <div className="mute-sm" style={{ marginTop: 10 }}>
+            <div className="mute-sm mt-3">
               {modeOf(link) === 'online'
                 ? 'Клиент сдаёт видео-отчёты, вы разбираете технику по записи.'
                 : 'Видео-отчёт не запрашивается — технику вы видите на занятии.'}
@@ -226,7 +226,7 @@ export function TrainerClientDetail() {
                   </div>
                 </div>
                 {assignment.note && (
-                  <div className="muted" style={{ marginTop: 8 }}>
+                  <div className="muted mt-2">
                     {assignment.note}
                   </div>
                 )}
@@ -248,12 +248,11 @@ export function TrainerClientDetail() {
             ) : (
               <>
                 <div className="strong">Программа не назначена</div>
-                <div className="muted" style={{ marginTop: 4 }}>
+                <div className="muted mt-1">
                   Клиент не увидит план тренировок, пока вы не назначите программу.
                 </div>
                 <button
-                  className="btn primary block"
-                  style={{ marginTop: 14 }}
+                  className="btn primary block mt-4"
                   onClick={() => setAssignOpen(true)}
                 >
                   <IconPlus size={17} /> Назначить программу
@@ -314,7 +313,7 @@ export function TrainerClientDetail() {
             <LineChart data={weightPoints} unit=" кг" color="var(--ok)" />
           </div>
 
-          <button className="btn ghost danger block" style={{ marginTop: 20 }} onClick={unlink}>
+          <button className="btn ghost danger block mt-5" onClick={unlink}>
             Прекратить работу с клиентом
           </button>
           <div className="mute-sm" style={{ textAlign: 'center', marginTop: 8 }}>
@@ -324,13 +323,13 @@ export function TrainerClientDetail() {
       )}
 
       {tab === 'body' && (
-        <div style={{ marginTop: 4 }}>
+        <div className="mt-1">
           <BodyCompositionView userId={id} subject="client" />
         </div>
       )}
 
       {tab === 'history' && (
-        <div style={{ marginTop: 14 }}>
+        <div className="mt-4">
           {sessions.length === 0 && <div className="empty">Тренировок пока нет</div>}
           {sessions.map((s) => {
             const sets = (allSets ?? []).filter((x) => x.workout_session_id === s.id)
@@ -353,7 +352,7 @@ export function TrainerClientDetail() {
                   </button>
                 </div>
                 {s.notes && (
-                  <div className="mute-sm" style={{ marginTop: 8 }}>
+                  <div className="mute-sm mt-2">
                     Заметка клиента: {s.notes}
                   </div>
                 )}
@@ -367,7 +366,7 @@ export function TrainerClientDetail() {
       {/* Тот же разбор, что видит клиент: тренер должен смотреть на те же
           цифры, иначе они спорят о разных отчётах. */}
       {tab === 'progress' && (
-        <div style={{ marginTop: 14 }}>
+        <div className="mt-4">
           <ProgressView userId={id} readOnly />
         </div>
       )}
@@ -387,7 +386,7 @@ export function TrainerClientDetail() {
       {tab === 'nutrition' && <ClientNutrition clientId={id} />}
 
       {tab === 'notes' && (
-        <div style={{ marginTop: 14 }}>
+        <div className="mt-4">
           <button className="btn block" onClick={() => setNoteOpen(true)}>
             <IconPlus size={16} /> Добавить заметку
           </button>
@@ -407,7 +406,7 @@ export function TrainerClientDetail() {
                   <IconTrash size={15} />
                 </button>
               </div>
-              <div style={{ marginTop: 6 }}>{n.text}</div>
+              <div className="mt-2">{n.text}</div>
             </div>
           ))}
         </div>
@@ -592,7 +591,7 @@ function SessionFeedback({ sessionId }: { sessionId: string }) {
   const withText = (rows ?? []).filter((f) => f.text.trim())
   if (!withText.length) return null
   return (
-    <div style={{ marginTop: 10 }}>
+    <div className="mt-3">
       {withText.map((f) => (
         <div
           key={f.id}
@@ -729,7 +728,7 @@ function AssignSheet({
 
   return (
     <Sheet open={open} title={`Программа для ${clientName}`} onClose={onClose}>
-      <div className="segmented" style={{ marginBottom: 14 }}>
+      <div className="segmented mb-4">
         <button className={mode === 'ready' ? 'on' : ''} onClick={() => setMode('ready')}>
           Готовая
         </button>
@@ -752,7 +751,7 @@ function AssignSheet({
                 >
                   <span className="grow">
                     <span className="title">{p.name}</span>
-                    <span className="sub" style={{ display: 'block' }}>
+                    <span className="sub">
                       {p.goal} · {count} {plural(count, ['день', 'дня', 'дней'])}
                       {p.author_id === userId ? ' · моя' : ''}
                     </span>
@@ -786,7 +785,7 @@ function AssignSheet({
                 )
               })}
             </div>
-            <div className="mute-sm" style={{ marginTop: 8 }}>
+            <div className="mute-sm mt-2">
               {schedule.length
                 ? `${schedule.length} ${plural(schedule.length, ['тренировка', 'тренировки', 'тренировок'])} в неделю`
                 : 'Выберите хотя бы один день'}

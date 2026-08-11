@@ -62,7 +62,7 @@ export function ExerciseDetail() {
         </div>
       </div>
 
-      <div className="tagline" style={{ marginBottom: 14, marginTop: -6 }}>
+      <div className="tagline" style={{ marginBottom: 16, marginTop: -6 }}>
         <span className="tag accent">{exercise.muscle_group}</span>
         <span className="tag">{exercise.equipment}</span>
         {exercise.exercise_type && <span className="tag">{exercise.exercise_type}</span>}
@@ -84,7 +84,7 @@ export function ExerciseDetail() {
         </>
       )}
 
-      <div className="group" style={{ marginTop: 12 }}>
+      <div className="group mt-3">
         {exercise.secondary && exercise.secondary.length > 0 && (
           <div className="group-row">
             <span className="grow title">Ещё работают</span>
@@ -121,7 +121,7 @@ export function ExerciseDetail() {
       <div className="section-title">Прогресс 1ПМ</div>
       <div className="card">
         {chart.length > 0 && (
-          <div className="row between" style={{ marginBottom: 4 }}>
+          <div className="row between mb-1">
             <span className="muted">Расчётный максимум</span>
             <strong>{Math.round(pr)} кг</strong>
           </div>

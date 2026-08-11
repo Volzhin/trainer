@@ -247,8 +247,7 @@ export function ProgressView({
           <div className="section-title">Тело</div>
           <BodyCompositionCard userId={userId} onOpen={() => nav('/body')} />
           <button
-            className="btn block"
-            style={{ marginTop: 10 }}
+            className="btn block mt-3"
             onClick={() => setMetricOpen(true)}
           >
             Записать замер вручную

@@ -89,9 +89,9 @@ export function SessionDetail() {
       </div>
 
       {session.notes && (
-        <div className="card" style={{ marginTop: 12 }}>
+        <div className="card mt-3">
           <div className="mute-sm">Заметка</div>
-          <div style={{ marginTop: 4 }}>{session.notes}</div>
+          <div className="mt-1">{session.notes}</div>
         </div>
       )}
 
@@ -102,7 +102,7 @@ export function SessionDetail() {
             .filter((c) => !c.exercise_id && c.text.trim())
             .map((c) => (
               <div className="card" key={c.id} style={{ borderColor: 'var(--accent)' }}>
-                <div className="row" style={{ marginBottom: 6 }}>
+                <div className="row mb-2">
                   <IconChat size={16} />
                   <span className="mute-sm">{formatDateTime(c.created_at)}</span>
                 </div>
@@ -116,8 +116,8 @@ export function SessionDetail() {
           Подсказка нужна, чтобы человек знал: тренировка закрыта, но отчёт
           ещё можно дослать. */}
       {videoReport && (attachments ?? []).length === 0 && (
-        <div className="card" style={{ marginTop: 12 }}>
-          <div className="row" style={{ marginBottom: 4 }}>
+        <div className="card mt-3">
+          <div className="row mb-1">
             <IconVideo size={16} />
             <span className="strong">Видеоотчёт</span>
           </div>

@@ -354,7 +354,7 @@ export function LineChart({
 export function BarChart({ data, labels }: { data: number[]; labels: string[] }) {
   const max = Math.max(1, ...data)
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 130, marginTop: 6 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 130, marginTop: 8 }}>
       {data.map((v, i) => (
         <div key={i} style={{ flex: 1, textAlign: 'center' }}>
           <div

@@ -66,7 +66,7 @@ export function BodyCompositionCard({
                 : 'Загрузите отчёт InBody — разберём мышцы, жир, воду и нормы'}
             </div>
             {lastWeight?.weight_kg != null && (
-              <div className="mute-sm" style={{ marginTop: 6 }}>
+              <div className="mute-sm mt-2">
                 Последний вес: {lastWeight.weight_kg} кг · {formatDate(lastWeight.logged_at)}
               </div>
             )}
@@ -130,7 +130,7 @@ export function BodyCompositionCard({
         </div>
       )}
 
-      <div className="metrics" style={{ marginTop: 12 }}>
+      <div className="metrics mt-3">
         <Stat
           label="Вес"
           unit="кг"

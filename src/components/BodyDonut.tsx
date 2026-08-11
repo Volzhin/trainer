@@ -160,7 +160,7 @@ export function BodyDonut({ parts, centerLabel, centerValue, status, statusKind 
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(88px, 1fr))',
           gap: '18px 10px',
-          marginTop: 22,
+          marginTop: 24,
         }}
       >
         {arcs.map((a, i) => (

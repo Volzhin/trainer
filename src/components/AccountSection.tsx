@@ -35,7 +35,7 @@ export function AccountSection() {
         >
           <span className="grow">
             <span className="title">Войти или зарегистрироваться</span>
-            <span className="sub" style={{ display: 'block' }}>
+            <span className="sub">
               Сейчас данные лежат только на этом устройстве
             </span>
           </span>
@@ -108,7 +108,7 @@ export function AccountSection() {
         <button className="group-row" onClick={sync} disabled={busy}>
           <span className="grow">
             <span className="title">{user.email}</span>
-            <span className="sub" style={{ display: 'block' }}>
+            <span className="sub">
               {busy ? 'Синхронизация…' : 'Нажмите, чтобы синхронизировать сейчас'}
             </span>
           </span>
@@ -119,7 +119,7 @@ export function AccountSection() {
             <span className="title">
               {isTrainer ? 'Перейти в режим занимающегося' : 'Перейти в режим тренера'}
             </span>
-            <span className="sub" style={{ display: 'block' }}>
+            <span className="sub">
               {isTrainer
                 ? 'Свой дневник, замеры и питание'
                 : 'Клиенты, программы и обратная связь'}
@@ -130,7 +130,7 @@ export function AccountSection() {
         <button className="group-row" onClick={exit}>
           <span className="grow">
             <span className="title">Выйти</span>
-            <span className="sub" style={{ display: 'block' }}>
+            <span className="sub">
               Данные останутся на сервере
             </span>
           </span>
@@ -139,7 +139,7 @@ export function AccountSection() {
         <button className="group-row danger" onClick={() => setConfirmOpen(true)}>
           <span className="grow">
             <span className="title">Удалить аккаунт</span>
-            <span className="sub" style={{ display: 'block' }}>
+            <span className="sub">
               Безвозвратно, вместе со всеми данными
             </span>
           </span>

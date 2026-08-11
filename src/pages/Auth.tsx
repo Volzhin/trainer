@@ -110,7 +110,7 @@ export function Auth({ onReady }: { onReady: () => void }) {
               Тренирую
             </button>
           </div>
-          <div className="mute-sm" style={{ marginTop: 6 }}>
+          <div className="mute-sm mt-2">
             {role === 'client'
               ? 'Дневник тренировок, замеры и питание.'
               : 'Кабинет с клиентами, программами и обратной связью.'}
@@ -207,7 +207,7 @@ export function Auth({ onReady }: { onReady: () => void }) {
       <button className="group-row auth-demo" onClick={demo}>
         <span className="grow">
           <span className="title">Посмотреть без регистрации</span>
-          <span className="sub" style={{ display: 'block' }}>
+          <span className="sub">
             Демо-данные на этом устройстве, ничего не уходит на сервер
           </span>
         </span>

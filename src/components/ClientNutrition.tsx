@@ -47,8 +47,8 @@ export function ClientNutrition({ clientId }: { clientId: string }) {
   }
 
   return (
-    <div style={{ marginTop: 14 }}>
-      <div className="segmented" style={{ marginBottom: 12 }}>
+    <div className="mt-4">
+      <div className="segmented mb-3">
         {[7, 14, 30].map((d) => (
           <button key={d} className={period === d ? 'on' : ''} onClick={() => setPeriod(d)}>
             {d} дней
@@ -92,7 +92,7 @@ export function ClientNutrition({ clientId }: { clientId: string }) {
               </div>
             </div>
 
-            <div className="row between" style={{ marginTop: 16, marginBottom: 6 }}>
+            <div className="row between" style={{ marginTop: 16, marginBottom: 8 }}>
               <span className="mute-sm">Дней с записями</span>
               <span className="mute-sm figures">
                 {summary.daysLogged} из {summary.daysTotal}
@@ -102,7 +102,7 @@ export function ClientNutrition({ clientId }: { clientId: string }) {
               <i style={{ width: `${(summary.daysLogged / summary.daysTotal) * 100}%` }} />
             </div>
             {summary.daysLogged < summary.daysTotal / 2 && (
-              <div className="mute-sm" style={{ marginTop: 10, color: 'var(--warn)' }}>
+              <div className="mute-sm" style={{ marginTop: 12, color: 'var(--warn)' }}>
                 Дневник заполняется реже половины дней — средние значения и расчёт расхода по
                 ним ненадёжны.
               </div>
@@ -172,7 +172,7 @@ export function ClientNutrition({ clientId }: { clientId: string }) {
                 {plan.profile.coach_note}
               </div>
             )}
-            <div className="row" style={{ gap: 8, marginTop: 14 }}>
+            <div className="row" style={{ gap: 8, marginTop: 16 }}>
               <button className="btn sm grow" onClick={() => setAssignOpen(true)}>
                 Изменить
               </button>
@@ -196,8 +196,7 @@ export function ClientNutrition({ clientId }: { clientId: string }) {
                 : ' по формуле, данных пока мало.'}
             </div>
             <button
-              className="btn primary block"
-              style={{ marginTop: 14 }}
+              className="btn primary block mt-4"
               onClick={() => setAssignOpen(true)}
             >
               Назначить свою норму

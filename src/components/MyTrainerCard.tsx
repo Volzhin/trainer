@@ -64,20 +64,19 @@ export function MyTrainerCard() {
                 </div>
               </div>
             </div>
-            <div style={{ marginTop: 14 }}>
+            <div className="mt-4">
               <ContactLinks
                 profile={bond.trainer}
                 title="Написать"
                 emptyHint="Тренер ещё не указал, где с ним связаться."
               />
             </div>
-            <div className="mute-sm" style={{ marginTop: 10 }}>
+            <div className="mute-sm mt-3">
               Тренер видит вашу историю тренировок, прогресс и замеры тела. Личные настройки
               приложения и другие тренеры ему недоступны.
             </div>
             <button
-              className="btn ghost danger block"
-              style={{ marginTop: 12 }}
+              className="btn ghost danger block mt-3"
               onClick={unlink}
             >
               Отключить тренера
@@ -90,8 +89,7 @@ export function MyTrainerCard() {
               комментировать тренировки.
             </div>
             <button
-              className="btn primary block"
-              style={{ marginTop: 12 }}
+              className="btn primary block mt-3"
               onClick={() => setOpen(true)}
             >
               Ввести код тренера

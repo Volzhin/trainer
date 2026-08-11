@@ -125,7 +125,7 @@ export function ProgramDetail() {
           </div>
 
           {myPlan && (
-            <div className="weekday-row" style={{ marginTop: 14 }}>
+            <div className="weekday-row mt-4">
               {WEEKDAYS.map((label, wd) => {
                 const on = myPlan.assignment.schedule?.some((s) => s.weekday === wd)
                 return (
@@ -147,7 +147,7 @@ export function ProgramDetail() {
 
         return (
           <div key={routine.id} style={{ marginTop: 16 }}>
-            <div className="row between" style={{ marginBottom: 8 }}>
+            <div className="row between mb-2">
               <div className="strong">{routine.name}</div>
               <button
                 className="btn sm primary"
@@ -254,8 +254,7 @@ export function ProgramDetail() {
 
       {editable && (
         <button
-          className="btn block"
-          style={{ marginTop: 16 }}
+          className="btn block mt-4"
           onClick={async () => {
             const count = (routines ?? []).length
             await createRoutine(id, `День ${count + 1}`)
@@ -402,7 +401,7 @@ function PlanSheet({
               )
             })}
           </div>
-          <div className="mute-sm" style={{ marginTop: 8 }}>
+          <div className="mute-sm mt-2">
             {schedule.length
               ? `${schedule.length} ${plural(schedule.length, ['тренировка', 'тренировки', 'тренировок'])} в неделю`
               : 'Выберите хотя бы один день'}

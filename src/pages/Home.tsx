@@ -51,8 +51,7 @@ export function Home() {
 
       {active && (
         <button
-          className="btn primary block"
-          style={{ marginBottom: 16 }}
+          className="btn primary block mb-4"
           onClick={() => nav(`/session/${active.id}`)}
         >
           <IconPlay size={18} /> Вернуться к тренировке
@@ -64,8 +63,7 @@ export function Home() {
           формы для них здесь нет. */}
       {todo.length > 0 && (
         <button
-          className="list-item"
-          style={{ marginBottom: 16 }}
+          className="list-item mb-4"
           onClick={() => nav('/reports')}
         >
           <div className="grow">
@@ -97,7 +95,7 @@ export function Home() {
             {/* Дни недели с планом: клиенту важно знать, когда он тренируется,
                 а не только сколько раз. */}
             {assigned.assignment.schedule?.length ? (
-              <div className="weekday-row" style={{ marginTop: 14 }}>
+              <div className="weekday-row mt-4">
                 {['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'].map((label, wd) => {
                   const on = assigned.assignment.schedule?.some((sl) => sl.weekday === wd)
                   return (
@@ -110,7 +108,7 @@ export function Home() {
               </div>
             ) : null}
 
-            <div className="row between" style={{ marginTop: 16, marginBottom: 6 }}>
+            <div className="row between" style={{ marginTop: 16, marginBottom: 8 }}>
               <span className="mute-sm">На этой неделе</span>
               <span className="mute-sm figures">
                 {assigned.doneThisWeek} из {assigned.assignment.weekly_target}
@@ -137,8 +135,7 @@ export function Home() {
             )}
 
             <button
-              className="btn sm block"
-              style={{ marginTop: 14 }}
+              className="btn sm block mt-4"
               onClick={() => nav('/programs')}
             >
               Открыть программу

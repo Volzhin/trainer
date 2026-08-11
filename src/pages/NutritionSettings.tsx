@@ -63,7 +63,7 @@ export function NutritionSettings() {
           </div>
         </div>
 
-        <div className="muted" style={{ marginTop: 14 }}>
+        <div className="muted mt-4">
           {adaptive ? (
             <>
               Расход выведен из того, сколько вы ели и как менялся вес за последние{' '}
@@ -80,10 +80,10 @@ export function NutritionSettings() {
           )}
         </div>
 
-        <div className="bar" style={{ marginTop: 12 }}>
+        <div className="bar mt-3">
           <i style={{ width: `${Math.round(plan.expenditure.confidence * 100)}%` }} />
         </div>
-        <div className="mute-sm" style={{ marginTop: 6 }}>
+        <div className="mute-sm mt-2">
           Точность расчёта · {Math.round(plan.expenditure.confidence * 100)}%
         </div>
       </div>
@@ -93,7 +93,7 @@ export function NutritionSettings() {
           <div className="section-title">Тренд расхода</div>
           <div className="card">
             <LineChart data={trend} unit=" ккал" />
-            <div className="mute-sm" style={{ textAlign: 'center', marginTop: 6 }}>
+            <div className="mute-sm" style={{ textAlign: 'center', marginTop: 8 }}>
               Как менялся ваш обмен веществ
             </div>
           </div>
@@ -103,7 +103,7 @@ export function NutritionSettings() {
       {plan.fromCoach && (
         <div className="card" style={{ marginTop: 12, borderColor: 'var(--accent)' }}>
           <div className="strong">Норму назначил тренер</div>
-          <div className="muted" style={{ marginTop: 4 }}>
+          <div className="muted mt-1">
             Цель и макросы заданы им, поэтому расчёт приложения на них не влияет. Свои настройки
             заработают, когда тренер снимет норму.
           </div>
@@ -124,8 +124,8 @@ export function NutritionSettings() {
       </div>
 
       {plan.profile.goal !== 'maintain' && (
-        <div className="card" style={{ marginTop: 10 }}>
-          <div className="row between" style={{ marginBottom: 8 }}>
+        <div className="card mt-3">
+          <div className="row between mb-2">
             <span className="mute-sm">Скорость, кг в неделю</span>
             <span className="figures strong">
               {plan.profile.weekly_change_kg}
@@ -162,7 +162,7 @@ export function NutritionSettings() {
             >
               <span className="grow">
                 <span className="title">{preset.label}</span>
-                <span className="sub" style={{ display: 'block' }}>
+                <span className="sub">
                   Б {Math.round(preset.split.protein * 100)}% · Ж{' '}
                   {Math.round(preset.split.fat * 100)}% · У{' '}
                   {Math.round(preset.split.carbs * 100)}%
@@ -190,7 +190,7 @@ export function NutritionSettings() {
               >
                 <span className="grow">
                   <span className="title">{a.label}</span>
-                  <span className="sub" style={{ display: 'block' }}>
+                  <span className="sub">
                     {a.hint}
                   </span>
                 </span>
@@ -205,7 +205,7 @@ export function NutritionSettings() {
         <div className="muted">
           Если по своим наблюдениям расход отличается — сместите его вручную.
         </div>
-        <div className="segmented" style={{ marginTop: 12 }}>
+        <div className="segmented mt-3">
           {[-200, -100, 0, 100, 200].map((v) => (
             <button
               key={v}

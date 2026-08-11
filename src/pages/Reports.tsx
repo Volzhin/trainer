@@ -144,7 +144,7 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
             <button className="group-row" onClick={() => setWeightOpen(true)}>
               <span className="grow">
                 <span className="title">Сдать вес</span>
-                <span className="sub" style={{ display: 'block' }}>
+                <span className="sub">
                   {lastWeight == null
                     ? 'ещё не вносили'
                     : `последний — ${formatWeight(lastWeight.weight_kg)} кг, ${formatDate(lastWeight.logged_at)}`}
@@ -157,7 +157,7 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
             <button className="group-row" onClick={() => nav('/body')}>
               <span className="grow">
                 <span className="title">Сдать еженедельные замеры</span>
-                <span className="sub" style={{ display: 'block' }}>
+                <span className="sub">
                   Обхваты и процент жира
                 </span>
               </span>
@@ -168,7 +168,7 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
             <button className="group-row" onClick={() => nav('/body')}>
               <span className="grow">
                 <span className="title">Сдать InBody</span>
-                <span className="sub" style={{ display: 'block' }}>
+                <span className="sub">
                   Загрузить PDF отчёта
                 </span>
               </span>
@@ -388,18 +388,17 @@ function ActivityCard({ date, userId }: { date: string; userId: string }) {
           появляется. Когда приложение упакуют в нативную обёртку и
           провайдера подменят, кнопка возникнет сама — см. lib/health.ts. */}
       {canImport ? (
-        <div className="mute-sm" style={{ marginTop: 10 }}>
+        <div className="mute-sm mt-3">
           Можно подтянуть из «{healthProvider().name}» или ввести руками.
         </div>
       ) : (
-        <div className="mute-sm" style={{ marginTop: 10 }}>
+        <div className="mute-sm mt-3">
           Вводится вручную — приложению в браузере шаги и сон не отдаёт ни одна система.
         </div>
       )}
 
       <button
-        className="btn primary block"
-        style={{ marginTop: 12 }}
+        className="btn primary block mt-3"
         disabled={!dirty || !valid}
         onClick={save}
       >
@@ -449,7 +448,7 @@ function TaskSheet({ task, onClose }: { task: ClientTask | null; onClose: () => 
     <Sheet open={!!task} title={task.title} onClose={onClose}>
       {task.description && <div className="muted">{task.description}</div>}
 
-      <div className="stack" style={{ marginTop: 14 }}>
+      <div className="stack mt-4">
         <div className="field">
           <label>{needsText ? 'Ваш ответ' : 'Комментарий тренеру, если нужен'}</label>
           <textarea
@@ -490,9 +489,9 @@ function TaskSheet({ task, onClose }: { task: ClientTask | null; onClose: () => 
 function TrainerReply({ text }: { text?: string }) {
   if (!text) return null
   return (
-    <div className="card" style={{ marginTop: 12 }}>
+    <div className="card mt-3">
       <div className="mute-sm">Ответ тренера</div>
-      <div style={{ marginTop: 4 }}>{text}</div>
+      <div className="mt-1">{text}</div>
     </div>
   )
 }
@@ -534,7 +533,7 @@ function WorkoutReportSheet({
 
       <TrainerReply text={report?.trainer_comment} />
 
-      <div className="stack" style={{ marginTop: 14 }}>
+      <div className="stack mt-4">
         <div className="field">
           <label>Как прошла тренировка</label>
           <textarea

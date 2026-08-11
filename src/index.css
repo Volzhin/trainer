@@ -262,20 +262,27 @@ a {
   white-space: nowrap;
 }
 
-/* Утилиты отступов по шкале токенов — вместо произвольных чисел в style=. */
-.mt-1 { margin-top: var(--space-1); }
-.mt-2 { margin-top: var(--space-2); }
-.mt-3 { margin-top: var(--space-3); }
-.mt-4 { margin-top: var(--space-4); }
-.mt-5 { margin-top: var(--space-5); }
-.mt-6 { margin-top: var(--space-6); }
-.mt-8 { margin-top: var(--space-8); }
-.mb-1 { margin-bottom: var(--space-1); }
-.mb-2 { margin-bottom: var(--space-2); }
-.mb-3 { margin-bottom: var(--space-3); }
-.mb-4 { margin-bottom: var(--space-4); }
-.mb-5 { margin-bottom: var(--space-5); }
-.mb-6 { margin-bottom: var(--space-6); }
+/* Утилиты отступов по шкале токенов — вместо произвольных чисел в style=.
+ *
+ * !important здесь по делу, а не от лени. Утилита состоит из одного класса,
+ * и любое правило из двух — например «.card + .card { margin-top: 10px }» —
+ * перебивает её по специфичности. Отступ, выставленный в разметке, при этом
+ * молча не применяется: класс на месте, эффекта нет, и понять это можно
+ * только инспектором. Утилита, которая иногда не работает, хуже, чем её
+ * отсутствие, поэтому в этой группе она обязана выигрывать всегда. */
+.mt-1 { margin-top: var(--space-1) !important; }
+.mt-2 { margin-top: var(--space-2) !important; }
+.mt-3 { margin-top: var(--space-3) !important; }
+.mt-4 { margin-top: var(--space-4) !important; }
+.mt-5 { margin-top: var(--space-5) !important; }
+.mt-6 { margin-top: var(--space-6) !important; }
+.mt-8 { margin-top: var(--space-8) !important; }
+.mb-1 { margin-bottom: var(--space-1) !important; }
+.mb-2 { margin-bottom: var(--space-2) !important; }
+.mb-3 { margin-bottom: var(--space-3) !important; }
+.mb-4 { margin-bottom: var(--space-4) !important; }
+.mb-5 { margin-bottom: var(--space-5) !important; }
+.mb-6 { margin-bottom: var(--space-6) !important; }
 .text-center { text-align: center; }
 .text-right { text-align: right; }
 
@@ -1162,6 +1169,14 @@ button.group-row:active {
 
 .group-row .title {
   font-size: 15px;
+}
+
+/* Подпись под заголовком строки. Блочная сама: её ставят вторым уровнем
+   в строке списка, и раньше каждый из двадцати восьми вызовов дописывал
+   display: block инлайном — один пропуск, и подпись уезжала в ту же
+   строку, что и заголовок. */
+.sub {
+  display: block;
 }
 
 .group-row .sub {

@@ -100,7 +100,7 @@ export function NutritionDayReport({ date }: { date: string }) {
           </div>
         </div>
 
-        <div className="field" style={{ marginTop: 12 }}>
+        <div className="field mt-3">
           <label>Комментарий</label>
           <textarea
             className="textarea"
@@ -111,8 +111,7 @@ export function NutritionDayReport({ date }: { date: string }) {
         </div>
 
         <button
-          className="btn primary block"
-          style={{ marginTop: 12 }}
+          className="btn primary block mt-3"
           disabled={busy}
           onClick={send}
         >
