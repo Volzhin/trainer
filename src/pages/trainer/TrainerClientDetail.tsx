@@ -1,35 +1,26 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, modeOf, type Program, type TrainerLink, type WorkoutSession } from '../../db/db'
+import { db, modeOf, type Program, type TrainerLink } from '../../db/db'
 import {
-  addTrainerNote,
   assignProgram,
-  cancelAssignment,
-  deleteTrainerNote,
-  listTrainerNotes,
   createPersonalProgram,
-  deletePersonalProgram,
   loadClientDetail,
-  personalProgramsFor,
   removeLink,
   setLinkMode,
   setLinkPayment,
 } from '../../db/coach'
-import { BarChart, LineChart } from '../../components/LineChart'
+import { LineChart } from '../../components/LineChart'
 import { ContactLinks } from '../../components/ContactLinks'
-import { BodyCompositionCard } from '../../components/BodyCompositionCard'
 import { BodyCompositionView } from '../../components/BodyCompositionView'
 import { Sheet } from '../../components/Sheet'
-import { Group, Row } from '../../components/Group'
-import { SessionReview } from '../../components/SessionReview'
 import { ClientNutrition } from '../../components/ClientNutrition'
 import { ClientReports } from '../../components/ClientReports'
-import { pendingReviewCount, tasksOf } from '../../db/reports'
+import { pendingReviewCount, tasksOf, weekProgress } from '../../db/reports'
 import { ChatThread } from '../../components/ChatThread'
-import { ProgressView } from '../../components/ProgressView'
-import { IconBack, IconCheck, IconPlus, IconTrash } from '../../components/Icons'
-import { formatDate, formatDuration, plural, startOfDay, totalVolume } from '../../lib/calc'
+import { ClientWorkouts } from '../../components/ClientWorkouts'
+import { IconBack, IconCheck } from '../../components/Icons'
+import { formatDate, plural, startOfDay } from '../../lib/calc'
 import { useApp } from '../../store/app'
 
 /**
@@ -43,13 +34,11 @@ import { useApp } from '../../store/app'
  */
 const TABS = [
   ['overview', 'Профиль'],
-  ['progress', 'Прогресс'],
-  ['nutrition', 'Питание'],
   ['history', 'Тренировки'],
-  ['chat', 'Чат'],
+  ['nutrition', 'Питание'],
   ['reports', 'Отчёты'],
   ['body', 'Тело'],
-  ['notes', 'Заметки'],
+  ['chat', 'Чат'],
 ] as const
 
 type Tab = (typeof TABS)[number][0]
@@ -65,8 +54,6 @@ export function TrainerClientDetail() {
     return TABS.some(([key]) => key === asked) ? (asked as Tab) : 'overview'
   })
   const [assignOpen, setAssignOpen] = useState(params.get('assign') === '1')
-  const [noteOpen, setNoteOpen] = useState(false)
-  const [reviewing, setReviewing] = useState<WorkoutSession | null>(null)
 
   const version = useLiveQuery(
     async () => [
@@ -82,35 +69,10 @@ export function TrainerClientDetail() {
     () => db.links.where('[trainer_id+client_id]').equals([userId, id]).first(),
     [userId, id],
   )
-  const assignment = useLiveQuery(
-    () =>
-      db.assignments
-        .where('client_id')
-        .equals(id)
-        .and((a) => a.trainer_id === userId && a.status === 'ACTIVE')
-        .first(),
-    [userId, id, version?.join('-')],
-  )
-  const assignedProgram = useLiveQuery(
-    async () => (assignment ? await db.programs.get(assignment.program_id) : undefined),
-    [assignment?.program_id],
-  )
-  const notes = useLiveQuery(
-    () => listTrainerNotes(id, userId),
-    [id, userId, version?.join('-')],
-    [],
-  )
-  const personal = useLiveQuery(
-    () => personalProgramsFor(id, userId),
-    [id, userId, version?.join('-')],
-    [] as Program[],
-  )
-  const allSets = useLiveQuery(() => db.sets.toArray(), [], [])
 
   if (!detail) return <div className="screen">Загрузка…</div>
 
-  const { client, sessions, volumeByWeek, records, weightPoints } = detail
-  const lastSession = sessions[0]
+  const { client, weightPoints } = detail
 
   const unlink = async () => {
     if (!link) return
@@ -153,19 +115,6 @@ export function TrainerClientDetail() {
 
       {tab === 'overview' && (
         <>
-          <div className="stat-grid mt-4">
-            <div className="stat">
-              <div className="value">{sessions.length}</div>
-              <div className="label">тренировок</div>
-            </div>
-            <div className="stat">
-              <div className="value">
-                {lastSession ? formatDate(lastSession.start_time) : '—'}
-              </div>
-              <div className="label">последняя</div>
-            </div>
-          </div>
-
           <div className="section-title">Режим работы</div>
           <div className="card">
             <div className="chips">
@@ -205,6 +154,9 @@ export function TrainerClientDetail() {
           <div className="section-title">Оплата</div>
           <PaymentCard link={link ?? null} onToast={toast} />
 
+          <div className="section-title">Неделя</div>
+          <WeekCard clientId={id} />
+
           <div className="section-title">Связь с клиентом</div>
           <div className="card">
             <ContactLinks
@@ -213,113 +165,6 @@ export function TrainerClientDetail() {
               emptyHint="Клиент не указал, где с ним связаться. Попросите заполнить это в профиле."
             />
           </div>
-
-          <div className="section-title">Тело</div>
-          <BodyCompositionCard userId={id} subject="client" onOpen={() => setTab('body')} />
-
-          <div className="section-title">Программа от вас</div>
-          <div className="card">
-            {assignment && assignedProgram ? (
-              <>
-                <div className="row between">
-                  <div className="grow">
-                    <div className="strong">{assignedProgram.name}</div>
-                    <div className="mute-sm">
-                      {assignment.schedule?.length
-                        ? assignment.schedule
-                            .slice()
-                            .sort((a, b) => a.weekday - b.weekday)
-                            .map((sl) => WEEKDAYS[sl.weekday])
-                            .join(', ')
-                        : `${assignment.weekly_target} в неделю`}
-                      {assignment.end_at
-                        ? ` · до ${formatDate(assignment.end_at - 86400_000)}`
-                        : ` · с ${formatDate(assignment.start_at)}`}
-                    </div>
-                  </div>
-                </div>
-                {assignment.note && (
-                  <div className="muted mt-2">
-                    {assignment.note}
-                  </div>
-                )}
-                <div className="row" style={{ marginTop: 12, gap: 8 }}>
-                  <button className="btn sm grow" onClick={() => setAssignOpen(true)}>
-                    Заменить программу
-                  </button>
-                  <button
-                    className="btn sm ghost danger"
-                    onClick={async () => {
-                      await cancelAssignment(assignment.id)
-                      toast('Программа снята с клиента')
-                    }}
-                  >
-                    Снять
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="strong">Программа не назначена</div>
-                <div className="muted mt-1">
-                  Клиент не увидит план тренировок, пока вы не назначите программу.
-                </div>
-                <button
-                  className="btn primary block mt-4"
-                  onClick={() => setAssignOpen(true)}
-                >
-                  <IconPlus size={17} /> Назначить программу
-                </button>
-              </>
-            )}
-          </div>
-
-          {(personal ?? []).length > 0 && (
-            <Group title="Персональные программы">
-              {(personal ?? []).map((p) => (
-                <Row
-                  key={p.id}
-                  title={p.name}
-                  sub={p.id === assignment?.program_id ? 'назначена сейчас' : 'не назначена'}
-                  onClick={() => nav(`/programs/${p.id}`)}
-                >
-                  <button
-                    className="icon-btn"
-                    aria-label="Удалить программу"
-                    onClick={async (e) => {
-                      e.stopPropagation()
-                      await deletePersonalProgram(p.id)
-                      toast('Программа удалена')
-                    }}
-                  >
-                    <IconTrash size={16} />
-                  </button>
-                </Row>
-              ))}
-            </Group>
-          )}
-
-          <div className="section-title">Тоннаж по неделям</div>
-          <div className="card">
-            <BarChart
-              data={volumeByWeek.map((v) => v.value)}
-              labels={volumeByWeek.map((v) => v.label)}
-            />
-          </div>
-
-          <div className="section-title">Рекорды · расчётный 1ПМ</div>
-          {records.length === 0 ? (
-            <div className="empty" style={{ padding: 20 }}>
-              Данных пока нет
-            </div>
-          ) : (
-            records.map((r) => (
-              <div className="list-item" key={r.name}>
-                <div className="grow truncate">{r.name}</div>
-                <strong>{Math.round(r.score)} кг</strong>
-              </div>
-            ))
-          )}
 
           <button className="btn ghost danger block mt-5" onClick={unlink}>
             Прекратить работу с клиентом
@@ -351,48 +196,10 @@ export function TrainerClientDetail() {
         </div>
       )}
 
-      {tab === 'history' && (
-        <div className="mt-4">
-          {sessions.length === 0 && <div className="empty">Тренировок пока нет</div>}
-          {sessions.map((s) => {
-            const sets = (allSets ?? []).filter((x) => x.workout_session_id === s.id)
-            return (
-              <div className="card" key={s.id} style={{ marginBottom: 8 }}>
-                <div className="row between">
-                  <div className="grow">
-                    <div className="truncate strong">
-                      {s.title}
-                    </div>
-                    <div className="mute-sm">
-                      {formatDate(s.start_time)} · {sets.length}{' '}
-                      {plural(sets.length, ['подход', 'подхода', 'подходов'])} ·{' '}
-                      {Math.round(totalVolume(sets))} кг ·{' '}
-                      {formatDuration((s.end_time ?? s.start_time) - s.start_time)}
-                    </div>
-                  </div>
-                  <button className="btn sm" onClick={() => setReviewing(s)}>
-                    Разобрать
-                  </button>
-                </div>
-                {s.notes && (
-                  <div className="mute-sm mt-2">
-                    Заметка клиента: {s.notes}
-                  </div>
-                )}
-                <SessionFeedback sessionId={s.id} />
-              </div>
-            )
-          })}
-        </div>
-      )}
+      {tab === 'history' && <ClientWorkouts clientId={id} onAssign={() => setAssignOpen(true)} />}
 
       {/* Тот же разбор, что видит клиент: тренер должен смотреть на те же
           цифры, иначе они спорят о разных отчётах. */}
-      {tab === 'progress' && (
-        <div className="mt-4">
-          <ProgressView userId={id} readOnly />
-        </div>
-      )}
 
       {tab === 'chat' && (
         <ChatThread
@@ -408,32 +215,6 @@ export function TrainerClientDetail() {
 
       {tab === 'nutrition' && <ClientNutrition clientId={id} />}
 
-      {tab === 'notes' && (
-        <div className="mt-4">
-          <button className="btn block" onClick={() => setNoteOpen(true)}>
-            <IconPlus size={16} /> Добавить заметку
-          </button>
-          <div className="mute-sm" style={{ textAlign: 'center', margin: '8px 0 14px' }}>
-            Заметки видны только вам.
-          </div>
-          {(notes ?? []).length === 0 && <div className="empty">Заметок пока нет</div>}
-          {(notes ?? []).map((n) => (
-            <div className="card" key={n.id} style={{ marginBottom: 8 }}>
-              <div className="row between">
-                <div className="mute-sm">{formatDate(n.created_at)}</div>
-                <button
-                  className="icon-btn"
-                  onClick={() => deleteTrainerNote(n.id)}
-                  aria-label="Удалить"
-                >
-                  <IconTrash size={15} />
-                </button>
-              </div>
-              <div className="mt-2">{n.text}</div>
-            </div>
-          ))}
-        </div>
-      )}
 
       <AssignSheet
         open={assignOpen}
@@ -446,18 +227,44 @@ export function TrainerClientDetail() {
         onDone={() => toast('Программа назначена')}
       />
 
-      <TextSheet
-        open={noteOpen}
-        title="Заметка о клиенте"
-        placeholder="Травмы, ограничения, договорённости"
-        onClose={() => setNoteOpen(false)}
-        onSubmit={async (text) => {
-          await addTrainerNote(id, text, userId)
-          toast('Заметка сохранена')
-        }}
-      />
 
-      <SessionReview session={reviewing} clientId={id} onClose={() => setReviewing(null)} />
+    </div>
+  )
+}
+
+/**
+ * Насколько клиент держится недели: тренировки и дни дневника питания.
+ *
+ * Обе цифры — «сделано из плана», а не проценты: тренер разговаривает с
+ * человеком числами, которые тот сам может пересчитать. План тренировок
+ * берётся из назначения; если программы нет, показываем только факт —
+ * делить на несуществующий план нечестно.
+ */
+function WeekCard({ clientId }: { clientId: string }) {
+  const week = useLiveQuery(() => weekProgress(clientId), [clientId])
+  if (!week) return <div className="card skeleton" style={{ height: 92 }} />
+
+  const done = week.sessionsTarget != null && week.sessionsDone >= week.sessionsTarget
+
+  return (
+    <div className="card">
+      <div className="row between">
+        <span className="muted">Тренировки</span>
+        <span className="figures strong" style={{ color: done ? 'var(--ok)' : undefined }}>
+          {week.sessionsTarget == null
+            ? `${week.sessionsDone}`
+            : `${week.sessionsDone} / ${week.sessionsTarget}`}
+        </span>
+      </div>
+      {week.sessionsTarget == null && (
+        <div className="mute-sm mt-1">Программа не назначена — плана на неделю нет.</div>
+      )}
+
+      <div className="row between mt-3">
+        <span className="muted">Дней с дневником питания</span>
+        <span className="figures strong">{week.nutritionDays} / 7</span>
+      </div>
+      <div className="mute-sm mt-1">Считается с понедельника.</div>
     </div>
   )
 }
@@ -605,32 +412,6 @@ function PaymentCard({
   )
 }
 
-function SessionFeedback({ sessionId }: { sessionId: string }) {
-  const rows = useLiveQuery(
-    () => db.feedback.where('session_id').equals(sessionId).toArray(),
-    [sessionId],
-    [],
-  )
-  const withText = (rows ?? []).filter((f) => f.text.trim())
-  if (!withText.length) return null
-  return (
-    <div className="mt-3">
-      {withText.map((f) => (
-        <div
-          key={f.id}
-          className="muted quote mt-2"
-        >
-          {f.text}
-          {f.is_read === 0 && (
-            <span className="badge" style={{ marginLeft: 8 }}>
-              не прочитано
-            </span>
-          )}
-        </div>
-      ))}
-    </div>
-  )
-}
 
 const WEEKDAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
 
@@ -890,42 +671,3 @@ function AssignSheet({
   )
 }
 
-function TextSheet({
-  open,
-  title,
-  placeholder,
-  onClose,
-  onSubmit,
-}: {
-  open: boolean
-  title: string
-  placeholder: string
-  onClose: () => void
-  onSubmit: (text: string) => Promise<void>
-}) {
-  const [text, setText] = useState('')
-
-  const submit = async () => {
-    if (!text.trim()) return
-    await onSubmit(text)
-    setText('')
-    onClose()
-  }
-
-  return (
-    <Sheet open={open} title={title} onClose={onClose}>
-      <div className="stack">
-        <textarea
-          className="textarea"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={placeholder}
-          autoFocus
-        />
-        <button className="btn primary block" disabled={!text.trim()} onClick={submit}>
-          Сохранить
-        </button>
-      </div>
-    </Sheet>
-  )
-}

@@ -412,6 +412,57 @@ export async function tasksOf(clientId: string): Promise<ClientTask[]> {
   return rows.sort((a, b) => b.created_at - a.created_at)
 }
 
+/* --------------------------- сводка недели ----------------------------- */
+
+export type WeekProgress = {
+  /** Завершённых тренировок с понедельника. */
+  sessionsDone: number
+  /** План на неделю из назначения. null — программа не назначена. */
+  sessionsTarget: number | null
+  /** Дней, за которые клиент что-то записал в дневник питания. */
+  nutritionDays: number
+}
+
+/**
+ * Насколько клиент держится недели: тренировки и дневник питания.
+ *
+ * Считается от понедельника, а не за последние семь дней: клиент и тренер
+ * договариваются про неделю как календарную, и «4 из 7» в среду означало бы
+ * четыре дня из трёх прошедших.
+ *
+ * Дни питания считаем по записям еды, а не по сданным отчётам: человек мог
+ * вести дневник и не сдать его — это разные упущения, и мешать их в одно
+ * число значит не понять, о чём говорить.
+ */
+export async function weekProgress(clientId: string): Promise<WeekProgress> {
+  const monday = weekStart(Date.now())
+
+  const sessions = await db.sessions
+    .where('user_id')
+    .equals(clientId)
+    .and((s) => s.is_completed === 1 && s.start_time >= monday)
+    .count()
+
+  const assignment = await db.assignments
+    .where('client_id')
+    .equals(clientId)
+    .and((a) => a.status === 'ACTIVE')
+    .first()
+
+  const from = localDate(monday)
+  const to = localDate(Date.now())
+  const logs = await db.foodLogs
+    .where('[user_id+date]')
+    .between([clientId, from], [clientId, to], true, true)
+    .toArray()
+
+  return {
+    sessionsDone: sessions,
+    sessionsTarget: assignment?.schedule?.length ?? assignment?.weekly_target ?? null,
+    nutritionDays: new Set(logs.map((l) => l.date)).size,
+  }
+}
+
 /* ------------------- статистика для недельных целей -------------------- */
 
 const DAY = 86400_000

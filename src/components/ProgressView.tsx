@@ -352,7 +352,12 @@ function PlanCard({ plan, onOpen }: { plan: PlanProgress; onOpen: () => void }) 
 }
 
 /** Строка упражнения: что было в последний раз и куда двигается вес. */
-function ExerciseRow({ row, onOpen }: { row: ExerciseProgress; onOpen: () => void }) {
+/**
+ * Строка упражнения с динамикой расчётного максимума. Экспортируется,
+ * потому что тем же взглядом на упражнения смотрит тренер в карточке
+ * клиента: две копии одной строки разъехались бы при первой правке.
+ */
+export function ExerciseRow({ row, onOpen }: { row: ExerciseProgress; onOpen: () => void }) {
   const { exercise, deltaKg, lastWeight, lastReps, lastDate, sessions } = row
   const untouched = sessions === 0
 
