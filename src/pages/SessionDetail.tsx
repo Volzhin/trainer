@@ -4,12 +4,12 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type ExerciseSet } from '../db/db'
 import { useExercises } from '../db/catalog'
 import { deleteSession } from '../db/repo'
-import { feedbackForSession, markFeedbackRead, trainerOfClient } from '../db/coach'
+import { feedbackForSession, markFeedbackRead } from '../db/coach'
 import { VideoUploader } from '../components/ExerciseVideo'
 import { ExerciseTechniqueSheet } from '../components/ExerciseTechnique'
 import { IconBack, IconChat, IconRecord, IconTrash, IconVideo } from '../components/Icons'
 import { formatDateTime, formatDuration, formatWeight, plural, totalVolume } from '../lib/calc'
-import { useApp } from '../store/app'
+import { useApp, useClientMode } from '../store/app'
 
 export function SessionDetail() {
   const { id = '' } = useParams()
@@ -30,7 +30,10 @@ export function SessionDetail() {
     [id],
     [],
   )
-  const hasTrainer = !!useLiveQuery(() => trainerOfClient(), [])
+  // Видео-отчёт есть только в онлайн-режиме: очного клиента тренер видит
+  // на занятии своими глазами, и просить у него запись — просить лишнего.
+  // Тот же признак решает дело на экране самой тренировки (LiveSession).
+  const videoReport = useClientMode() === 'online'
 
   // Открыв тренировку, клиент прочитал комментарий — снимаем отметку у тренера.
   useEffect(() => {
@@ -112,7 +115,7 @@ export function SessionDetail() {
       {/* Видео чаще снимают в зале, а раскладывают по упражнениям уже дома.
           Подсказка нужна, чтобы человек знал: тренировка закрыта, но отчёт
           ещё можно дослать. */}
-      {hasTrainer && (attachments ?? []).length === 0 && (
+      {videoReport && (attachments ?? []).length === 0 && (
         <div className="card" style={{ marginTop: 12 }}>
           <div className="row" style={{ marginBottom: 4 }}>
             <IconVideo size={16} />
@@ -191,7 +194,7 @@ export function SessionDetail() {
                     {c.text}
                   </div>
                 ))}
-              {hasTrainer && (
+              {videoReport && (
                 <VideoUploader sessionId={id} exerciseId={rows[0].exercise_id} compact />
               )}
             </div>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, modeOf, type Program, type WorkoutSession } from '../../db/db'
+import { db, modeOf, type Program, type TrainerLink, type WorkoutSession } from '../../db/db'
 import {
   addTrainerNote,
   assignProgram,
@@ -14,6 +14,7 @@ import {
   personalProgramsFor,
   removeLink,
   setLinkMode,
+  setLinkPayment,
 } from '../../db/coach'
 import { BarChart, LineChart } from '../../components/LineChart'
 import { ContactLinks } from '../../components/ContactLinks'
@@ -27,7 +28,7 @@ import { ClientReports } from '../../components/ClientReports'
 import { ChatThread } from '../../components/ChatThread'
 import { ProgressView } from '../../components/ProgressView'
 import { IconBack, IconCheck, IconPlus, IconTrash } from '../../components/Icons'
-import { formatDate, formatDuration, plural, totalVolume } from '../../lib/calc'
+import { formatDate, formatDuration, plural, startOfDay, totalVolume } from '../../lib/calc'
 import { useApp } from '../../store/app'
 
 export function TrainerClientDetail() {
@@ -177,6 +178,9 @@ export function TrainerClientDetail() {
                 : 'Видео-отчёт не запрашивается — технику вы видите на занятии.'}
             </div>
           </div>
+
+          <div className="section-title">Оплата</div>
+          <PaymentCard link={link ?? null} onToast={toast} />
 
           <div className="section-title">Связь с клиентом</div>
           <div className="card">
@@ -435,6 +439,89 @@ export function TrainerClientDetail() {
       />
 
       <SessionReview session={reviewing} clientId={id} onClose={() => setReviewing(null)} />
+    </div>
+  )
+}
+
+/** Дата в формате поля <input type="date">, в местном времени. */
+const dateInputValue = (ts?: number) => {
+  if (!ts) return ''
+  const d = new Date(ts)
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000)
+  return local.toISOString().slice(0, 10)
+}
+
+/** Полдень местного времени: дата оплаты — это день, а не момент. */
+const parseDateInput = (value: string): number | undefined =>
+  value ? new Date(`${value}T12:00:00`).getTime() : undefined
+
+/**
+ * Даты оплат. Приложение денег не принимает, поэтому обе даты — просто
+ * отметки тренера, и обе необязательны: связь заводят и без разговора о
+ * деньгах, а требовать дату ради заполненного поля незачем.
+ */
+function PaymentCard({
+  link,
+  onToast,
+}: {
+  link: TrainerLink | null
+  onToast: (text: string) => void
+}) {
+  const [busy, setBusy] = useState(false)
+
+  if (!link) return <div className="card mute-sm">Связь с клиентом не найдена.</div>
+
+  const save = async (input: { paidAt?: number; nextPaymentAt?: number }) => {
+    setBusy(true)
+    try {
+      await setLinkPayment(link.id, {
+        paidAt: link.paid_at,
+        nextPaymentAt: link.next_payment_at,
+        ...input,
+      })
+      onToast('Даты оплаты сохранены')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Просрочку считаем по началу дня: платёж «сегодня» ещё не опоздал.
+  const due = link.next_payment_at
+  const overdue = due != null && due < startOfDay(Date.now())
+
+  return (
+    <div className="card">
+      <div className="row" style={{ gap: 8 }}>
+        <div className="field grow">
+          <label htmlFor="paid-at">Оплачено</label>
+          <input
+            id="paid-at"
+            className="input"
+            type="date"
+            disabled={busy}
+            value={dateInputValue(link.paid_at)}
+            onChange={(e) => void save({ paidAt: parseDateInput(e.target.value) })}
+          />
+        </div>
+        <div className="field grow">
+          <label htmlFor="next-payment">Следующая оплата</label>
+          <input
+            id="next-payment"
+            className="input"
+            type="date"
+            disabled={busy}
+            value={dateInputValue(link.next_payment_at)}
+            onChange={(e) => void save({ nextPaymentAt: parseDateInput(e.target.value) })}
+          />
+        </div>
+      </div>
+      <div className="mute-sm mt-2" style={{ color: overdue ? 'var(--danger)' : undefined }}>
+        {due == null
+          ? 'Дата следующей оплаты не задана — напоминание клиенту не придёт.'
+          : overdue
+            ? `Оплата просрочена с ${formatDate(due)}.`
+            : `Клиенту напомним за 3 дня — ${formatDate(due - 3 * 86400_000)}.`}
+      </div>
     </div>
   )
 }

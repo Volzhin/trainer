@@ -221,6 +221,22 @@ export async function setLinkMode(linkId: string, mode: ClientMode) {
   await db.links.update(linkId, { mode, updated_at: now() })
 }
 
+/**
+ * Даты оплаты ведёт тренер: приложение денег не принимает и о платежах
+ * узнаёт только с его слов. Пустое значение стирает дату — «не помню, когда
+ * платил» честнее задним числом выдуманного числа.
+ */
+export async function setLinkPayment(
+  linkId: string,
+  input: { paidAt?: number; nextPaymentAt?: number },
+) {
+  await db.links.update(linkId, {
+    paid_at: input.paidAt,
+    next_payment_at: input.nextPaymentAt,
+    updated_at: now(),
+  })
+}
+
 /** Разрыв связи доступен обеим сторонам. Данные клиента при этом остаются у клиента. */
 export async function removeLink(linkId: string) {
   const link = await db.links.get(linkId)

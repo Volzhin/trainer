@@ -1,11 +1,18 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, currentUserId, type Contact, type ContactKind } from '../db/db'
+import {
+  db,
+  currentUserId,
+  notificationOn,
+  type Contact,
+  type ContactKind,
+  type NotificationKind,
+} from '../db/db'
 import { ContactEditor } from '../components/ContactLinks'
 import { Sheet } from '../components/Sheet'
 import { AccountSection } from '../components/AccountSection'
-import { useApp, useProfile } from '../store/app'
+import { useApp, useClientMode, useProfile, useTrainerLink } from '../store/app'
 import { isStandalone, ensureNotificationPermission, haptics } from '../lib/native'
 import { seedIfEmpty } from '../db/seed'
 import { exportHistoryCsv } from '../db/repo'
@@ -14,6 +21,24 @@ import { MyTrainerCard } from '../components/MyTrainerCard'
 import { AccountSwitcher } from '../components/AccountSwitcher'
 import { Group, Row } from '../components/Group'
 import { ThemePicker } from '../components/ThemePicker'
+
+/**
+ * Напоминания клиенту. Время в подписи названо прямо: человек решает,
+ * оставить ли уведомление, по тому, когда оно его дёрнет, а не по названию.
+ * Отчёт о тренировке — только в онлайн-режиме: очному клиенту его не сдают.
+ */
+const REMINDERS: { kind: NotificationKind; title: string; sub: string; onlineOnly?: true }[] = [
+  { kind: 'weight', title: 'Внести вес', sub: 'Каждый день в 08:00' },
+  { kind: 'measurements', title: 'Внести замеры', sub: 'Воскресенье 20:00 и понедельник 08:00' },
+  { kind: 'nutrition_report', title: 'Сдать отчёт по питанию', sub: 'Каждый день в 22:00' },
+  {
+    kind: 'workout_report',
+    title: 'Сдать отчёт по тренировке',
+    sub: 'Через 4 часа после тренировки, если не сдан',
+    onlineOnly: true,
+  },
+  { kind: 'payment', title: 'Напоминание об оплате', sub: 'За 3 дня до даты оплаты' },
+]
 
 export function Profile() {
   const nav = useNavigate()
@@ -28,6 +53,10 @@ export function Profile() {
 
   const notifGranted =
     typeof Notification !== 'undefined' && Notification.permission === 'granted'
+
+  const bond = useTrainerLink()
+  const mode = useClientMode()
+  const reminders = REMINDERS.filter((r) => !r.onlineOnly || mode === 'online')
 
   const counts = useLiveQuery(async () => ({
     sessions: await db.sessions.where('is_completed').equals(1).count(),
@@ -208,6 +237,27 @@ export function Profile() {
           chevron
         />
       </Group>
+
+      {/* Напоминания перечислены по одному, а не спрятаны под общий рубильник:
+          человек чаще хочет отключить что-то одно — обычно то, что приходит
+          каждый день, — а не замолчать приложение целиком. Раздел появляется
+          вместе с тренером: без него напоминать не о чем. */}
+      {bond && (
+        <Group title="Напоминания">
+          {reminders.map(({ kind, title, sub }) => (
+            <Row key={kind} title={title} sub={sub}>
+              <Toggle
+                value={notificationOn(profile, kind)}
+                onChange={(v) =>
+                  patch({
+                    notifications: { ...(profile?.notifications ?? {}), [kind]: v },
+                  })
+                }
+              />
+            </Row>
+          ))}
+        </Group>
+      )}
 
       <Group title="Данные">
         <Row title="Тренировок сохранено" value={counts?.sessions ?? 0} />
