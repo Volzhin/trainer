@@ -52,7 +52,7 @@ export async function createAccount(input: {
     name: input.name.trim() || (input.role === 'TRAINER' ? 'Тренер' : 'Клиент'),
     role: input.role,
     specialization: input.specialization,
-    plan: input.role === 'TRAINER' ? 'PRO' : 'FREE',
+    plan: 'FREE',
     default_rest_seconds: 90,
     haptics_enabled: 1,
     sound_enabled: 1,
@@ -65,6 +65,31 @@ export async function switchAccount(userId: string) {
   const profile = await db.profile.get(userId)
   if (!profile) throw new Error('Аккаунт не найден')
   await setActiveUser(userId)
+}
+
+/* ---------------------------- подписка -------------------------------- */
+
+/**
+ * Подписка есть только у тренера — клиенту приложение бесплатно целиком.
+ *
+ * Платит тот, кто зарабатывает: тренер ведёт клиентов и получает за это
+ * деньги. Брать с клиента за то, чтобы он мог отчитаться перед тренером,
+ * значит продавать ему обязанность, а не возможность.
+ */
+export async function hasSubscription(trainerId = currentUserId()): Promise<boolean> {
+  const profile = await db.profile.get(trainerId)
+  return profile?.role === 'TRAINER' && profile.plan === 'PRO'
+}
+
+/**
+ * Ворота на платные действия тренера. Проверка живёт здесь, а не только в
+ * кнопках: набор клиентов и назначение программ вызываются из разных мест,
+ * и правило должно быть одно.
+ */
+async function requireSubscription(trainerId = currentUserId()) {
+  if (!(await hasSubscription(trainerId))) {
+    throw new Error('Нужна подписка: без неё нельзя набирать клиентов и назначать им программы')
+  }
 }
 
 /* ------------------------- приглашения и связь ------------------------ */
@@ -99,6 +124,7 @@ function makeCode(): string {
 export async function createInvite(trainerId = currentUserId()): Promise<string> {
   const trainer = await db.profile.get(trainerId)
   if (trainer?.role !== 'TRAINER') throw new Error('Приглашения выпускает только тренер')
+  await requireSubscription(trainerId)
 
   let code = makeCode()
   while (await db.invites.get(code)) code = makeCode()
@@ -444,6 +470,7 @@ export async function assignProgram(input: {
   trainerId?: string
 }) {
   const trainerId = input.trainerId ?? currentUserId()
+  await requireSubscription(trainerId)
   // Активное назначение всегда одно: новое отменяет предыдущее — и своё, и
   // чужое. Раньше снимались только назначения того же автора, и план, который
   // человек составил себе сам, продолжал жить рядом с назначением тренера;
@@ -606,6 +633,7 @@ export async function createPersonalProgram(input: {
   trainerId?: string
 }) {
   const trainerId = input.trainerId ?? currentUserId()
+  await requireSubscription(trainerId)
   const client = await db.profile.get(input.clientId)
   const ts = now()
 

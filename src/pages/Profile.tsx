@@ -4,29 +4,18 @@ import { db, currentUserId, type Contact, type ContactKind } from '../db/db'
 import { ContactEditor } from '../components/ContactLinks'
 import { Sheet } from '../components/Sheet'
 import { IconSettings } from '../components/Icons'
-import { useApp, useProfile } from '../store/app'
-import { haptics } from '../lib/native'
+import { useProfile } from '../store/app'
 import { MyTrainerCard } from '../components/MyTrainerCard'
 import { Group, Row } from '../components/Group'
 
 export function Profile() {
   const nav = useNavigate()
-  const { toast } = useApp()
   const profile = useProfile()
-  const [payOpen, setPayOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
 
 
 
-  const patch = (p: Record<string, unknown>) =>
-    db.profile.update(currentUserId(), { ...p, updated_at: Date.now() })
 
-  const togglePlan = async () => {
-    await patch({ plan: profile?.plan === 'PRO' ? 'FREE' : 'PRO' })
-    haptics.success()
-    toast(profile?.plan === 'PRO' ? 'Тариф FREE' : 'PRO активирован')
-    setPayOpen(false)
-  }
 
 
 
@@ -39,18 +28,9 @@ export function Profile() {
           <h1>Профиль</h1>
           <div className="sub">{profile?.name ?? 'Гость'}</div>
         </div>
-        <div className="row" style={{ gap: 8 }}>
-          <span className={`badge${profile?.plan === 'PRO' ? ' pro' : ''}`}>
-            {profile?.plan ?? 'FREE'}
-          </span>
-          <button
-            className="icon-btn"
-            onClick={() => nav('/settings')}
-            aria-label="Настройки"
-          >
-            <IconSettings size={18} />
-          </button>
-        </div>
+        <button className="icon-btn" onClick={() => nav('/settings')} aria-label="Настройки">
+          <IconSettings size={18} />
+        </button>
       </div>
 
       <Group>
@@ -67,21 +47,6 @@ export function Profile() {
 
       <MyTrainerCard />
 
-      {profile?.plan !== 'PRO' && (
-        <div className="card mt-5" style={{ borderColor: 'var(--accent)' }}>
-          <div className="row between">
-            <div className="grow">
-              <div className="strong">Trainer PRO</div>
-              <div className="mute-sm" style={{ marginTop: 2 }}>
-                Безлимит программ, аналитика 1ПМ и экспорт истории
-              </div>
-            </div>
-            <button className="btn sm primary" onClick={() => setPayOpen(true)}>
-              499 ₽
-            </button>
-          </div>
-        </div>
-      )}
 
       <Group title="Мои данные">
         <Row
@@ -105,37 +70,6 @@ export function Profile() {
       </Group>
 
 
-      <Sheet open={payOpen} title="Оплата подписки" onClose={() => setPayOpen(false)}>
-        <div className="stack">
-          <div className="card">
-            <div className="row between">
-              <span>Месяц</span>
-              <strong>499 ₽</strong>
-            </div>
-            <div className="row between mt-2">
-              <span>
-                Год <span className="badge">−40%</span>
-              </span>
-              <strong>3 590 ₽</strong>
-            </div>
-          </div>
-          <button className="btn primary block" onClick={togglePlan}>
-            Оплатить через СБП
-          </button>
-          <button className="btn block" onClick={togglePlan}>
-            Банковской картой (ЮKassa)
-          </button>
-          <div className="mute-sm" style={{ textAlign: 'center' }}>
-            В прототипе оплата эмулируется и просто переключает тариф. В проде права выдаёт
-            RevenueCat по вебхуку от эквайера или RuStore.
-          </div>
-          {profile?.plan === 'PRO' && (
-            <button className="btn ghost danger block" onClick={togglePlan}>
-              Вернуться на FREE
-            </button>
-          )}
-        </div>
-      </Sheet>
 
       <EditProfileSheet open={editOpen} onClose={() => setEditOpen(false)} />
 

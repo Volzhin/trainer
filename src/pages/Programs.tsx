@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, currentUserId, type Program } from '../db/db'
 import {
-  FREE_PROGRAM_LIMIT,
-  canCreateProgram,
   createProgram,
   createRoutine,
   deleteProgram,
@@ -74,10 +72,6 @@ export function Programs() {
   const myCount = (programs ?? []).filter(isMine).length
 
   const onCreate = async () => {
-    if (!(await canCreateProgram())) {
-      toast(`Бесплатный тариф: до ${FREE_PROGRAM_LIMIT} своих программ`)
-      return
-    }
     const id = await createProgram(name.trim() || 'Моя программа')
     await createRoutine(id, 'День 1')
     setName('')
@@ -248,27 +242,6 @@ export function Programs() {
         })}
       </div>
 
-      {!assigned && profile?.plan === 'FREE' && tab === 'mine' && (
-        <div className="card mt-4">
-          <div className="row between">
-            <div className="grow">
-              <div className="strong">
-                PRO <span className="badge pro">безлимит</span>
-              </div>
-              <div className="mute-sm" style={{ marginTop: 3 }}>
-                Бесплатно доступно {FREE_PROGRAM_LIMIT} своих программы. В PRO — без
-                ограничений, расширенная аналитика и графики 1ПМ.
-              </div>
-            </div>
-          </div>
-          <button
-            className="btn primary block mt-3"
-            onClick={() => nav('/profile')}
-          >
-            Подробнее о PRO
-          </button>
-        </div>
-      )}
 
       <Sheet open={createOpen} title="Новая программа" onClose={() => setCreateOpen(false)}>
         <div className="stack">

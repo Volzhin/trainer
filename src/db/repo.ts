@@ -486,15 +486,6 @@ export async function logBodyMetric(input: {
   })
 }
 
-export const FREE_PROGRAM_LIMIT = 3
-
-export async function canCreateProgram(): Promise<boolean> {
-  const profile = await db.profile.get(currentUserId())
-  if (profile?.plan === 'PRO') return true
-  const mine = await db.programs.where('author_id').equals(currentUserId()).count()
-  return mine < FREE_PROGRAM_LIMIT
-}
-
 export async function createProgram(name: string) {
   const id = uid()
   await db.programs.add({

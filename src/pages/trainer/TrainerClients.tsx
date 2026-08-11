@@ -5,6 +5,7 @@ import { db } from '../../db/db'
 import {
   createInvite,
   listActiveInvites,
+  hasSubscription,
   loadClientSummaries,
   revokeInvite,
 } from '../../db/coach'
@@ -24,6 +25,7 @@ export function TrainerClients() {
   const { toast, userId } = useApp()
   const profile = useProfile()
   const [inviteOpen, setInviteOpen] = useState(false)
+  const pro = useLiveQuery(() => hasSubscription(userId), [userId])
 
   // Пересчитываем при любых изменениях связей, сессий и назначений.
   const deps = useLiveQuery(
@@ -88,10 +90,27 @@ export function TrainerClients() {
           className="icon-btn"
           onClick={() => setInviteOpen(true)}
           aria-label="Пригласить"
+          disabled={pro === false}
         >
           <IconPlus size={18} />
         </button>
       </div>
+
+      {/* Ограничение показываем до нажатия, а не после: упереться в отказ,
+          уже решив позвать человека, — худший момент узнать о подписке.
+          Пока подписка не прочитана (undefined), молчим. */}
+      {pro === false && (
+        <div className="card" style={{ borderColor: 'var(--accent)' }}>
+          <div className="strong">Подписка не оформлена</div>
+          <div className="mute-sm mt-1">
+            Набирать клиентов и назначать программы можно только с подпиской. Те, кто уже с
+            вами, никуда не денутся — их история и переписка на месте.
+          </div>
+          <button className="btn primary block mt-3" onClick={() => nav('/trainer/profile')}>
+            Оформить подписку
+          </button>
+        </div>
+      )}
 
       <div className="stat-grid">
         <div className="stat">
@@ -135,13 +154,14 @@ export function TrainerClients() {
           </div>
           Пока нет клиентов.
           <br />
-          Выпустите код приглашения и передайте его клиенту.
-          <button
-            className="btn primary block mt-4"
-            onClick={() => setInviteOpen(true)}
-          >
-            Пригласить клиента
-          </button>
+          {pro === false
+            ? 'Набор клиентов открывается с подпиской.'
+            : 'Выпустите код приглашения и передайте его клиенту.'}
+          {pro !== false && (
+            <button className="btn primary block mt-4" onClick={() => setInviteOpen(true)}>
+              Пригласить клиента
+            </button>
+          )}
         </div>
       ) : (
         clients.map((c) => {

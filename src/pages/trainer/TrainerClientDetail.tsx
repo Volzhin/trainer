@@ -704,6 +704,10 @@ function AssignSheet({
       setNote('')
       onDone()
       onClose()
+    } catch (e) {
+      // Без подписки назначение не проходит — тренер должен увидеть почему,
+      // а не форму, которая ничего не сделала и осталась открытой.
+      toast(e instanceof Error ? e.message : 'Не удалось назначить программу')
     } finally {
       setBusy(false)
     }
@@ -721,6 +725,8 @@ function AssignSheet({
       toast('Программа создана — добавьте упражнения')
       onClose()
       nav(`/programs/${id}`)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Не удалось создать программу')
     } finally {
       setBusy(false)
     }

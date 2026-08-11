@@ -69,10 +69,6 @@ export function Settings() {
     db.profile.update(currentUserId(), { ...p, updated_at: Date.now() })
 
   const exportCsv = async () => {
-    if (profile?.plan !== 'PRO') {
-      toast('Экспорт доступен в PRO')
-      return
-    }
     const csv = await exportHistoryCsv()
     // BOM, чтобы Excel корректно открыл кириллицу.
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })

@@ -34,7 +34,7 @@ export async function adoptAccount(user: AuthUser): Promise<{ fresh: boolean }> 
       id: user.id,
       name: user.name?.trim() || (role === 'TRAINER' ? 'Тренер' : 'Клиент'),
       role,
-      plan: role === 'TRAINER' ? 'PRO' : 'FREE',
+      plan: 'FREE',
       default_rest_seconds: 90,
       haptics_enabled: 1,
       sound_enabled: 1,

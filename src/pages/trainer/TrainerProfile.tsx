@@ -5,14 +5,28 @@ import { db, type Contact, type ContactKind } from '../../db/db'
 import { isAuthed, updateAccount } from '../../lib/backend'
 import { ContactEditor } from '../../components/ContactLinks'
 import { Sheet } from '../../components/Sheet'
+import { haptics } from '../../lib/native'
 import { IconSettings } from '../../components/Icons'
 import { useApp, useProfile } from '../../store/app'
 
 export function TrainerProfile() {
   const nav = useNavigate()
-  const { userId } = useApp()
+  const { toast, userId } = useApp()
   const profile = useProfile()
   const [editOpen, setEditOpen] = useState(false)
+  const [payOpen, setPayOpen] = useState(false)
+
+  const isPro = profile?.plan === 'PRO'
+
+  const togglePlan = async () => {
+    await db.profile.update(userId, {
+      plan: isPro ? 'FREE' : 'PRO',
+      updated_at: Date.now(),
+    })
+    haptics.success()
+    toast(isPro ? 'Подписка отключена' : 'Подписка активна')
+    setPayOpen(false)
+  }
 
   const counts = useLiveQuery(async () => {
     const clients = await db.links.where('trainer_id').equals(userId).count()
@@ -67,6 +81,42 @@ export function TrainerProfile() {
         )}
       </div>
 
+      {/* Подписка — единственное платное в приложении, и платит её тот, кто
+          на нём зарабатывает. Состояние показано всегда, а не только когда
+          что-то упёрлось: тренер должен знать, что подписка кончилась, до
+          того, как не сможет позвать клиента. */}
+      <div className="section-title">Подписка</div>
+      <div className={`card${isPro ? '' : ' mt-0'}`} style={isPro ? undefined : { borderColor: 'var(--accent)' }}>
+        {isPro ? (
+          <>
+            <div className="row between">
+              <div className="grow">
+                <div className="strong">Подписка активна</div>
+                <div className="mute-sm mt-1">
+                  Набор клиентов, ведение и назначение программ — без ограничений.
+                </div>
+              </div>
+              <span className="badge pro">PRO</span>
+            </div>
+            <button className="btn ghost danger block mt-3" onClick={togglePlan}>
+              Отключить подписку
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="strong">Подписка не оформлена</div>
+            <div className="mute-sm mt-1">
+              Без неё нельзя выпускать коды приглашения, назначать программы и собирать
+              персональные планы. Уже набранные клиенты и их история остаются на месте —
+              вы просто не сможете добавлять новых и менять назначения.
+            </div>
+            <button className="btn primary block mt-3" onClick={() => setPayOpen(true)}>
+              Оформить за 499 ₽ в месяц
+            </button>
+          </>
+        )}
+      </div>
+
       <div className="section-title">Практика</div>
       <div className="card stack">
         <div className="row between">
@@ -86,6 +136,37 @@ export function TrainerProfile() {
 
       <Sheet open={editOpen} title="Профиль тренера" onClose={() => setEditOpen(false)}>
         <TrainerForm onDone={() => setEditOpen(false)} />
+      </Sheet>
+
+      <Sheet open={payOpen} title="Подписка тренера" onClose={() => setPayOpen(false)}>
+        <div className="stack">
+          <div className="card">
+            <div className="row between">
+              <span>Месяц</span>
+              <strong>499 ₽</strong>
+            </div>
+            <div className="row between mt-2">
+              <span>
+                Год <span className="badge">−40%</span>
+              </span>
+              <strong>3 590 ₽</strong>
+            </div>
+          </div>
+          <div className="muted">
+            Клиентам приложение бесплатно целиком — они ничего не оплачивают и ни во что не
+            упираются.
+          </div>
+          <button className="btn primary block" onClick={togglePlan}>
+            Оплатить через СБП
+          </button>
+          <button className="btn block" onClick={togglePlan}>
+            Банковской картой (ЮKassa)
+          </button>
+          <div className="mute-sm text-center">
+            В прототипе оплата эмулируется и просто включает подписку. В проде права выдаёт
+            эквайер по вебхуку.
+          </div>
+        </div>
       </Sheet>
 
     </div>
