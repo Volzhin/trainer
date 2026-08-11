@@ -390,6 +390,37 @@ export async function addTask(input: {
   return id
 }
 
+/* --------------------------- шаблоны заданий --------------------------- */
+
+export async function listTaskTemplates(trainerId = currentUserId()) {
+  const rows = await db.taskTemplates.where('trainer_id').equals(trainerId).toArray()
+  return rows.sort((a, b) => b.created_at - a.created_at)
+}
+
+export async function saveTaskTemplate(input: {
+  title: string
+  description?: string
+  dueDays?: number
+  trainerId?: string
+}) {
+  const id = uid()
+  const ts = now()
+  await db.taskTemplates.add({
+    id,
+    trainer_id: input.trainerId ?? currentUserId(),
+    title: input.title.trim(),
+    description: input.description?.trim() || undefined,
+    due_days: input.dueDays,
+    created_at: ts,
+    updated_at: ts,
+  })
+  return id
+}
+
+export async function deleteTaskTemplate(id: string) {
+  await db.taskTemplates.delete(id)
+}
+
 export async function completeTask(taskId: string, answer?: string) {
   const ts = now()
   await db.tasks.update(taskId, {

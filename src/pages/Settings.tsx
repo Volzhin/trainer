@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, currentUserId, notificationOn, type NotificationKind } from '../db/db'
 import { exportHistoryCsv } from '../db/repo'
+import { updateAccount } from '../lib/backend'
 import { generateDemoData, seedTrainerDemo } from '../db/demo'
 import { seedIfEmpty } from '../db/seed'
 import { AccountSection } from '../components/AccountSection'
@@ -56,6 +57,28 @@ export function Settings() {
   const [demoOpen, setDemoOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [roleOpen, setRoleOpen] = useState(false)
+
+  /**
+   * Смена режима перезагружает приложение: роль решает, какие маршруты и
+   * запросы вообще существуют, и менять её на живом дереве значит на
+   * мгновение показать тренерские данные клиентскими запросами.
+   */
+  const switchRole = async () => {
+    const next = isTrainer ? 'client' : 'trainer'
+    setBusy(true)
+    try {
+      await updateAccount({ role: next })
+      await db.profile.update(currentUserId(), {
+        role: next === 'trainer' ? 'TRAINER' : 'CLIENT',
+        updated_at: Date.now(),
+      })
+      location.reload()
+    } catch {
+      toast('Не удалось переключить режим')
+      setBusy(false)
+    }
+  }
 
   const notifGranted =
     typeof Notification !== 'undefined' && Notification.permission === 'granted'
@@ -207,6 +230,25 @@ export function Settings() {
         </Group>
       )}
 
+      {/* Один человек часто и тренирует, и тренируется сам. Заводить ради
+          этого второй аккаунт значит разрывать его собственную историю
+          пополам, поэтому режим переключается на месте.
+
+          Клиенты и программы никуда не деваются — в тренерском режиме они
+          на месте; меняется только то, какое приложение человек видит. */}
+      <Group title={isTrainer ? 'Свои тренировки' : 'Работа с клиентами'}>
+        <Row
+          title={isTrainer ? 'Перейти к своим тренировкам' : 'Перейти в режим тренера'}
+          sub={
+            isTrainer
+              ? 'Свой дневник, замеры и питание. Клиенты останутся на месте — вернуться можно тем же переключателем.'
+              : 'Клиенты, программы и разбор отчётов'
+          }
+          onClick={() => setRoleOpen(true)}
+          chevron
+        />
+      </Group>
+
       <Group title="Данные">
         {!isTrainer && <Row title="Тренировок сохранено" value={counts?.sessions ?? 0} />}
         <Row
@@ -245,6 +287,23 @@ export function Settings() {
       </div>
 
       <AccountSwitcher open={accountsOpen} onClose={() => setAccountsOpen(false)} />
+
+      <Sheet
+        open={roleOpen}
+        title={isTrainer ? 'Свои тренировки' : 'Режим тренера'}
+        onClose={() => setRoleOpen(false)}
+      >
+        <div className="stack">
+          <div className="muted">
+            {isTrainer
+              ? 'Приложение переключится на ваш собственный дневник: тренировки, замеры, питание. Список клиентов и программы сохранятся — вернуться можно этим же переключателем в настройках.'
+              : 'Приложение переключится на кабинет тренера: клиенты, программы, разбор отчётов. Ваша история тренировок сохранится.'}
+          </div>
+          <button className="btn primary block" disabled={busy} onClick={switchRole}>
+            {busy ? 'Переключаю…' : 'Переключить'}
+          </button>
+        </div>
+      </Sheet>
       <HelpSheet open={helpOpen} onClose={() => setHelpOpen(false)} />
 
       <Sheet

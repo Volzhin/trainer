@@ -495,6 +495,25 @@ export interface ClientTask {
   updated_at: number
 }
 
+/**
+ * Заготовка задания у тренера.
+ *
+ * Задания повторяются от клиента к клиенту — анкета, эссе, замеры перед
+ * стартом. Набирать один и тот же текст заново тренер не должен, поэтому
+ * шаблон принадлежит ему и в задание только копируется: правка шаблона не
+ * должна менять формулировку у тех, кому его уже выдали.
+ */
+export interface TaskTemplate {
+  id: string
+  trainer_id: string
+  title: string
+  description?: string
+  /** Через сколько дней срок по умолчанию. Пусто — без срока. */
+  due_days?: number
+  created_at: number
+  updated_at: number
+}
+
 /* ------------------------------- питание ------------------------------ */
 
 export type NutritionGoal = 'lose' | 'maintain' | 'gain'
@@ -678,6 +697,7 @@ class TrainerDB extends Dexie {
   nutritionTargets!: Table<NutritionTarget, string>
   dailyActivity!: Table<DailyActivity, string>
   tasks!: Table<ClientTask, string>
+  taskTemplates!: Table<TaskTemplate, string>
 
   constructor() {
     super('trainer_db')
@@ -763,6 +783,11 @@ class TrainerDB extends Dexie {
       nutritionTargets: 'id, client_id, [client_id+week_start]',
       dailyActivity: 'id, user_id, date, [user_id+date]',
       tasks: 'id, client_id, status, [client_id+status]',
+    })
+
+    /** v8 — заготовки заданий у тренера. */
+    this.version(8).stores({
+      taskTemplates: 'id, trainer_id, created_at',
     })
   }
 }

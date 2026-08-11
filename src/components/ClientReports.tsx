@@ -3,7 +3,10 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db'
 import {
   addTask,
+  deleteTaskTemplate,
+  listTaskTemplates,
   reviewedRefs,
+  saveTaskTemplate,
   submittedNutritionDays,
   tasksOf,
   workoutReportsOf,
@@ -11,7 +14,8 @@ import {
 import { Sheet } from './Sheet'
 import { ReviewSheet, toDaySubject, toWorkoutSubject, type ReviewSubject } from './ReviewSheet'
 import { Group, Row } from './Group'
-import { IconCheck, IconPlus } from './Icons'
+import { IconCheck, IconPlus, IconTrash } from './Icons'
+import { Toggle } from './Toggle'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
 
@@ -191,17 +195,23 @@ function TaskSheet({
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [busy, setBusy] = useState(false)
+  /** Сохранить набранное как заготовку — галочка рядом с выдачей. */
+  const [asTemplate, setAsTemplate] = useState(false)
+
+  const templates = useLiveQuery(() => listTaskTemplates(trainerId), [trainerId, open])
 
   useEffect(() => {
     if (!open) return
     setTitle('')
     setDescription('')
+    setAsTemplate(false)
   }, [open])
 
   const save = async () => {
     setBusy(true)
     try {
       await addTask({ clientId, trainerId, title, description })
+      if (asTemplate) await saveTaskTemplate({ title, description, trainerId })
       haptics.success()
       onDone()
       onClose()
@@ -213,6 +223,40 @@ function TaskSheet({
   return (
     <Sheet open={open} title="Задание клиенту" onClose={onClose}>
       <div className="stack">
+        {/* Заготовки сверху: чаще всего задание не сочиняют заново, а берут
+            уже сформулированное. Нажатие подставляет текст в поля, а не
+            выдаёт сразу — перед отправкой его почти всегда правят под
+            конкретного человека. */}
+        {(templates ?? []).length > 0 && (
+          <>
+            <div className="mute-sm">Из заготовок</div>
+            <div className="group">
+              {(templates ?? []).map((t) => (
+                <div className="group-row" key={t.id}>
+                  <button
+                    className="grow"
+                    style={{ textAlign: 'left' }}
+                    onClick={() => {
+                      setTitle(t.title)
+                      setDescription(t.description ?? '')
+                    }}
+                  >
+                    <span className="title">{t.title}</span>
+                    {t.description && <span className="sub truncate">{t.description}</span>}
+                  </button>
+                  <button
+                    className="icon-btn"
+                    aria-label={`Удалить заготовку «${t.title}»`}
+                    onClick={() => deleteTaskTemplate(t.id)}
+                  >
+                    <IconTrash size={15} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
         <div className="field">
           <label>Что сделать</label>
           <input
@@ -231,6 +275,16 @@ function TaskSheet({
             placeholder="Зачем это нужно и как сделать"
           />
         </div>
+
+        <div className="row between">
+          <span className="muted">Сохранить как заготовку</span>
+          <Toggle
+            label="Сохранить как заготовку"
+            value={asTemplate}
+            onChange={setAsTemplate}
+          />
+        </div>
+
         <button className="btn primary block" disabled={busy || !title.trim()} onClick={save}>
           Выдать задание
         </button>

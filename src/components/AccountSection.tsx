@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { db, currentUserId, now } from '../db/db'
-import { authUser, deleteAccount, logout, onAuthChange, updateAccount } from '../lib/backend'
+import { db, currentUserId } from '../db/db'
+import { authUser, deleteAccount, logout, onAuthChange } from '../lib/backend'
 import { leaveDemoMode } from '../db/account'
 import { stopSync, syncNow } from '../db/sync'
 import { useApp } from '../store/app'
@@ -57,26 +57,6 @@ export function AccountSection() {
     )
   }
 
-  /**
-   * Смена режима. Один человек часто и тренирует, и тренируется сам:
-   * заводить ради этого второй аккаунт значит разрывать его собственную
-   * историю тренировок пополам.
-   */
-  const switchRole = async () => {
-    const next = isTrainer ? 'client' : 'trainer'
-    setBusy(true)
-    try {
-      await updateAccount({ role: next })
-      await db.profile.update(user.id, {
-        role: next === 'trainer' ? 'TRAINER' : 'CLIENT',
-        updated_at: now(),
-      })
-      location.reload()
-    } catch {
-      toast('Не удалось переключить режим')
-      setBusy(false)
-    }
-  }
 
   const exit = () => {
     stopSync()
@@ -110,19 +90,6 @@ export function AccountSection() {
             <span className="title">{user.email}</span>
             <span className="sub">
               {busy ? 'Синхронизация…' : 'Нажмите, чтобы синхронизировать сейчас'}
-            </span>
-          </span>
-        </button>
-
-        <button className="group-row" onClick={switchRole} disabled={busy}>
-          <span className="grow">
-            <span className="title">
-              {isTrainer ? 'Перейти в режим занимающегося' : 'Перейти в режим тренера'}
-            </span>
-            <span className="sub">
-              {isTrainer
-                ? 'Свой дневник, замеры и питание'
-                : 'Клиенты, программы и обратная связь'}
             </span>
           </span>
         </button>

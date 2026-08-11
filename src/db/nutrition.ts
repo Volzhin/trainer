@@ -442,44 +442,15 @@ export async function nutritionSummary(
   }
 }
 
-/** Тренер назначает норму КБЖУ. Пустое значение снимает назначение. */
-export async function setCoachTargets(
-  clientId: string,
-  targets: {
-    kcal?: number
-    protein?: number
-    fat?: number
-    carbs?: number
-    note?: string
-  } | null,
-  coachId: string,
-) {
-  if (!targets?.kcal) {
-    await updateNutritionProfile(
-      {
-        coach_kcal: undefined,
-        coach_macros: undefined,
-        coach_id: undefined,
-        coach_note: undefined,
-      },
-      clientId,
-    )
-    return
-  }
-  await updateNutritionProfile(
-    {
-      coach_kcal: targets.kcal,
-      coach_macros: {
-        protein: targets.protein ?? 0,
-        fat: targets.fat ?? 0,
-        carbs: targets.carbs ?? 0,
-      },
-      coach_id: coachId,
-      coach_note: targets.note,
-    },
-    clientId,
-  )
-}
+/*
+ * Прежний способ назначать норму КБЖУ (поля coach_* в профиле питания)
+ * удалён вместе со своим экраном: цели тренера теперь одни — недельные
+ * рекомендации, см. setWeeklyTargets в db/reports.ts.
+ *
+ * Сами поля coach_* остаются в модели и читаются loadPlan запасным
+ * вариантом: у клиентов, которым норму назначили старым способом, она
+ * должна продолжать работать, пока тренер не выдаст новую.
+ */
 
 /** Точки для графика тренда расхода — как менялся метаболизм по неделям. */
 export async function expenditureTrend(userId = currentUserId()) {
