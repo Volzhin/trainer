@@ -193,12 +193,7 @@ export function ClientReports({ clientId }: { clientId: string }) {
             </div>
             {targets.note && (
               <div
-                className="mute-sm"
-                style={{
-                  marginTop: 10,
-                  paddingLeft: 10,
-                  borderLeft: '2px solid var(--accent)',
-                }}
+                className="mute-sm quote mt-2"
               >
                 {targets.note}
               </div>

@@ -56,7 +56,9 @@ export function NutritionSettings() {
             <div className="cap">расход, ккал</div>
           </div>
           <div className="metric">
-            <div className="num">{plan.target}</div>
+            {/* Цели может не быть: тренер её не выдал. Прочерк вместо пустого
+                места — иначе плитка выглядит сломанной, а не пустой. */}
+            <div className="num">{plan.target ?? '—'}</div>
             <div className="cap">цель, ккал</div>
           </div>
         </div>

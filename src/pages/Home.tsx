@@ -130,12 +130,7 @@ export function Home() {
 
             {assigned.assignment.note && (
               <div
-                className="mute-sm"
-                style={{
-                  marginTop: 14,
-                  paddingLeft: 10,
-                  borderLeft: '2px solid var(--accent)',
-                }}
+                className="mute-sm quote mt-4"
               >
                 {assigned.assignment.note}
               </div>

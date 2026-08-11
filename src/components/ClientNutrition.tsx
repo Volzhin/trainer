@@ -9,6 +9,13 @@ import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
 
 /**
+ * Факт и цель по макронутриенту. Без цели показываем только факт: «120 / г»
+ * с пустотой на месте нормы читается как ошибка, а не как её отсутствие.
+ */
+const macroLabel = (actual: number, goal: number | null) =>
+  goal == null ? `${actual} г` : `${actual} / ${goal} г`
+
+/**
  * Питание клиента глазами тренера: насколько плотно ведётся дневник,
  * что в среднем ест человек и держится ли он нормы. Плотность записей —
  * первое, на что смотрят: без неё остальные цифры не значат ничего.
@@ -105,8 +112,8 @@ export function ClientNutrition({ clientId }: { clientId: string }) {
           <div className="section-title">Калории по дням</div>
           <div className="card">
             <LineChart data={summary.points} unit=" ккал" />
-            <div className="mute-sm" style={{ textAlign: 'center', marginTop: 6 }}>
-              Норма {summary.target} ккал
+            <div className="mute-sm text-center mt-2">
+              {summary.target == null ? 'Норма не задана' : `Норма ${summary.target} ккал`}
             </div>
           </div>
 
@@ -115,19 +122,17 @@ export function ClientNutrition({ clientId }: { clientId: string }) {
             <div className="group-row">
               <span className="grow title">Белки</span>
               <span className="value figures">
-                {summary.avgProtein} / {plan.macros.protein} г
+                {macroLabel(summary.avgProtein, plan.macros.protein)}
               </span>
             </div>
             <div className="group-row">
               <span className="grow title">Жиры</span>
-              <span className="value figures">
-                {summary.avgFat} / {plan.macros.fat} г
-              </span>
+              <span className="value figures">{macroLabel(summary.avgFat, plan.macros.fat)}</span>
             </div>
             <div className="group-row">
               <span className="grow title">Углеводы</span>
               <span className="value figures">
-                {summary.avgCarbs} / {plan.macros.carbs} г
+                {macroLabel(summary.avgCarbs, plan.macros.carbs)}
               </span>
             </div>
           </div>
@@ -140,25 +145,29 @@ export function ClientNutrition({ clientId }: { clientId: string }) {
           <>
             <div className="row between">
               <div className="grow">
-                <div style={{ fontWeight: 700, fontSize: 17, fontFamily: 'var(--font-num)' }}>
-                  {plan.target} ккал
+                <div className="strong figures" style={{ fontSize: 17 }}>
+                  {plan.target == null ? 'Калории не заданы' : `${plan.target} ккал`}
                 </div>
-                <div
-                  className="mute-sm"
-                  style={{ marginTop: 2, fontFamily: 'var(--font-num)' }}
-                >
-                  Б {plan.macros.protein} · Ж {plan.macros.fat} · У {plan.macros.carbs} г
-                </div>
+                {/* Тренер вправе задать одни калории и не трогать граммы —
+                    тогда строку с БЖУ не показываем вовсе, а не рисуем её
+                    с пустыми местами. */}
+                {(plan.macros.protein ?? plan.macros.fat ?? plan.macros.carbs) != null && (
+                  <div className="mute-sm figures mt-1">
+                    {[
+                      plan.macros.protein != null && `Б ${plan.macros.protein}`,
+                      plan.macros.fat != null && `Ж ${plan.macros.fat}`,
+                      plan.macros.carbs != null && `У ${plan.macros.carbs}`,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}{' '}
+                    г
+                  </div>
+                )}
               </div>
             </div>
             {plan.profile.coach_note && (
               <div
-                className="mute-sm"
-                style={{
-                  marginTop: 12,
-                  paddingLeft: 10,
-                  borderLeft: '2px solid var(--accent)',
-                }}
+                className="mute-sm quote mt-3"
               >
                 {plan.profile.coach_note}
               </div>

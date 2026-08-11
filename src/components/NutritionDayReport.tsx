@@ -75,12 +75,7 @@ export function NutritionDayReport({ date }: { date: string }) {
       <div className="card">
         {day?.trainer_comment && (
           <div
-            className="mute-sm"
-            style={{
-              marginBottom: 14,
-              paddingLeft: 10,
-              borderLeft: '2px solid var(--accent)',
-            }}
+            className="mute-sm quote mb-4"
           >
             <div>Ответ тренера</div>
             <div style={{ color: 'var(--text)', marginTop: 4 }}>{day.trainer_comment}</div>

@@ -186,12 +186,7 @@ export function SessionDetail() {
                 .map((c) => (
                   <div
                     key={c.id}
-                    style={{
-                      borderLeft: '2px solid var(--accent)',
-                      paddingLeft: 10,
-                      marginBottom: 8,
-                      fontSize: 14,
-                    }}
+                    className="muted quote mb-2"
                   >
                     <div className="mute-sm">Разбор техники от тренера</div>
                     {c.text}

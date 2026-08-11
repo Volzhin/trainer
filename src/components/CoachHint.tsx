@@ -27,7 +27,7 @@ export function CoachHint({ exerciseId, clientId }: { exerciseId: string; client
   const label = LABELS[hint.progression]
 
   return (
-    <div className="coach-hint">
+    <div className="quote inset">
       <span className="badge" style={{ color: label.color, borderColor: label.color }}>
         {label.text}
       </span>

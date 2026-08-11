@@ -596,13 +596,7 @@ function SessionFeedback({ sessionId }: { sessionId: string }) {
       {withText.map((f) => (
         <div
           key={f.id}
-          className="mute-sm"
-          style={{
-            borderLeft: '2px solid var(--accent)',
-            paddingLeft: 10,
-            marginTop: 6,
-            color: 'var(--text-2)',
-          }}
+          className="muted quote mt-2"
         >
           {f.text}
           {f.is_read === 0 && (

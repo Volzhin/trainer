@@ -157,12 +157,7 @@ export function SessionReview({
             .map((c) => (
               <div
                 key={c.id}
-                className="muted"
-                style={{
-                  borderLeft: '2px solid var(--accent)',
-                  paddingLeft: 10,
-                  marginBottom: 8,
-                }}
+                className="muted quote mb-2"
               >
                 {c.text}
                 <div className="mute-sm">
@@ -257,13 +252,7 @@ function ExerciseReview({
         .map((c) => (
         <div
           key={c.id}
-          className="mute-sm"
-          style={{
-            borderLeft: '2px solid var(--accent)',
-            paddingLeft: 10,
-            marginTop: 8,
-            color: 'var(--text-2)',
-          }}
+          className="muted quote mt-2"
         >
           {c.text}
           {c.is_read === 0 && (

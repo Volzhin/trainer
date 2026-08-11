@@ -299,12 +299,7 @@ function TargetsCard({ targets }: { targets: NutritionTarget }) {
         )}
         {targets.note && (
           <div
-            className="mute-sm"
-            style={{
-              marginTop: rows.length ? 12 : 0,
-              paddingLeft: 10,
-              borderLeft: '2px solid var(--accent)',
-            }}
+            className={`mute-sm quote${rows.length ? ' mt-3' : ''}`}
           >
             {targets.note}
           </div>
