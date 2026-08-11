@@ -64,7 +64,7 @@ export function ProgramDetail() {
           <IconBack size={18} />
         </button>
         <div className="grow">
-          <h1 style={{ fontSize: 22 }}>{program.name}</h1>
+          <h1 className="detail">{program.name}</h1>
           <div className="sub">
             {program.goal} · {program.level}
             {!editable && ' · программа платформы'}

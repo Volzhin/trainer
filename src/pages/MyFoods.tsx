@@ -42,7 +42,7 @@ export function MyFoods() {
           <IconBack size={18} />
         </button>
         <div className="grow">
-          <h1 style={{ fontSize: 22 }}>Мои продукты</h1>
+          <h1 className="detail">Мои продукты</h1>
           <div className="sub">Своя база — она всегда точнее общей</div>
         </div>
       </div>

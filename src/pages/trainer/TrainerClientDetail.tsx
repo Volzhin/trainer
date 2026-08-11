@@ -103,7 +103,7 @@ export function TrainerClientDetail() {
           <IconBack size={18} />
         </button>
         <div className="grow">
-          <h1 style={{ fontSize: 22 }}>{client.name}</h1>
+          <h1 className="detail">{client.name}</h1>
           <div className="sub">
             {client.experience ?? 'опыт не указан'}
             {client.height_cm ? ` · ${client.height_cm} см` : ''}

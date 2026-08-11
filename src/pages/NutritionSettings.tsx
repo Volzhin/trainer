@@ -44,7 +44,7 @@ export function NutritionSettings() {
           <IconBack size={18} />
         </button>
         <div className="grow">
-          <h1 style={{ fontSize: 22 }}>Расчёт питания</h1>
+          <h1 className="detail">Расчёт питания</h1>
           <div className="sub">{adaptive ? 'По вашим данным' : 'Оценка по формуле'}</div>
         </div>
       </div>

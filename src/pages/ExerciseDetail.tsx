@@ -58,7 +58,7 @@ export function ExerciseDetail() {
           <IconBack size={18} />
         </button>
         <div className="grow">
-          <h1 style={{ fontSize: 21, lineHeight: 1.2 }}>{exercise.name}</h1>
+          <h1 className="detail">{exercise.name}</h1>
         </div>
       </div>
 

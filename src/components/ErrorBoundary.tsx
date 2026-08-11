@@ -19,7 +19,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
     return (
       <div className="screen">
         <div className="header">
-          <h1 style={{ fontSize: 22 }}>Что-то сломалось</h1>
+          <h1 className="detail">Что-то сломалось</h1>
         </div>
         <div className="card">
           <div className="muted">

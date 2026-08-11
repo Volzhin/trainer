@@ -22,7 +22,7 @@ export function History() {
           <IconBack size={18} />
         </button>
         <div className="grow">
-          <h1 style={{ fontSize: 22 }}>История</h1>
+          <h1 className="detail">История</h1>
           <div className="sub">
             {loading
               ? ' '
