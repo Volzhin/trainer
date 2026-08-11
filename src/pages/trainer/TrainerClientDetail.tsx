@@ -321,15 +321,10 @@ export function TrainerClientDetail() {
             ))
           )}
 
-          <div className="section-title">Вес</div>
-          <div className="card">
-            <LineChart data={weightPoints} unit=" кг" color="var(--ok)" />
-          </div>
-
           <button className="btn ghost danger block mt-5" onClick={unlink}>
             Прекратить работу с клиентом
           </button>
-          <div className="mute-sm" style={{ textAlign: 'center', marginTop: 8 }}>
+          <div className="mute-sm text-center mt-2">
             История тренировок останется у клиента, вы потеряете к ней доступ.
           </div>
         </>
@@ -337,6 +332,21 @@ export function TrainerClientDetail() {
 
       {tab === 'body' && (
         <div className="mt-1">
+          {/* Вес стоит перед составом тела, а не в сводке профиля: смотрят
+              на него вместе с процентом жира и обхватами — из них и
+              складывается ответ, уходит ли вес туда, куда нужно. Отдельно
+              от них цифра веса не значит почти ничего. */}
+          <div className="section-title">Вес</div>
+          <div className="card">
+            {weightPoints.length < 2 ? (
+              <div className="mute-sm">
+                Взвешиваний пока меньше двух — динамику показать не из чего.
+              </div>
+            ) : (
+              <LineChart data={weightPoints} unit=" кг" color="var(--ok)" />
+            )}
+          </div>
+
           <BodyCompositionView userId={id} subject="client" />
         </div>
       )}
