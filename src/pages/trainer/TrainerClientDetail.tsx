@@ -589,10 +589,11 @@ function SessionFeedback({ sessionId }: { sessionId: string }) {
     [sessionId],
     [],
   )
-  if (!rows?.length) return null
+  const withText = (rows ?? []).filter((f) => f.text.trim())
+  if (!withText.length) return null
   return (
     <div style={{ marginTop: 10 }}>
-      {rows.map((f) => (
+      {withText.map((f) => (
         <div
           key={f.id}
           className="mute-sm"

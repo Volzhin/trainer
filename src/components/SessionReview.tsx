@@ -5,10 +5,12 @@ import {
   type Attachment,
   type ExerciseSet,
   type Feedback,
+  type Progression,
   type WorkoutSession,
 } from '../db/db'
 import { useExercises } from '../db/catalog'
 import { addFeedback, attachmentsForSession, feedbackForSession } from '../db/coach'
+import { progressionFor, setExerciseProgression } from '../db/reports'
 import { AttachmentPlayer } from './ExerciseVideo'
 import { Sheet } from './Sheet'
 import { IconChat, IconRecord } from './Icons'
@@ -208,6 +210,32 @@ function ExerciseReview({
   const { toast, userId } = useApp()
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
+  const [progression, setProgression] = useState<Progression | null>(null)
+
+  // Что тренер уже говорил про вес по этому упражнению — чтобы не выставлять
+  // вслепую и видеть, что рекомендация дошла.
+  const current = useLiveQuery(
+    () => progressionFor(exerciseId, clientId),
+    [exerciseId, clientId],
+  )
+
+  /**
+   * Рекомендация по весу отправляется сразу по нажатию, без кнопки
+   * «сохранить»: это выбор из трёх, и подтверждать его нечем — промах
+   * исправляется тем же нажатием на соседний вариант.
+   */
+  const setWeightAdvice = async (value: Progression) => {
+    setProgression(value)
+    await setExerciseProgression({
+      clientId,
+      sessionId,
+      exerciseId,
+      progression: value,
+      trainerId: userId,
+    })
+    haptics.selection()
+    toast('Рекомендация по весу отправлена')
+  }
 
   const send = async () => {
     if (!text.trim()) return
@@ -224,7 +252,9 @@ function ExerciseReview({
         <AttachmentPlayer key={a.id} attachment={a} />
       ))}
 
-      {comments.map((c) => (
+      {comments
+        .filter((c) => c.text.trim())
+        .map((c) => (
         <div
           key={c.id}
           className="mute-sm"
@@ -243,6 +273,33 @@ function ExerciseReview({
           )}
         </div>
       ))}
+
+      {/* Пункт 5.5: переключатель прогрессии веса. Стоит рядом с разбором
+          техники, потому что решение о весе тренер принимает, глядя на то
+          же видео и те же подходы. */}
+      <div className="mt-3">
+        <div className="mute-sm mb-1">Вес в следующий раз</div>
+        <div className="segmented">
+          {(
+            [
+              ['decrease', 'Снизить'],
+              ['keep', 'Оставить'],
+              ['increase', 'Прибавить'],
+            ] as const
+          ).map(([value, label]) => {
+            const active = (progression ?? current?.progression) === value
+            return (
+              <button
+                key={value}
+                className={active ? 'on' : ''}
+                onClick={() => void setWeightAdvice(value)}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
       {open ? (
         <div className="stack" style={{ marginTop: 8 }}>

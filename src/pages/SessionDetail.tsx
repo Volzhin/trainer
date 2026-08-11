@@ -95,11 +95,11 @@ export function SessionDetail() {
         </div>
       )}
 
-      {(comments ?? []).filter((c) => !c.exercise_id).length > 0 && (
+      {(comments ?? []).filter((c) => !c.exercise_id && c.text.trim()).length > 0 && (
         <>
           <div className="section-title">Комментарий тренера</div>
           {(comments ?? [])
-            .filter((c) => !c.exercise_id)
+            .filter((c) => !c.exercise_id && c.text.trim())
             .map((c) => (
               <div className="card" key={c.id} style={{ borderColor: 'var(--accent)' }}>
                 <div className="row" style={{ marginBottom: 6 }}>
@@ -178,8 +178,11 @@ export function SessionDetail() {
               ))}
 
             <div style={{ padding: '4px 12px 12px' }}>
+              {/* Пустые записи пропускаем: строка обратной связи заводится и
+                  ради одной рекомендации по весу, без текста — рисовать под
+                  неё рамку «разбор техники» не из чего. */}
               {(comments ?? [])
-                .filter((c) => c.exercise_id === rows[0].exercise_id)
+                .filter((c) => c.exercise_id === rows[0].exercise_id && c.text.trim())
                 .map((c) => (
                   <div
                     key={c.id}
