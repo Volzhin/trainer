@@ -1,22 +1,18 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Contact, type ContactKind } from '../../db/db'
 import { isAuthed, updateAccount } from '../../lib/backend'
 import { ContactEditor } from '../../components/ContactLinks'
-import { AccountSection } from '../../components/AccountSection'
 import { Sheet } from '../../components/Sheet'
-import { AccountSwitcher } from '../../components/AccountSwitcher'
+import { IconSettings } from '../../components/Icons'
 import { useApp, useProfile } from '../../store/app'
-import { plural } from '../../lib/calc'
-import { seedTrainerDemo } from '../../db/demo'
-import { haptics } from '../../lib/native'
 
 export function TrainerProfile() {
-  const { toast, userId, online } = useApp()
+  const nav = useNavigate()
+  const { userId } = useApp()
   const profile = useProfile()
   const [editOpen, setEditOpen] = useState(false)
-  const [accountsOpen, setAccountsOpen] = useState(false)
-  const [demoBusy, setDemoBusy] = useState(false)
 
   const counts = useLiveQuery(async () => {
     const clients = await db.links.where('trainer_id').equals(userId).count()
@@ -29,20 +25,6 @@ export function TrainerProfile() {
     return { clients, programs, assignments }
   }, [userId])
 
-  const loadDemo = async () => {
-    setDemoBusy(true)
-    try {
-      const res = await seedTrainerDemo(userId)
-      haptics.success()
-      toast(
-        `Добавлено ${res.clients} ${plural(res.clients, ['клиент', 'клиента', 'клиентов'])}`,
-      )
-    } catch (e) {
-      toast(e instanceof Error ? e.message : 'Не удалось создать демо-клиентов')
-    } finally {
-      setDemoBusy(false)
-    }
-  }
 
   return (
     <div className="screen">
@@ -51,7 +33,16 @@ export function TrainerProfile() {
           <h1>Профиль</h1>
           <div className="sub">Кабинет тренера</div>
         </div>
-        <span className="badge pro">ТРЕНЕР</span>
+        <div className="row" style={{ gap: 8 }}>
+          <span className="badge pro">ТРЕНЕР</span>
+          <button
+            className="icon-btn"
+            onClick={() => nav('/settings')}
+            aria-label="Настройки"
+          >
+            <IconSettings size={18} />
+          </button>
+        </div>
       </div>
 
       <div className="card">
@@ -90,39 +81,13 @@ export function TrainerProfile() {
           <span className="muted">Своих программ</span>
           <strong>{counts?.programs ?? 0}</strong>
         </div>
-        {/* Не «режим»: этим словом теперь называется формат работы с
-            клиентом — очно или онлайн. Здесь речь про сеть. */}
-        <div className="row between">
-          <span className="muted">Связь</span>
-          <strong>{online ? 'есть' : 'нет сети'}</strong>
-        </div>
       </div>
 
-      <div className="section-title">Аккаунты</div>
-      <div className="card stack">
-        <div className="muted">
-          Прототип держит несколько аккаунтов в одной базе, чтобы можно было посмотреть на
-          связку с обеих сторон.
-        </div>
-        <button className="btn block" onClick={() => setAccountsOpen(true)}>
-          Переключить аккаунт
-        </button>
-        <button className="btn block" disabled={demoBusy} onClick={loadDemo}>
-          {demoBusy ? 'Создаю…' : 'Добавить демо-клиентов'}
-        </button>
-      </div>
-
-      <AccountSection />
-
-      <div className="mute-sm" style={{ textAlign: 'center', marginTop: 20 }}>
-        Прототип v0.2 · кабинет тренера
-      </div>
 
       <Sheet open={editOpen} title="Профиль тренера" onClose={() => setEditOpen(false)}>
         <TrainerForm onDone={() => setEditOpen(false)} />
       </Sheet>
 
-      <AccountSwitcher open={accountsOpen} onClose={() => setAccountsOpen(false)} />
     </div>
   )
 }

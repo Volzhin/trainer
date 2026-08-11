@@ -25,6 +25,7 @@ import { NutritionSettings } from './pages/NutritionSettings'
 import { Chat } from './pages/Chat'
 import { Reports } from './pages/Reports'
 import { Profile } from './pages/Profile'
+import { Settings } from './pages/Settings'
 import { TrainerClients } from './pages/trainer/TrainerClients'
 import { TrainerClientDetail } from './pages/trainer/TrainerClientDetail'
 import { TrainerProfile } from './pages/trainer/TrainerProfile'
@@ -66,6 +67,7 @@ export default function App() {
               <Route path="/trainer" element={<TrainerClients />} />
               <Route path="/trainer/clients/:id" element={<TrainerClientDetail />} />
               <Route path="/trainer/profile" element={<TrainerProfile />} />
+              <Route path="/settings" element={<Settings />} />
               <Route path="/programs" element={<Programs />} />
               <Route path="/programs/:id" element={<ProgramDetail />} />
               <Route path="/exercises" element={<Exercises />} />
@@ -90,6 +92,7 @@ export default function App() {
               <Route path="/chat" element={<Chat />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </>
           )}

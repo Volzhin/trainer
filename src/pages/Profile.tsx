@@ -1,68 +1,22 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useLiveQuery } from 'dexie-react-hooks'
-import {
-  db,
-  currentUserId,
-  notificationOn,
-  type Contact,
-  type ContactKind,
-  type NotificationKind,
-} from '../db/db'
+import { db, currentUserId, type Contact, type ContactKind } from '../db/db'
 import { ContactEditor } from '../components/ContactLinks'
 import { Sheet } from '../components/Sheet'
-import { AccountSection } from '../components/AccountSection'
-import { useApp, useClientMode, useProfile, useTrainerLink } from '../store/app'
-import { isStandalone, ensureNotificationPermission, haptics } from '../lib/native'
-import { seedIfEmpty } from '../db/seed'
-import { exportHistoryCsv } from '../db/repo'
-import { generateDemoData } from '../db/demo'
+import { IconSettings } from '../components/Icons'
+import { useApp, useProfile } from '../store/app'
+import { haptics } from '../lib/native'
 import { MyTrainerCard } from '../components/MyTrainerCard'
-import { AccountSwitcher } from '../components/AccountSwitcher'
 import { Group, Row } from '../components/Group'
-import { ThemePicker } from '../components/ThemePicker'
-
-/**
- * Напоминания клиенту. Время в подписи названо прямо: человек решает,
- * оставить ли уведомление, по тому, когда оно его дёрнет, а не по названию.
- * Отчёт о тренировке — только в онлайн-режиме: очному клиенту его не сдают.
- */
-const REMINDERS: { kind: NotificationKind; title: string; sub: string; onlineOnly?: true }[] = [
-  { kind: 'weight', title: 'Внести вес', sub: 'Каждый день в 08:00' },
-  { kind: 'measurements', title: 'Внести замеры', sub: 'Воскресенье 20:00 и понедельник 08:00' },
-  { kind: 'nutrition_report', title: 'Сдать отчёт по питанию', sub: 'Каждый день в 22:00' },
-  {
-    kind: 'workout_report',
-    title: 'Сдать отчёт по тренировке',
-    sub: 'Через 4 часа после тренировки, если не сдан',
-    onlineOnly: true,
-  },
-  { kind: 'payment', title: 'Напоминание об оплате', sub: 'За 3 дня до даты оплаты' },
-]
 
 export function Profile() {
   const nav = useNavigate()
-  const { toast, online } = useApp()
+  const { toast } = useApp()
   const profile = useProfile()
   const [payOpen, setPayOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
-  const [demoOpen, setDemoOpen] = useState(false)
-  const [accountsOpen, setAccountsOpen] = useState(false)
-  const [helpOpen, setHelpOpen] = useState(false)
-  const [demoBusy, setDemoBusy] = useState(false)
 
-  const notifGranted =
-    typeof Notification !== 'undefined' && Notification.permission === 'granted'
 
-  const bond = useTrainerLink()
-  const mode = useClientMode()
-  const reminders = REMINDERS.filter((r) => !r.onlineOnly || mode === 'online')
-
-  const counts = useLiveQuery(async () => ({
-    sessions: await db.sessions.where('is_completed').equals(1).count(),
-    exercises: await db.exercises.count(),
-    queue: await db.syncQueue.count(),
-  }))
 
   const patch = (p: Record<string, unknown>) =>
     db.profile.update(currentUserId(), { ...p, updated_at: Date.now() })
@@ -74,58 +28,9 @@ export function Profile() {
     setPayOpen(false)
   }
 
-  const exportCsv = async () => {
-    if (profile?.plan !== 'PRO') {
-      toast('Экспорт доступен в PRO')
-      setPayOpen(true)
-      return
-    }
-    const csv = await exportHistoryCsv()
-    // BOM, чтобы Excel корректно открыл кириллицу.
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `trainer-history-${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-    toast('Файл сохранён')
-  }
 
-  const loadDemo = async () => {
-    setDemoBusy(true)
-    try {
-      const res = await generateDemoData()
-      haptics.success()
-      toast(`Добавлено ${res.sessions} тренировок`)
-      setDemoOpen(false)
-    } catch (e) {
-      toast(e instanceof Error ? e.message : 'Не удалось сгенерировать данные')
-    } finally {
-      setDemoBusy(false)
-    }
-  }
 
-  const resetAll = async () => {
-    await Promise.all([
-      db.sessions.clear(),
-      db.sets.clear(),
-      db.bodyMetrics.clear(),
-      db.syncQueue.clear(),
-    ])
-    toast('История очищена')
-  }
 
-  const reseed = async () => {
-    await Promise.all([
-      db.exercises.clear(),
-      db.programs.clear(),
-      db.routines.clear(),
-      db.templateItems.clear(),
-    ])
-    await seedIfEmpty()
-    toast('Каталог восстановлен')
-  }
 
   return (
     <div className="screen">
@@ -134,9 +39,18 @@ export function Profile() {
           <h1>Профиль</h1>
           <div className="sub">{profile?.name ?? 'Гость'}</div>
         </div>
-        <span className={`badge${profile?.plan === 'PRO' ? ' pro' : ''}`}>
-          {profile?.plan ?? 'FREE'}
-        </span>
+        <div className="row" style={{ gap: 8 }}>
+          <span className={`badge${profile?.plan === 'PRO' ? ' pro' : ''}`}>
+            {profile?.plan ?? 'FREE'}
+          </span>
+          <button
+            className="icon-btn"
+            onClick={() => nav('/settings')}
+            aria-label="Настройки"
+          >
+            <IconSettings size={18} />
+          </button>
+        </div>
       </div>
 
       <Group>
@@ -154,7 +68,7 @@ export function Profile() {
       <MyTrainerCard />
 
       {profile?.plan !== 'PRO' && (
-        <div className="card" style={{ marginTop: 20, borderColor: 'var(--accent)' }}>
+        <div className="card mt-5" style={{ borderColor: 'var(--accent)' }}>
           <div className="row between">
             <div className="grow">
               <div className="strong">Trainer PRO</div>
@@ -190,105 +104,6 @@ export function Profile() {
         />
       </Group>
 
-      <Group title="Оформление">
-        <div className="group-row" style={{ display: 'block' }}>
-          <div className="title mb-2">
-            Тема
-          </div>
-          <ThemePicker />
-        </div>
-      </Group>
-
-      <Group title="Тренировка">
-        <Row title="Отдых по умолчанию" sub="Если в шаблоне не задан свой">
-          <select
-            className="select"
-            style={{ width: 104, padding: '8px 10px' }}
-            value={profile?.default_rest_seconds ?? 90}
-            onChange={(e) => patch({ default_rest_seconds: Number(e.target.value) })}
-          >
-            {[45, 60, 90, 120, 150, 180, 240].map((v) => (
-              <option key={v} value={v}>
-                {v} сек
-              </option>
-            ))}
-          </select>
-        </Row>
-        <Row title="Вибрация" sub="Отклик при подтверждении подхода">
-          <Toggle
-            value={profile?.haptics_enabled === 1}
-            onChange={(v) => patch({ haptics_enabled: v ? 1 : 0 })}
-          />
-        </Row>
-        <Row title="Звук таймера" sub="Сигнал в конце отдыха">
-          <Toggle
-            value={profile?.sound_enabled === 1}
-            onChange={(v) => patch({ sound_enabled: v ? 1 : 0 })}
-          />
-        </Row>
-        <Row
-          title="Уведомления"
-          sub="Оповещение об окончании отдыха"
-          value={notifGranted ? 'Включены' : 'Разрешить'}
-          onClick={async () => {
-            const ok = await ensureNotificationPermission()
-            toast(ok ? 'Уведомления включены' : 'Разрешение не выдано')
-          }}
-          chevron
-        />
-      </Group>
-
-      {/* Напоминания перечислены по одному, а не спрятаны под общий рубильник:
-          человек чаще хочет отключить что-то одно — обычно то, что приходит
-          каждый день, — а не замолчать приложение целиком. Раздел появляется
-          вместе с тренером: без него напоминать не о чем. */}
-      {bond && (
-        <Group title="Напоминания">
-          {reminders.map(({ kind, title, sub }) => (
-            <Row key={kind} title={title} sub={sub}>
-              <Toggle
-                value={notificationOn(profile, kind)}
-                onChange={(v) =>
-                  patch({
-                    notifications: { ...(profile?.notifications ?? {}), [kind]: v },
-                  })
-                }
-              />
-            </Row>
-          ))}
-        </Group>
-      )}
-
-      <Group title="Данные">
-        <Row title="Тренировок сохранено" value={counts?.sessions ?? 0} />
-        <Row
-          title="Хранилище"
-          sub={`${isStandalone() ? 'Приложение' : 'Браузер'} · ${online ? 'онлайн' : 'оффлайн'}`}
-          value={`${counts?.queue ?? 0} в очереди`}
-        />
-        <Row title="Выгрузить историю в CSV" onClick={exportCsv} chevron />
-        <Row
-          title="Демо-режим"
-          sub="Заполнить дневник примером за 10 недель"
-          onClick={() => setDemoOpen(true)}
-          chevron
-        />
-        <Row title="Как это работает" onClick={() => setHelpOpen(true)} chevron />
-      </Group>
-
-      <Group>
-        <Row title="Переключить аккаунт" onClick={() => setAccountsOpen(true)} chevron />
-        <Row title="Восстановить каталог упражнений" onClick={reseed} />
-        <Row title="Очистить историю тренировок" onClick={resetAll} danger />
-      </Group>
-
-      <AccountSection />
-
-      <div className="mute-sm" style={{ textAlign: 'center', marginTop: 20 }}>
-        Прототип v0.2 · офлайн-первое хранилище IndexedDB
-      </div>
-
-      <HelpSheet open={helpOpen} onClose={() => setHelpOpen(false)} />
 
       <Sheet open={payOpen} title="Оплата подписки" onClose={() => setPayOpen(false)}>
         <div className="stack">
@@ -323,95 +138,11 @@ export function Profile() {
       </Sheet>
 
       <EditProfileSheet open={editOpen} onClose={() => setEditOpen(false)} />
-      <AccountSwitcher open={accountsOpen} onClose={() => setAccountsOpen(false)} />
 
-      <Sheet open={demoOpen} title="Демо-история" onClose={() => setDemoOpen(false)}>
-        <div className="stack">
-          <div className="muted">
-            Сгенерирует 10 недель тренировок по сплиту Push / Pull / Legs с прогрессией весов,
-            личными рекордами и еженедельными замерами тела — чтобы посмотреть, как приложение
-            выглядит у активного пользователя.
-          </div>
-          <div className="card mute-sm" style={{ color: 'var(--warn)' }}>
-            Текущая история тренировок и замеры будут заменены. Каталог упражнений и ваши
-            программы не пострадают.
-          </div>
-          <button className="btn primary block" disabled={demoBusy} onClick={loadDemo}>
-            {demoBusy ? 'Генерирую…' : 'Заполнить дневник'}
-          </button>
-        </div>
-      </Sheet>
     </div>
   )
 }
 
-/** Справка вместо тура: объяснения доступны всегда, а не только при первом запуске. */
-function HelpSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const items: [string, string][] = [
-    [
-      'Тренировка',
-      'Нажмите «Начать» на главной. Вес и повторения подставятся из прошлого раза — останется подтвердить подход галочкой.',
-    ],
-    [
-      'Таймер отдыха',
-      'Запускается автоматически после подхода. Время берётся из программы, иначе из настроек.',
-    ],
-    [
-      'Замена упражнения',
-      'Тренажёр занят — нажмите иконку замены в шапке упражнения. Введённые подходы сохранятся.',
-    ],
-    ['Без интернета', 'Всё пишется на устройство. Появится сеть — данные уйдут в облако сами.'],
-    [
-      'Тренер',
-      'Получите код у тренера и введите его в разделе «Тренер». Он сможет назначать программы и комментировать тренировки.',
-    ],
-  ]
-  return (
-    <Sheet open={open} title="Как это работает" onClose={onClose}>
-      <div className="stack" style={{ gap: 16 }}>
-        {items.map(([title, text]) => (
-          <div key={title}>
-            <div className="strong">{title}</div>
-            <div className="muted" style={{ marginTop: 2 }}>
-              {text}
-            </div>
-          </div>
-        ))}
-      </div>
-    </Sheet>
-  )
-}
-
-function Toggle({
-  label,
-  hint,
-  value,
-  onChange,
-}: {
-  label?: string
-  hint?: string
-  value: boolean
-  onChange: (v: boolean) => void
-}) {
-  return (
-    <div className={label ? 'row between' : ''}>
-      <div className={label ? 'grow' : ''} style={label ? undefined : { display: 'none' }}>
-        <div>{label}</div>
-        {hint && <div className="mute-sm">{hint}</div>}
-      </div>
-      <button
-        className={`toggle${value ? ' on' : ''}`}
-        onClick={() => {
-          haptics.selection()
-          onChange(!value)
-        }}
-        aria-pressed={value}
-      >
-        <span className="toggle-knob" />
-      </button>
-    </div>
-  )
-}
 
 function EditProfileSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const profile = useProfile()
