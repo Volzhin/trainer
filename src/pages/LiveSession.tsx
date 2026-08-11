@@ -29,6 +29,8 @@ import { ExercisePicker } from '../components/ExercisePicker'
 import { ExerciseTechniqueSheet } from '../components/ExerciseTechnique'
 import { VideoUploader } from '../components/ExerciseVideo'
 import { CoachHint } from '../components/CoachHint'
+import { submitWorkoutReport } from '../db/reports'
+import { trainerOfClient } from '../db/coach'
 import { Sheet } from '../components/Sheet'
 import { useApp, useClientMode, useProfile } from '../store/app'
 import { ensureNotificationPermission, haptics } from '../lib/native'
@@ -58,12 +60,15 @@ export function LiveSession() {
    */
   const [frozenElapsed, setFrozenElapsed] = useState<number | null>(null)
   const [askedNotify, setAskedNotify] = useState(false)
+  const [reportComment, setReportComment] = useState('')
+  const [reportBusy, setReportBusy] = useState(false)
 
   const session = useLiveQuery(() => db.sessions.get(id), [id])
   // Кнопку съёмки показываем только на онлайн-сопровождении: без тренера
   // видео некому смотреть, а на очной работе технику он видит сам —
   // просить запись значит просить лишнее.
   const videoReport = useClientMode() === 'online'
+  const hasTrainer = !!useLiveQuery(() => trainerOfClient(), [])
   const sets = useLiveQuery(
     () => db.sets.where('workout_session_id').equals(id).toArray(),
     [id],
@@ -109,6 +114,8 @@ export function LiveSession() {
 
   const doneCount = (sets ?? []).filter((s) => s.is_done).length
   const volume = totalVolume(sets ?? [])
+  // «Всё выполнено» — когда подходы есть и неотмеченных не осталось.
+  const allDone = (sets ?? []).length > 0 && doneCount === (sets ?? []).length
 
   /**
    * Упражнения, которые человек действительно сделал. В окне завершения
@@ -165,6 +172,25 @@ export function LiveSession() {
       restSeconds ?? profile?.default_rest_seconds ?? 90,
       next ? block.exercise.name : undefined,
     )
+  }
+
+  /**
+   * Сдать отчёт прямо из тренировки. Тренировка при этом завершается: сдать
+   * отчёт по незаконченной нельзя, а заставлять человека нажать две кнопки
+   * подряд ради одного намерения — лишний шаг.
+   */
+  const onSubmitReport = async () => {
+    setReportBusy(true)
+    try {
+      await finishSession(id, notes.trim() || undefined)
+      await submitWorkoutReport(id, reportComment.trim() || undefined)
+      stopRest()
+      haptics.success()
+      toast('Отчёт отправлен тренеру')
+      nav('/', { replace: true })
+    } finally {
+      setReportBusy(false)
+    }
   }
 
   const onFinish = async () => {
@@ -310,6 +336,33 @@ export function LiveSession() {
         >
           <IconPlus size={17} /> Добавить упражнение
         </button>
+
+        {/* Пункт 4.2: когда всё отмечено, сдать отчёт можно не уходя с
+            тренировки. Блок появляется сам — искать его в другом разделе
+            через час после зала человек не станет. Только с тренером:
+            без него отчёт некому читать. */}
+        {hasTrainer && allDone && (
+          <div className="card mt-4" style={{ borderColor: 'var(--accent)' }}>
+            <div className="strong">Все подходы отмечены</div>
+            <div className="mute-sm mt-1">
+              Можно сдать отчёт тренеру. Комментарий необязателен.
+            </div>
+            <textarea
+              className="textarea mt-3"
+              style={{ minHeight: 64 }}
+              value={reportComment}
+              onChange={(e) => setReportComment(e.target.value)}
+              placeholder="Как прошло: самочувствие, что было тяжело"
+            />
+            <button
+              className="btn primary block mt-3"
+              disabled={reportBusy}
+              onClick={onSubmitReport}
+            >
+              {reportBusy ? 'Отправляю…' : 'Сдать отчёт'}
+            </button>
+          </div>
+        )}
       </div>
 
       <ExerciseTechniqueSheet exerciseId={techniqueFor} onClose={() => setTechniqueFor(null)} />
