@@ -16,7 +16,14 @@ import {
   uncompleteSet,
   updateSet,
 } from '../db/repo'
-import { estimate1RM, formatDuration, formatWeight, plural, totalVolume } from '../lib/calc'
+import {
+  estimate1RM,
+  formatDuration,
+  formatReps,
+  formatWeight,
+  plural,
+  totalVolume,
+} from '../lib/calc'
 import {
   IconBack,
   IconCheck,
@@ -75,6 +82,25 @@ export function LiveSession() {
     [] as ExerciseSet[],
   )
   const exercises = useExercises()
+
+  /*
+   * Цель по подходам и повторам из программы. Клиент её раньше не видел
+   * вовсе: тренер задавал «3 по 8-12», а у снаряда стояли пустые поля, и
+   * коридор оставался в голове у одного из двоих.
+   */
+  const targets = useLiveQuery(async () => {
+    if (!session?.routine_id) return new Map<string, string>()
+    const items = await db.templateItems
+      .where('routine_id')
+      .equals(session.routine_id)
+      .toArray()
+    return new Map(
+      items.map((i) => {
+        const reps = formatReps(i.target_reps, i.target_reps_max)
+        return [i.exercise_id, reps ? `${i.target_sets} × ${reps}` : `${i.target_sets} подх.`]
+      }),
+    )
+  }, [session?.routine_id])
 
   // История предыдущей тренировки по каждому упражнению — для подсказок.
   const prevByExercise = useLiveQuery(async () => {
@@ -270,11 +296,20 @@ export function LiveSession() {
                     {block.exercise.name}
                   </span>
                   <span className="mute-sm">
+                    {/* Цель важнее истории: по ней человек решает, сколько
+                        делать сейчас. Прошлый раз подсказывает вес и потому
+                        идёт следом, а не вместо. */}
+                    {targets?.get(block.exercise.id) && (
+                      <span style={{ color: 'var(--accent-ink)' }}>
+                        цель {targets.get(block.exercise.id)}
+                      </span>
+                    )}
+                    {targets?.get(block.exercise.id) && block.prev.length > 0 && ' · '}
                     {block.prev.length > 0
                       ? `прошлый раз ${formatWeight(block.prev[0].weight_kg)} кг × ${
                           block.prev[0].reps_completed ?? '—'
                         }`
-                      : 'как делать'}
+                      : !targets?.get(block.exercise.id) && 'как делать'}
                   </span>
                 </span>
               </button>

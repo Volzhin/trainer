@@ -90,3 +90,15 @@ export function weekStart(ts: number): number {
   const day = startOfDay(ts)
   return day - ((new Date(day).getDay() + 6) % 7) * 86400_000
 }
+
+/**
+ * Цель по повторам: одно число или диапазон.
+ *
+ * Формат один на все экраны — тренер задаёт «8-12», и ровно это должен
+ * увидеть клиент у снаряда. Верхняя граница, равная нижней, диапазоном не
+ * считается: «10-10» читается как ошибка ввода.
+ */
+export function formatReps(min?: number, max?: number): string | null {
+  if (!min) return null
+  return max && max > min ? `${min}–${max}` : String(min)
+}

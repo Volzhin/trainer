@@ -39,6 +39,38 @@ export function ProgramDetail() {
 
   const plan = useLiveQuery(() => activeAssignmentFor(), [])
 
+  /*
+   * Недельный объём по группам мышц — сумма подходов всех дней программы.
+   *
+   * Считается прямо здесь, из тех же строк, которые тренер сейчас правит:
+   * добавил упражнение — цифра сдвинулась. Смысл именно в этом. Свести
+   * объём после того, как программа собрана, можно и в голове, но тогда
+   * перекос обнаруживается, когда переделывать уже лень.
+   *
+   * Неделя считается как «каждый день программы по разу»: расписание
+   * задаётся при назначении клиенту, а до него у программы есть только
+   * состав. Если день поставят дважды, объём удвоится — но это уже про
+   * назначение, а не про программу.
+   */
+  const volume = useMemo(() => {
+    const exMap = new Map((exercises ?? []).map((e) => [e.id, e]))
+    const dayIds = new Set((routines ?? []).map((r) => r.id))
+    const byGroup = new Map<string, number>()
+
+    for (const item of items ?? []) {
+      if (!dayIds.has(item.routine_id)) continue
+      const group = exMap.get(item.exercise_id)?.muscle_group
+      if (!group) continue
+      byGroup.set(group, (byGroup.get(group) ?? 0) + item.target_sets)
+    }
+
+    return [...byGroup.entries()]
+      .map(([group, sets]) => ({ group, sets }))
+      .sort((a, b) => b.sets - a.sets)
+  }, [items, routines, exercises])
+
+  const volumeTotal = volume.reduce((a, v) => a + v.sets, 0)
+
   if (!program) return <div className="screen">Загрузка…</div>
 
   const editable = program.author_id === currentUserId()
@@ -215,7 +247,11 @@ export function ProgramDetail() {
                       )}
                     </div>
 
-                    <div className="row" style={{ marginTop: 8, gap: 8 }}>
+                    {/* Три поля в строке на узком экране становятся по
+                        восемьдесят пикселей, а с верхней границей их четыре.
+                        Поэтому отдых уехал во вторую строку: он меняется
+                        реже всех, и терять на нём ширину обиднее всего. */}
+                    <div className="row mt-2" style={{ gap: 8 }}>
                       <NumField
                         label="подходы"
                         value={item.target_sets}
@@ -223,11 +259,35 @@ export function ProgramDetail() {
                         onChange={(v) => patchItem(item.id, { target_sets: v })}
                       />
                       <NumField
-                        label="повторы"
+                        label="повторы от"
                         value={item.target_reps ?? 0}
                         disabled={!editable}
-                        onChange={(v) => patchItem(item.id, { target_reps: v })}
+                        onChange={(v) =>
+                          patchItem(item.id, {
+                            target_reps: v,
+                            // Верх ниже низа — не диапазон, а опечатка.
+                            // Подтягиваем его, а не запрещаем ввод.
+                            ...(item.target_reps_max != null && item.target_reps_max < v
+                              ? { target_reps_max: v }
+                              : {}),
+                          })
+                        }
                       />
+                      <NumField
+                        label="до"
+                        value={item.target_reps_max ?? item.target_reps ?? 0}
+                        min={item.target_reps ?? 0}
+                        disabled={!editable}
+                        onChange={(v) =>
+                          patchItem(item.id, {
+                            // Верх, равный низу, это не диапазон — стираем,
+                            // чтобы не показывать клиенту «10-10».
+                            target_reps_max: v > (item.target_reps ?? 0) ? v : undefined,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="row mt-2" style={{ gap: 8 }}>
                       <NumField
                         label="отдых, сек"
                         value={item.rest_seconds}
@@ -263,6 +323,42 @@ export function ProgramDetail() {
         >
           <IconPlus size={17} /> Добавить день
         </button>
+      )}
+
+      {volume.length > 0 && (
+        <>
+          <div className="section-title">Объём за неделю</div>
+          <div className="card">
+            <div className="mute-sm mb-3">
+              Подходы по всем дням программы. Пересчитывается на месте — видно, куда
+              перекосило, пока программу ещё собирают.
+            </div>
+            <div className="stack">
+              {volume.map((v) => (
+                <div key={v.group}>
+                  <div className="row between mb-1">
+                    <span className="muted truncate">{v.group}</span>
+                    <span className="mute-sm figures" style={{ flex: '0 0 auto' }}>
+                      {v.sets} {plural(v.sets, ['подход', 'подхода', 'подходов'])}
+                    </span>
+                  </div>
+                  <div className="bar">
+                    {/* Доля от самой нагруженной группы, а не от общего числа:
+                        сравнивают группы между собой, и полоска в три
+                        процента ничего не показывает. */}
+                    <i style={{ width: `${(v.sets / volume[0].sets) * 100}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="row between mt-4">
+              <span className="mute-sm">Всего за неделю</span>
+              <span className="figures strong">
+                {volumeTotal} {plural(volumeTotal, ['подход', 'подхода', 'подходов'])}
+              </span>
+            </div>
+          </div>
+        </>
       )}
 
       <PlanSheet
@@ -458,12 +554,15 @@ function NumField({
   value,
   onChange,
   step = 1,
+  min = 0,
   disabled,
 }: {
   label: string
   value: number
   onChange: (v: number) => void
   step?: number
+  /** Нижняя граница — у верхнего конца диапазона это его нижний конец. */
+  min?: number
   disabled?: boolean
 }) {
   return (
@@ -475,7 +574,7 @@ function NumField({
           disabled={disabled}
           onClick={() => {
             haptics.selection()
-            onChange(Math.max(0, value - step))
+            onChange(Math.max(min, value - step))
           }}
         >
           −
