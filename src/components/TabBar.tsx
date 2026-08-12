@@ -12,6 +12,7 @@ import {
   IconUsers,
 } from './Icons'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
 import { useApp, useRole, useTrainerLink } from '../store/app'
 
 type Tab = { to: string; label: string; Icon: typeof IconHome; end: boolean }
@@ -91,7 +92,7 @@ export function TabBar() {
             <Icon />
             {to === '/chat' && (unread ?? 0) > 0 && <i className="unread" />}
             {to === '/trainer' && (trainerUnread ?? 0) > 0 && <i className="unread" />}
-            <span>{label}</span>
+            <span>{t(label)}</span>
           </NavLink>
         ))}
       </div>

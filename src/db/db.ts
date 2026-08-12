@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie'
+import { setLang, type Lang } from '../lib/i18n'
 
 /**
  * Локальная база — источник истины во время тренировки (Offline-First).
@@ -220,6 +221,9 @@ export interface AppState {
   theme?: ThemePref
   /** Акцентный цвет интерфейса. */
   accent?: AccentPref
+  /** Язык интерфейса. Хранится на устройстве, а не в профиле: язык — это
+   *  про того, кто держит телефон, а не про аккаунт. */
+  lang?: Lang
   /**
    * Метки обмена по каждому аккаунту. Именно по аккаунту, а не по
    * устройству: на общем телефоне вторая учётная запись со старыми
@@ -879,20 +883,41 @@ export function applyAccent(pref: AccentPref) {
   else root.setAttribute('data-accent', pref)
 }
 
+export async function getLangPref(): Promise<Lang> {
+  const state = await db.appState.get(APP_STATE_ID)
+  return state?.lang ?? 'ru'
+}
+
+/**
+ * Записать настройку устройства, сохранив всё остальное.
+ *
+ * Раньше каждая настройка пересобирала запись поле за полем и роняла те,
+ * о которых её автор не знал: смена темы стирала курсоры обмена, и
+ * приложение молча перекачивало всё заново. Слияние не даёт забыть поле,
+ * появившееся позже.
+ */
+async function patchState(patch: Partial<AppState>) {
+  const state = await db.appState.get(APP_STATE_ID)
+  await db.appState.put({
+    ...state,
+    id: APP_STATE_ID,
+    active_user_id: state?.active_user_id ?? activeUserId,
+    ...patch,
+  })
+}
+
+export async function setLangPref(lang: Lang) {
+  await patchState({ lang })
+  setLang(lang)
+}
+
 export async function getAccentPref(): Promise<AccentPref> {
   const state = await db.appState.get(APP_STATE_ID)
   return state?.accent ?? 'lime'
 }
 
 export async function setAccentPref(accent: AccentPref) {
-  const state = await db.appState.get(APP_STATE_ID)
-  await db.appState.put({
-    id: APP_STATE_ID,
-    active_user_id: state?.active_user_id ?? activeUserId,
-    onboarded: state?.onboarded,
-    theme: state?.theme,
-    accent,
-  })
+  await patchState({ accent })
   applyAccent(accent)
 }
 
@@ -902,14 +927,7 @@ export async function getThemePref(): Promise<ThemePref> {
 }
 
 export async function setThemePref(theme: ThemePref) {
-  const state = await db.appState.get(APP_STATE_ID)
-  await db.appState.put({
-    id: APP_STATE_ID,
-    active_user_id: state?.active_user_id ?? activeUserId,
-    onboarded: state?.onboarded,
-    accent: state?.accent,
-    theme,
-  })
+  await patchState({ theme })
   applyTheme(theme)
 }
 
@@ -919,14 +937,7 @@ export async function isOnboarded(): Promise<boolean> {
 }
 
 export async function markOnboarded() {
-  const state = await db.appState.get(APP_STATE_ID)
-  await db.appState.put({
-    id: APP_STATE_ID,
-    active_user_id: state?.active_user_id ?? activeUserId,
-    theme: state?.theme,
-    accent: state?.accent,
-    onboarded: 1,
-  })
+  await patchState({ onboarded: 1 })
 }
 
 export const uid = (): string =>

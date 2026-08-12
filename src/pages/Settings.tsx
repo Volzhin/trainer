@@ -1,9 +1,16 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, currentUserId, notificationOn, type NotificationKind } from '../db/db'
+import {
+  db,
+  currentUserId,
+  notificationOn,
+  setLangPref,
+  type NotificationKind,
+} from '../db/db'
 import { exportHistoryCsv } from '../db/repo'
 import { updateAccount } from '../lib/backend'
+import { getLang, t } from '../lib/i18n'
 import { generateDemoData, seedTrainerDemo } from '../db/demo'
 import { seedIfEmpty } from '../db/seed'
 import { AccountSection } from '../components/AccountSection'
@@ -58,6 +65,7 @@ export function Settings() {
   const [helpOpen, setHelpOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [roleOpen, setRoleOpen] = useState(false)
+  const lang = getLang()
 
   /**
    * Смена режима перезагружает приложение: роль решает, какие маршруты и
@@ -151,15 +159,51 @@ export function Settings() {
           <IconBack size={18} />
         </button>
         <div className="grow">
-          <h1 className="detail">Настройки</h1>
-          <div className="sub">{isTrainer ? 'Кабинет тренера' : 'Приложение и данные'}</div>
+          <h1 className="detail">{t('Настройки')}</h1>
+          <div className="sub">{isTrainer ? t('Кабинет тренера') : t('Приложение и данные')}</div>
         </div>
       </div>
 
-      <Group title="Оформление">
+      <Group title={t('Оформление')}>
         <div className="group-row" style={{ display: 'block' }}>
-          <div className="title mb-2">Тема</div>
+          <div className="title mb-2">{t('Тема')}</div>
           <ThemePicker />
+        </div>
+        {/* Смена языка перезагружает приложение. Половина строк приходит из
+            модулей, прочитанных при запуске, и подменить их на живом дереве
+            значит оставить экран наполовину переведённым. Данные лежат в
+            IndexedDB и перезагрузку переживают. */}
+        <div className="group-row" style={{ display: 'block' }}>
+          <div className="title mb-2">{t('Язык')}</div>
+          <div className="segmented">
+            {(
+              [
+                ['ru', t('Русский')],
+                ['en', t('Английский')],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                className={lang === value ? 'on' : ''}
+                onClick={async () => {
+                  if (lang === value) return
+                  await setLangPref(value)
+                  location.reload()
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {/* Про неполноту говорим прямо. Обнаружить её самому, наткнувшись
+              на русский экран после переключения, неприятнее, чем прочитать
+              об этом заранее. */}
+          {lang === 'en' && (
+            <div className="mute-sm mt-2">
+              Translation is in progress: menus and settings are English, the rest is still
+              Russian.
+            </div>
+          )}
         </div>
       </Group>
 
@@ -167,8 +211,8 @@ export function Settings() {
           приложении ведёт клиент, а таймер отдыха у тренера ничего не
           включает. */}
       {!isTrainer && (
-        <Group title="Тренировка">
-          <Row title="Отдых по умолчанию" sub="Если в шаблоне не задан свой">
+        <Group title={t('Тренировка')}>
+          <Row title={t('Отдых по умолчанию')} sub={t('Если в шаблоне не задан свой')}>
             <select
               className="select"
               style={{ width: 104, padding: '8px 10px' }}
@@ -182,14 +226,14 @@ export function Settings() {
               ))}
             </select>
           </Row>
-          <Row title="Вибрация" sub="Отклик при подтверждении подхода">
+          <Row title={t('Вибрация')} sub={t('Отклик при подтверждении подхода')}>
             <Toggle
               label="Вибрация"
               value={profile?.haptics_enabled === 1}
               onChange={(v) => patch({ haptics_enabled: v ? 1 : 0 })}
             />
           </Row>
-          <Row title="Звук таймера" sub="Сигнал в конце отдыха">
+          <Row title={t('Звук таймера')} sub={t('Сигнал в конце отдыха')}>
             <Toggle
               label="Звук таймера"
               value={profile?.sound_enabled === 1}
@@ -199,11 +243,11 @@ export function Settings() {
         </Group>
       )}
 
-      <Group title="Уведомления">
+      <Group title={t('Уведомления')}>
         <Row
-          title="Разрешение браузера"
-          sub="Без него не придёт даже сигнал таймера"
-          value={notifGranted ? 'Выдано' : 'Разрешить'}
+          title={t('Разрешение браузера')}
+          sub={t('Без него не придёт даже сигнал таймера')}
+          value={notifGranted ? t('Выдано') : t('Разрешить')}
           onClick={async () => {
             const ok = await ensureNotificationPermission()
             toast(ok ? 'Уведомления включены' : 'Разрешение не выдано')
@@ -215,9 +259,9 @@ export function Settings() {
       {/* Напоминания появляются вместе с тренером: без него напоминать не о
           чем — отчёты сдавать некому. */}
       {!isTrainer && bond && (
-        <Group title="Напоминания">
+        <Group title={t('Напоминания')}>
           {reminders.map(({ kind, title, sub }) => (
-            <Row key={kind} title={title} sub={sub}>
+            <Row key={kind} title={t(title)} sub={t(sub)}>
               <Toggle
                 label={title}
                 value={notificationOn(profile, kind)}
@@ -236,27 +280,29 @@ export function Settings() {
 
           Клиенты и программы никуда не деваются — в тренерском режиме они
           на месте; меняется только то, какое приложение человек видит. */}
-      <Group title={isTrainer ? 'Свои тренировки' : 'Работа с клиентами'}>
+      <Group title={isTrainer ? t('Свои тренировки') : t('Работа с клиентами')}>
         <Row
-          title={isTrainer ? 'Перейти к своим тренировкам' : 'Перейти в режим тренера'}
+          title={isTrainer ? t('Перейти к своим тренировкам') : t('Перейти в режим тренера')}
           sub={
             isTrainer
-              ? 'Свой дневник, замеры и питание. Клиенты останутся на месте — вернуться можно тем же переключателем.'
-              : 'Клиенты, программы и разбор отчётов'
+              ? t(
+                  'Свой дневник, замеры и питание. Клиенты останутся на месте — вернуться можно тем же переключателем.',
+                )
+              : t('Клиенты, программы и разбор отчётов')
           }
           onClick={() => setRoleOpen(true)}
           chevron
         />
       </Group>
 
-      <Group title="Данные">
-        {!isTrainer && <Row title="Тренировок сохранено" value={counts?.sessions ?? 0} />}
+      <Group title={t('Данные')}>
+        {!isTrainer && <Row title={t('Тренировок сохранено')} value={counts?.sessions ?? 0} />}
         <Row
-          title="Хранилище"
-          sub={`${isStandalone() ? 'Приложение' : 'Браузер'} · ${online ? 'онлайн' : 'оффлайн'}`}
-          value={`${counts?.queue ?? 0} в очереди`}
+          title={t('Хранилище')}
+          sub={`${isStandalone() ? t('Приложение') : t('Браузер')} · ${online ? t('онлайн') : t('оффлайн')}`}
+          value={`${counts?.queue ?? 0} ${t('в очереди')}`}
         />
-        {!isTrainer && <Row title="Выгрузить историю в CSV" onClick={exportCsv} chevron />}
+        {!isTrainer && <Row title={t('Выгрузить историю в CSV')} onClick={exportCsv} chevron />}
         <Row
           title={isTrainer ? 'Добавить демо-клиентов' : 'Демо-режим'}
           sub={
@@ -268,15 +314,15 @@ export function Settings() {
           chevron
         />
         {!isTrainer && (
-          <Row title="Как это работает" onClick={() => setHelpOpen(true)} chevron />
+          <Row title={t('Как это работает')} onClick={() => setHelpOpen(true)} chevron />
         )}
       </Group>
 
-      <Group title="Аккаунт">
-        <Row title="Переключить аккаунт" onClick={() => setAccountsOpen(true)} chevron />
-        {!isTrainer && <Row title="Восстановить каталог упражнений" onClick={reseed} />}
+      <Group title={t('Аккаунт')}>
+        <Row title={t('Переключить аккаунт')} onClick={() => setAccountsOpen(true)} chevron />
+        {!isTrainer && <Row title={t('Восстановить каталог упражнений')} onClick={reseed} />}
         {!isTrainer && (
-          <Row title="Очистить историю тренировок" onClick={resetAll} danger />
+          <Row title={t('Очистить историю тренировок')} onClick={resetAll} danger />
         )}
       </Group>
 
@@ -290,7 +336,7 @@ export function Settings() {
 
       <Sheet
         open={roleOpen}
-        title={isTrainer ? 'Свои тренировки' : 'Режим тренера'}
+        title={isTrainer ? t('Свои тренировки') : t('Режим тренера')}
         onClose={() => setRoleOpen(false)}
       >
         <div className="stack">
@@ -300,7 +346,7 @@ export function Settings() {
               : 'Приложение переключится на кабинет тренера: клиенты, программы, разбор отчётов. Ваша история тренировок сохранится.'}
           </div>
           <button className="btn primary block" disabled={busy} onClick={switchRole}>
-            {busy ? 'Переключаю…' : 'Переключить'}
+            {busy ? t('Переключаю…') : t('Переключить')}
           </button>
         </div>
       </Sheet>
@@ -354,7 +400,7 @@ function HelpSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
     ],
   ]
   return (
-    <Sheet open={open} title="Как это работает" onClose={onClose}>
+    <Sheet open={open} title={t('Как это работает')} onClose={onClose}>
       <div className="stack" style={{ gap: 16 }}>
         {items.map(([title, text]) => (
           <div key={title}>

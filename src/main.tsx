@@ -9,7 +9,15 @@ import App from './App'
 import { AppProvider } from './store/app'
 import { repairCatalogIds, seedIfEmpty, syncCatalogPrograms } from './db/seed'
 import { restoreSession } from './db/account'
-import { applyAccent, applyTheme, getAccentPref, getThemePref, loadActiveUser } from './db/db'
+import {
+  applyAccent,
+  applyTheme,
+  getAccentPref,
+  getLangPref,
+  getThemePref,
+  loadActiveUser,
+} from './db/db'
+import { setLang } from './lib/i18n'
 import './index.css'
 
 /*
@@ -71,6 +79,9 @@ seedIfEmpty()
   .then(async () => {
     applyTheme(await getThemePref())
     applyAccent(await getAccentPref())
+    // Язык — до рендера: иначе первый кадр выходит на одном языке, а
+    // второй на другом, и это видно.
+    setLang(await getLangPref())
   })
   .finally(() => {
     createRoot(document.getElementById('root')!).render(
