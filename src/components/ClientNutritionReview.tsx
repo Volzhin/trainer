@@ -12,9 +12,11 @@ import {
 import { logsForDate, sumNutrients } from '../db/nutrition'
 import { nutritionShots } from '../db/coach'
 import { ShotThumb } from './ShotThumb'
-import { formatDate } from '../lib/calc'
+import { formatDate, formatWeight } from '../lib/calc'
 import { LineChart } from './LineChart'
 import { Sheet } from './Sheet'
+import { MeasurementsTable } from './MeasurementsTable'
+import { listBodyMetrics } from '../db/repo'
 import { ReportCalendar, type ReportState } from './ReportCalendar'
 import { ReviewSheet, toDaySubject, type ReviewSubject } from './ReviewSheet'
 import { useApp } from '../store/app'
@@ -352,6 +354,110 @@ function WeeklyStatsBlock({ clientId, open }: { clientId: string; open: boolean 
   )
 }
 
+const DAY = 86400_000
+const round1 = (v: number) => Math.round(v * 10) / 10
+
+/**
+ * Как отвечало тело на прошлые цели.
+ *
+ * Калорийность и шаги назначают не по формуле, а по тому, что произошло с
+ * весом на предыдущей неделе: расчёт даёт отправную точку, дальше правят по
+ * факту. Поэтому график, сдвиг веса и обхваты стоят прямо над полями — иначе
+ * тренер выдаёт цифру, не видя, к чему привела прошлая.
+ *
+ * Проценты рядом с килограммами не для красоты: минус килограмм у человека
+ * весом сто и весом пятьдесят — это разные события, и решения по ним разные.
+ */
+function BodyResponseBlock({ clientId, open }: { clientId: string; open: boolean }) {
+  const metrics = useLiveQuery(
+    () => (open ? listBodyMetrics(clientId) : Promise.resolve([])),
+    [clientId, open],
+    [],
+  )
+
+  const points = useMemo(
+    () =>
+      metrics
+        .filter((m) => m.weight_kg != null)
+        .sort((a, b) => a.logged_at - b.logged_at)
+        .map((m) => ({ x: m.logged_at, y: m.weight_kg as number })),
+    [metrics],
+  )
+
+  if (!points.length) {
+    return <div className="muted">{t('Клиент ещё не взвешивался — цели придётся ставить вслепую.')}</div>
+  }
+
+  const last = points[points.length - 1]
+  const first = points[0]
+  // Точка отсчёта — ближайшее взвешивание не новее двух недель. Если таких
+  // нет, за две недели просто не взвешивались, и сдвиг показывать не из чего.
+  const twoWeeks = points.filter((p) => p.x >= Date.now() - 14 * DAY)[0]
+
+  const delta = (from?: { y: number }) =>
+    from && from !== last && from.y > 0
+      ? { kg: round1(last.y - from.y), pct: round1(((last.y - from.y) / from.y) * 100) }
+      : null
+
+  const rows: [string, ReturnType<typeof delta>][] = [
+    ['за 2 недели', delta(twoWeeks)],
+    ['от старта', delta(first)],
+  ]
+  const shown = rows.filter(([, d]) => d)
+
+  return (
+    <>
+      <div className="section-title">{t('Вес')}</div>
+      <div className="card">
+        <div className="row between">
+          <div className="t-num" style={{ fontSize: 26 }}>
+            {formatWeight(last.y)}{' '}
+            <span className="mute-sm" style={{ fontSize: 14 }}>
+              {t('кг')}
+            </span>
+          </div>
+          <div className="mute-sm">{formatDate(last.x)}</div>
+        </div>
+
+        {points.length > 1 && (
+          <div className="mt-3">
+            <LineChart data={points.slice(-30)} unit={` ${t('кг')}`} height={90} />
+          </div>
+        )}
+
+        {shown.length > 0 && (
+          <div className="group mt-3">
+            {shown.map(([label, d]) => (
+              <div className="group-row" key={label}>
+                <span className="grow title">{t(label)}</span>
+                <span
+                  className="value figures"
+                  style={{ color: d!.kg > 0 ? 'var(--warn)' : d!.kg < 0 ? 'var(--ok)' : undefined }}
+                >
+                  {d!.kg > 0 ? '+' : ''}
+                  {d!.kg} {t('кг')} · {d!.pct > 0 ? '+' : ''}
+                  {d!.pct} %
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Только грудь, талия и таз: по ним видно, куда уходит вес. Полная
+          таблица со всеми обхватами живёт во вкладке «Тело» — здесь она
+          отвлекала бы от решения о калориях. */}
+      <MeasurementsTable
+        metrics={metrics}
+        userId={clientId}
+        rows={['chest_cm', 'waist_cm', 'hip_cm']}
+        withStart={false}
+        title="Замеры за 2 недели"
+      />
+    </>
+  )
+}
+
 function TargetsSheet({
   open,
   clientId,
@@ -439,6 +545,7 @@ function TargetsSheet({
         {/* Цифры стоят над полями, а не в другом разделе кабинета: цель
             назначают, глядя на то, что происходило, — иначе это угадывание. */}
         <WeeklyStatsBlock clientId={clientId} open={open} />
+        <BodyResponseBlock clientId={clientId} open={open} />
 
         <div className="muted">
           Пустое поле означает, что цели по этой метрике нет — приложение покажет клиенту только

@@ -39,7 +39,7 @@ export function BodyCompositionCard({
 }) {
   const metrics = useLiveQuery(() => listBodyMetrics(userId), [userId], [] as BodyMetric[])
 
-  const { latest, previous, lastWeight } = useMemo(() => {
+  const { latest, previous, lastWeight, inbody, inbodyPrev } = useMemo(() => {
     const all = metrics ?? []
     // Ручной замер такой же полноценный, как импортированный отчёт.
     const scans = all
@@ -48,7 +48,20 @@ export function BodyCompositionCard({
     const weighed = all
       .filter((m) => m.weight_kg != null)
       .sort((a, b) => b.logged_at - a.logged_at)
-    return { latest: scans[0], previous: scans[1], lastWeight: weighed[0] }
+    /**
+     * Полосу состава и мышцы рисуем только по биоимпедансу — и отбираем по
+     * источнику, а не по наличию полей: ручные замеры, сделанные до того как
+     * приложение перестало досчитывать мышцы и воду, до сих пор лежат в базе
+     * с этими числами и по полям неотличимы от отчёта InBody.
+     */
+    const bio = scans.filter((m) => m.source === 'inbody')
+    return {
+      latest: scans[0],
+      previous: scans[1],
+      lastWeight: weighed[0],
+      inbody: bio[0],
+      inbodyPrev: bio[1],
+    }
   }, [metrics])
 
   if (!latest) {
@@ -81,13 +94,15 @@ export function BodyCompositionCard({
   }
 
   const parts: Part[] = (
-    [
-      { key: 'muscle', value: latest.skeletal_muscle_kg, color: BODY_C.muscle },
-      { key: 'protein', value: latest.protein_kg, color: BODY_C.protein },
-      { key: 'minerals', value: latest.minerals_kg, color: BODY_C.minerals },
-      { key: 'water', value: latest.body_water_l, color: BODY_C.water },
-      { key: 'fat', value: latest.body_fat_kg, color: BODY_C.fat },
-    ] as { key: string; value?: number; color: string }[]
+    (inbody
+      ? [
+          { key: 'muscle', value: inbody.skeletal_muscle_kg, color: BODY_C.muscle },
+          { key: 'protein', value: inbody.protein_kg, color: BODY_C.protein },
+          { key: 'minerals', value: inbody.minerals_kg, color: BODY_C.minerals },
+          { key: 'water', value: inbody.body_water_l, color: BODY_C.water },
+          { key: 'fat', value: inbody.body_fat_kg, color: BODY_C.fat },
+        ]
+      : []) as { key: string; value?: number; color: string }[]
   ).filter((p): p is Part => typeof p.value === 'number' && p.value > 0)
 
   /*
@@ -158,8 +173,8 @@ export function BodyCompositionCard({
         <Stat
           label={t('Мышцы')}
           unit="кг"
-          now={latest.skeletal_muscle_kg}
-          was={previous?.skeletal_muscle_kg}
+          now={inbody?.skeletal_muscle_kg}
+          was={inbodyPrev?.skeletal_muscle_kg}
           better="up"
           color={BODY_C.muscle}
         />

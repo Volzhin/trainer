@@ -2476,6 +2476,14 @@ button.group-row:active {
   border-top: 1px solid var(--border);
 }
 
+/* Расчётный процент жира отделён от замеров: он не измерен лентой, а выведен
+   из них, и читаться должен как итог, а не как ещё одна строка обхватов. */
+.measure-table tfoot th,
+.measure-table tfoot td {
+  border-top: 1px solid var(--border);
+  color: var(--text-2);
+}
+
 /* Стартовая колонка — точка отсчёта, от неё и считают. Отделяем линией,
    чтобы взгляд не путал её с очередным замером. */
 .measure-table th:nth-child(2),

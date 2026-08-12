@@ -335,23 +335,30 @@ export function BodyCompositionView({
   const previous = scans[1]
 
   /**
-   * Свежее взвешивание часто содержит только вес: состав меряют реже.
-   * Поэтому кольцо, нормы и сегменты берём из последнего замера, где эти
-   * данные есть, и подписываем его дату — иначе разделы стоят пустыми,
-   * хотя разбор в истории имеется.
+   * Кольцо состава, нормы и сегменты рисуются только по биоимпедансу.
+   *
+   * Отбираем по источнику, а не по наличию полей: замеры лентой, сделанные
+   * до того, как приложение перестало досчитывать мышцы и воду, до сих пор
+   * лежат в базе с этими числами. По присутствию поля они неотличимы от
+   * отчёта InBody и подмешивались бы в диаграмму — а обхваты на неё влиять
+   * не должны вовсе.
+   *
+   * Берём последний отчёт, где состав есть: свежее взвешивание часто
+   * содержит один вес, и раздел стоял бы пустым при наличии разбора.
    */
+  const inbody = useMemo(() => scans.filter((m) => m.source === 'inbody'), [scans])
   const composed = useMemo(
-    () => scans.find((m) => m.skeletal_muscle_kg != null || m.body_water_l != null),
-    [scans],
+    () => inbody.find((m) => m.skeletal_muscle_kg != null || m.body_water_l != null),
+    [inbody],
   )
   const composedPrev = useMemo(
     () =>
-      scans.filter(
+      inbody.filter(
         (m) => m !== composed && (m.skeletal_muscle_kg != null || m.body_water_l != null),
       )[0],
-    [scans, composed],
+    [inbody, composed],
   )
-  const segmented = useMemo(() => scans.find((m) => m.muscle_segments), [scans])
+  const segmented = useMemo(() => inbody.find((m) => m.muscle_segments), [inbody])
 
   const onFiles = async (list: FileList | null) => {
     const files = Array.from(list ?? [])
@@ -533,7 +540,7 @@ export function BodyCompositionView({
           <BodyDonut
             parts={donutParts}
             centerLabel="Вес"
-            centerValue={`${composed.weight_kg ?? latest?.weight_kg ?? '—'} кг`}
+            centerValue={`${composed.weight_kg ?? '—'} кг`}
             status={weightStatus ? STATUS_TEXT[weightStatus] : undefined}
             statusKind={weightStatus}
           />
@@ -671,7 +678,7 @@ export function BodyCompositionView({
 
       {/* Таблица идёт следом за графиком: тот показывает направление,
           она — сами числа, по которым разговаривают. */}
-      <MeasurementsTable metrics={metrics ?? []} />
+      <MeasurementsTable metrics={metrics ?? []} userId={userId} />
 
       {latest && (latest.optimal_weight_kg != null || latest.daily_kcal != null) && (
         <>
@@ -1197,6 +1204,12 @@ export function ManualMeasurementSheet({
 
   const heightCm = num('height_cm') ?? profile?.height_cm
   const sex = profile?.gender ?? 'м'
+  /**
+   * Шея почти не меняется, поэтому её вносят один раз — как рост. Спрашиваем
+   * только пока её нет; дальше берём из профиля, а исправляют в настройках.
+   */
+  const neckCm = profile?.neck_cm ?? num('neck_cm')
+  const askNeck = profile?.neck_cm == null
 
   // Считаем на лету: человек должен видеть, что даёт очередной обхват,
   // а не узнавать результат после сохранения.
@@ -1207,7 +1220,7 @@ export function ManualMeasurementSheet({
         heightCm,
         sex,
         girths: {
-          neck: num('neck_cm'),
+          neck: neckCm,
           waist: num('waist_cm'),
           hip: num('hip_cm'),
           chest: num('chest_cm'),
@@ -1215,11 +1228,13 @@ export function ManualMeasurementSheet({
         },
         knownBodyFatPct: num('body_fat_pct'),
       }),
-    [values, heightCm, sex],
+    [values, heightCm, sex, neckCm],
   )
 
   const girthFields: { key: string; label: string; hint?: string }[] = [
-    { key: 'neck_cm', label: 'Шея', hint: 'под кадыком, лента горизонтально' },
+    ...(askNeck
+      ? [{ key: 'neck_cm', label: 'Шея', hint: 'один раз на старте, потом меняется в настройках' }]
+      : []),
     { key: 'waist_cm', label: 'Талия', hint: 'на уровне пупка, не втягивая живот' },
     { key: 'hip_cm', label: 'Таз', hint: 'по самой широкой части ягодиц' },
     { key: 'chest_cm', label: 'Грудь' },
@@ -1235,7 +1250,6 @@ export function ManualMeasurementSheet({
       const res = await saveManualMeasurement(
         {
           weight_kg: weight,
-          neck_cm: num('neck_cm'),
           waist_cm: num('waist_cm'),
           hip_cm: num('hip_cm'),
           chest_cm: num('chest_cm'),
@@ -1254,6 +1268,18 @@ export function ManualMeasurementSheet({
         },
         userId,
       )
+      /**
+       * Рост и шею сохраняем в профиль: их вносят один раз, и без этого
+       * поле шеи спрашивалось бы при каждом замере, а таблица не смогла бы
+       * посчитать процент жира — формуле нужны обе величины.
+       */
+      const patch: { height_cm?: number; neck_cm?: number } = {}
+      if (profile?.height_cm == null && num('height_cm') != null) patch.height_cm = num('height_cm')
+      if (profile?.neck_cm == null && num('neck_cm') != null) patch.neck_cm = num('neck_cm')
+      if (Object.keys(patch).length) {
+        await db.profile.update(userId, { ...patch, updated_at: Date.now() })
+      }
+
       setValues({})
       onSaved(res.replaced)
       onClose()
@@ -1344,6 +1370,11 @@ export function ManualMeasurementSheet({
         {!heightCm && (
           <div className="mute-sm" style={{ color: 'var(--warn)' }}>
             Без роста процент жира по обхватам не посчитать — укажите его выше.
+          </div>
+        )}
+        {heightCm && !neckCm && (
+          <div className="mute-sm" style={{ color: 'var(--warn)' }}>
+            Без обхвата шеи процент жира не посчитать — укажите его в настройках профиля.
           </div>
         )}
         {heightCm && sex === 'ж' && !num('hip_cm') && (

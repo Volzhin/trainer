@@ -289,6 +289,7 @@ export async function generateDemoData(userId = currentUserId()) {
     name: 'Алексей',
     gender: 'м',
     height_cm: 182,
+    neck_cm: 38,
     goal_weight_kg: 78,
     experience: 'Средний',
     plan: 'PRO',
@@ -389,6 +390,8 @@ export async function seedTrainerDemo(trainerId = currentUserId()) {
       experience: spec.experience,
       gender: spec.gender,
       height_cm: spec.height,
+      // Шея живёт в профиле рядом с ростом: её вносят один раз на старте.
+      neck_cm: spec.gender === 'ж' ? 32 : 38,
       updated_at: now(),
     })
 

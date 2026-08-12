@@ -430,7 +430,19 @@ const EN: Record<string, string> = {
   Жир: 'Fat',
   Мышцы: 'Muscle',
   Замеры: 'Measurements',
+  кг: 'kg',
   'Таблица замеров': 'Measurements table',
+  'Замеры за 2 недели': 'Measurements, last 2 weeks',
+  'Жир расчётный': 'Body fat, estimated',
+  'Процент жира посчитан по обхватам — это оценка, а не замер. Диаграмму InBody она не меняет.':
+    'Body fat is estimated from girths — an estimate, not a measurement. It does not affect the InBody chart.',
+  'Обхват шеи, см': 'Neck, cm',
+  'Под кадыком, лента горизонтально. Нужен для расчёта процента жира.':
+    'Below the Adam’s apple, tape level. Used to estimate body fat.',
+  'Клиент ещё не взвешивался — цели придётся ставить вслепую.':
+    'The client has not weighed in yet — targets would be a guess.',
+  'за 2 недели': 'last 2 weeks',
+  'от старта': 'since start',
   старт: 'start',
   'За две недели новых замеров нет — сравнивать пока не с чем.':
     'No new measurements in two weeks — nothing to compare yet.',

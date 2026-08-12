@@ -83,6 +83,7 @@ function EditProfileSheet({ open, onClose }: { open: boolean; onClose: () => voi
   const profile = useProfile()
   const [name, setName] = useState('')
   const [height, setHeight] = useState('')
+  const [neck, setNeck] = useState('')
   const [goal, setGoal] = useState('')
   const [experience, setExperience] = useState('Новичок')
   const [contacts, setContacts] = useState<Contact[]>([])
@@ -99,6 +100,7 @@ function EditProfileSheet({ open, onClose }: { open: boolean; onClose: () => voi
     await db.profile.update(currentUserId(), {
       name: name.trim() || profile?.name || 'Гость',
       height_cm: height ? Number(height) : profile?.height_cm,
+      neck_cm: neck ? Number(neck) : profile?.neck_cm,
       goal_weight_kg: goal ? Number(goal) : profile?.goal_weight_kg,
       experience: experience as never,
       contacts,
@@ -129,6 +131,21 @@ function EditProfileSheet({ open, onClose }: { open: boolean; onClose: () => voi
             onChange={(e) => setHeight(e.target.value)}
             placeholder={profile?.height_cm?.toString() ?? '180'}
           />
+        </div>
+        {/* Шея стоит рядом с ростом: обе величины вносят один раз и правят
+            здесь же, если ошиблись. В замерах их больше не спрашивают. */}
+        <div className="field">
+          <label>{t('Обхват шеи, см')}</label>
+          <input
+            className="input"
+            inputMode="decimal"
+            value={neck}
+            onChange={(e) => setNeck(e.target.value)}
+            placeholder={profile?.neck_cm?.toString() ?? '38'}
+          />
+          <div className="mute-sm mt-1">
+            {t('Под кадыком, лента горизонтально. Нужен для расчёта процента жира.')}
+          </div>
         </div>
         <div className="field">
           <label>{t('Целевой вес, кг')}</label>
