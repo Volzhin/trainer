@@ -14,7 +14,16 @@ routerAdd('POST', '/api/redeem', (e) => {
     return e.json(401, { message: 'Нужно войти' })
   }
 
-  const body = new DynamicModel({ code: '' })
+  /*
+   * peek — только посмотреть, не гася код.
+   *
+   * Клиенту нужно прочитать документы тренера до того, как он согласится,
+   * а прав на чужие записи у него до привязки нет. Поэтому проверку кода
+   * и саму привязку пришлось развести: сначала он спрашивает, с кем и на
+   * каких условиях, потом соглашается. Гасить код на первом шаге нельзя —
+   * передумавший остался бы без кода и без тренера.
+   */
+  const body = new DynamicModel({ code: '', peek: false })
   e.bindBody(body)
 
   const code = String(body.code || '')
@@ -47,6 +56,39 @@ routerAdd('POST', '/api/redeem', (e) => {
 
   const trainer = e.app.findRecordById('users', trainerId)
 
+  // Документы тренера — то, что клиент подписывает. Чего нет, того он не
+  // увидит и подписывать не будет.
+  let documents = []
+  try {
+    const rows = e.app.findRecordsByFilter(
+      'attachments',
+      'owner = {:owner} && kind = "document"',
+      '-created',
+      20,
+      0,
+      { owner: trainerId },
+    )
+    documents = rows.map((r) => ({
+      kind: r.getString('note'),
+      id: r.id,
+      file: r.getString('file'),
+    }))
+  } catch {
+    documents = []
+  }
+
+  const card = {
+    trainer: {
+      id: trainerId,
+      name: trainer.getString('name'),
+      contacts: trainer.get('contacts'),
+      preferred_contact: trainer.getString('preferred_contact'),
+    },
+    documents,
+  }
+
+  if (body.peek) return e.json(200, card)
+
   // Обе записи меняются вместе: код без привязки оставил бы клиента
   // с погашенным кодом и без тренера.
   e.app.runInTransaction((tx) => {
@@ -58,12 +100,5 @@ routerAdd('POST', '/api/redeem', (e) => {
     tx.save(auth)
   })
 
-  return e.json(200, {
-    trainer: {
-      id: trainerId,
-      name: trainer.getString('name'),
-      contacts: trainer.get('contacts'),
-      preferred_contact: trainer.getString('preferred_contact'),
-    },
-  })
+  return e.json(200, card)
 })

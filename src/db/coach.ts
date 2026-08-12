@@ -9,6 +9,7 @@ import {
   type Attachment,
   type ClientMode,
   type Consent,
+  type ConsentKind,
   type Contact,
   type ContactKind,
   type Feedback,
@@ -156,17 +157,19 @@ export async function revokeInvite(code: string) {
 }
 
 /**
- * Погашение кода. Подписи обязательны: по пункту 6 спецификации связи без
- * оферты и согласия на обработку данных не существует. Проверка стоит
- * здесь, а не только в форме, потому что связь заводится и другими путями,
- * а условие относится к самой связи, а не к экрану, с которого её создали.
+ * Погашение кода.
+ *
+ * Подписи прикладываются, если тренер приложил документы. Требовать их
+ * безусловно нельзя: документы у каждого тренера свои, и у того, кто
+ * ничего не приложил, подписывать нечего — связь бы просто не заводилась.
+ * Что подписано, хранится вместе с идентификатором файла: заменив
+ * документ, тренер получает другой, и прежняя подпись к нему не относится.
  */
 export async function redeemInvite(
   code: string,
   clientId = currentUserId(),
-  consents?: Consent[],
+  consents: Consent[] = [],
 ) {
-  if (!consents?.length) throw new Error('Нужно принять оферту и согласие на обработку данных')
   const clean = code.trim().toUpperCase()
   let invite = await db.invites.get(clean)
 
@@ -219,6 +222,7 @@ export async function redeemInvite(
 
   const ts = now()
   const signed = consents.map((c) => ({ ...c, signed_at: c.signed_at || ts }))
+
   if (existing) {
     // Возобновляя работу, человек подписывает актуальные редакции заново —
     // за время паузы текст мог смениться, а прежняя подпись относилась к
@@ -811,6 +815,48 @@ export async function nutritionShots(
 ): Promise<Attachment[]> {
   const rows = await db.attachments.where('nutrition_date').equals(date).toArray()
   return rows.filter((a) => a.user_id === userId).sort((a, b) => a.created_at - b.created_at)
+}
+
+/* ---------------------------- документы -------------------------------- */
+
+/**
+ * Документы тренера: оферта и согласие на обработку данных.
+ *
+ * Свои у каждого — тренеры работают по разным договорам, и общий текст
+ * подошёл бы не всем. Не прикрепил ни одного — клиенту нечего подписывать,
+ * и шаг с галочками ему не показывают вовсе.
+ */
+export async function trainerDocs(trainerId = currentUserId()): Promise<Attachment[]> {
+  const rows = await db.attachments.where('user_id').equals(trainerId).toArray()
+  return rows.filter((a) => a.kind === 'document')
+}
+
+/** Прикрепить документ. Одного вида может быть только один: новый заменяет. */
+export async function setTrainerDoc(input: {
+  kind: ConsentKind
+  blob: Blob
+  fileName: string
+  trainerId?: string
+}): Promise<string> {
+  const trainerId = input.trainerId ?? currentUserId()
+  const existing = (await trainerDocs(trainerId)).filter((a) => a.doc_kind === input.kind)
+  for (const old of existing) await deleteAttachment(old.id)
+
+  const id = uid()
+  const ts = now()
+  await db.attachments.add({
+    id,
+    user_id: trainerId,
+    doc_kind: input.kind,
+    kind: 'document',
+    blob: input.blob,
+    mime: input.blob.type || 'application/pdf',
+    size: input.blob.size,
+    remote_file: undefined,
+    created_at: ts,
+    updated_at: ts,
+  })
+  return id
 }
 
 export async function attachmentsForSession(sessionId: string): Promise<Attachment[]> {

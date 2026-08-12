@@ -395,6 +395,25 @@ export type RedeemedTrainer = {
  * Гасит код приглашения. Поиск по коду делает сервер: список приглашений
  * закрыт, иначе чужие коды мог бы выгрузить любой вошедший.
  */
+/** Документ тренера, который клиент подписывает при подключении. */
+export type TrainerDoc = { kind: string; id: string; file: string }
+
+/**
+ * Посмотреть, к кому ведёт код и что придётся подписать, не гася его.
+ *
+ * Права на чужие записи появляются только после привязки, поэтому
+ * документы тренера отдаёт сервер вместе с карточкой. Гасить код на этом
+ * шаге нельзя: передумавший остался бы без кода и без тренера.
+ */
+export async function peekInvite(
+  code: string,
+): Promise<{ trainer: RedeemedTrainer; documents: TrainerDoc[] }> {
+  return request('/api/redeem', {
+    method: 'POST',
+    body: JSON.stringify({ code, peek: true }),
+  })
+}
+
 export async function redeemInvite(code: string): Promise<RedeemedTrainer> {
   const res = await request<{ trainer: RedeemedTrainer }>('/api/redeem', {
     method: 'POST',

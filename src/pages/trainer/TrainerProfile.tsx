@@ -7,6 +7,7 @@ import { ContactEditor } from '../../components/ContactLinks'
 import { Sheet } from '../../components/Sheet'
 import { haptics } from '../../lib/native'
 import { IconSettings } from '../../components/Icons'
+import { TrainerDocs } from '../../components/TrainerDocs'
 import { useApp, useProfile } from '../../store/app'
 import { t } from '../../lib/i18n'
 
@@ -133,6 +134,8 @@ export function TrainerProfile() {
           <strong>{counts?.programs ?? 0}</strong>
         </div>
       </div>
+
+      <TrainerDocs />
 
 
       <Sheet open={editOpen} title={t('Профиль тренера')} onClose={() => setEditOpen(false)}>

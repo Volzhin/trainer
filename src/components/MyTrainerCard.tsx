@@ -4,6 +4,7 @@ import { db, type Consent } from '../db/db'
 import { redeemInvite, removeLink, trainerOfClient } from '../db/coach'
 import { ContactLinks } from './ContactLinks'
 import { ConsentStep } from './ConsentStep'
+import { peekInvite, type TrainerDoc } from '../lib/backend'
 import { BarcodeScanner, QR_FORMATS } from './BarcodeScanner'
 import { IconCamera } from './Icons'
 import { Sheet } from './Sheet'
@@ -21,6 +22,9 @@ export function MyTrainerCard() {
   // его позвали, потом соглашается с условиями. Обратный порядок заставлял
   // бы читать документы тех, кто ошибся кодом.
   const [step, setStep] = useState<'code' | 'consent'>('code')
+  /** Документы тренера, полученные по коду до привязки. */
+  const [docs, setDocs] = useState<TrainerDoc[]>([])
+  const [checking, setChecking] = useState(false)
   const [scanOpen, setScanOpen] = useState(false)
 
 
@@ -79,6 +83,7 @@ export function MyTrainerCard() {
     setOpen(false)
     setCode('')
     setStep('code')
+    setDocs([])
   }
 
   const unlink = async () => {
@@ -157,10 +162,24 @@ export function MyTrainerCard() {
             </div>
             <button
               className="btn primary block"
-              disabled={code.length < 6}
-              onClick={() => setStep('consent')}
+              disabled={code.length < 6 || checking}
+              onClick={async () => {
+                // Сначала спрашиваем, к кому ведёт код и что подписывать.
+                // Код при этом не гасится: передумавший не должен остаться
+                // без кода и без тренера.
+                setChecking(true)
+                try {
+                  const res = await peekInvite(code)
+                  setDocs(res.documents ?? [])
+                  setStep('consent')
+                } catch (e) {
+                  toast(e instanceof Error ? e.message : t('Код не найден'))
+                } finally {
+                  setChecking(false)
+                }
+              }}
             >
-              {t('Далее')}
+              {checking ? t('Проверяю…') : t('Далее')}
             </button>
             {/* Сканер — рядом с полем, а не вместо него: камера есть не у
                 всех браузеров, и путь руками должен оставаться на виду. */}
@@ -172,7 +191,12 @@ export function MyTrainerCard() {
             </div>
           </div>
         ) : (
-          <ConsentStep busy={busy} onBack={() => setStep('code')} onAccept={submit} />
+          <ConsentStep
+            documents={docs}
+            busy={busy}
+            onBack={() => setStep('code')}
+            onAccept={submit}
+          />
         )}
       </Sheet>
 
