@@ -497,10 +497,18 @@ function AssignSheet({
   /** Какой день программы стоит на каком дне недели. */
   const [slots, setSlots] = useState<Record<number, string>>({})
 
+  // Копии, сделанные под других клиентов, в список не идут: они называются
+  // так же, как исходный шаблон, и отличить их в перечне было бы нельзя.
   const programs = useLiveQuery(
     () =>
-      db.programs.filter((p) => p.author_id === userId || p.author_id === 'system').toArray(),
-    [userId],
+      db.programs
+        .filter(
+          (p) =>
+            (p.author_id === userId || p.author_id === 'system') &&
+            (!p.client_id || p.client_id === clientId),
+        )
+        .toArray(),
+    [userId, clientId],
     [] as Program[],
   )
   const allRoutines = useLiveQuery(() => db.routines.toArray(), [], [])

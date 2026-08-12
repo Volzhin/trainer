@@ -1,5 +1,7 @@
 import {
   db,
+  deleteManySynced,
+  deleteSynced,
   enqueue,
   uid,
   now,
@@ -24,6 +26,7 @@ import {
   deleteRemoteAttachment,
   isAuthed,
   redeemInvite as remoteRedeemInvite,
+  revokeInvite as remoteRevokeInvite,
 } from '../lib/backend'
 
 /**
@@ -102,18 +105,22 @@ export async function createInvite(trainerId = currentUserId()): Promise<string>
   let code = makeCode()
   while (await db.invites.get(code)) code = makeCode()
 
+  const expiresAt = now() + INVITE_TTL_MS
+
+  // Сервер идёт первым: код, который есть только здесь, клиент на своём
+  // телефоне погасить не сможет, а тренер уже прочитает его вслух.
+  if (isAuthed()) {
+    await remoteCreateInvite(code, trainerId, expiresAt).catch(() => {
+      throw new Error('Код не сохранился на сервере — проверьте связь и попробуйте снова')
+    })
+  }
+
   await db.invites.add({
     code,
     trainer_id: trainerId,
     created_at: now(),
-    expires_at: now() + INVITE_TTL_MS,
+    expires_at: expiresAt,
   })
-
-  if (isAuthed()) {
-    await remoteCreateInvite(code, trainerId).catch(() => {
-      throw new Error('Код не сохранился на сервере — проверьте связь и попробуйте снова')
-    })
-  }
   return code
 }
 
@@ -124,7 +131,17 @@ export async function listActiveInvites(trainerId = currentUserId()) {
     .sort((a, b) => b.created_at - a.created_at)
 }
 
+/**
+ * Отзывает код. Сервер идёт первым и по той же причине, что при выпуске:
+ * гасит код он, и запись, стёртая только здесь, продолжает исправно
+ * привязывать людей к тренеру, который считает, что отозвал приглашение.
+ */
 export async function revokeInvite(code: string) {
+  if (isAuthed()) {
+    await remoteRevokeInvite(code).catch(() => {
+      throw new Error('Код не отозвался на сервере — проверьте связь и попробуйте снова')
+    })
+  }
   await db.invites.delete(code)
 }
 
@@ -184,6 +201,19 @@ export async function redeemInvite(code: string, clientId = currentUserId()) {
     throw new Error('Вы уже работаете с этим тренером')
 
   const ts = now()
+
+  // Прежнюю связь приостанавливаем: активной она остаётся до тех пор, пока
+  // её кто-нибудь не снимет, и тогда у человека два действующих тренера
+  // сразу. Кто из них «его», решает порядок строк — то есть случайность.
+  const others = await db.links
+    .where('client_id')
+    .equals(clientId)
+    .and((l) => l.status === 'ACTIVE' && l.trainer_id !== invite.trainer_id)
+    .toArray()
+  for (const l of others) {
+    await db.links.update(l.id, { status: 'PAUSED', updated_at: ts })
+  }
+
   if (existing) {
     await db.links.update(existing.id, { status: 'ACTIVE', updated_at: ts })
   } else {
@@ -236,15 +266,23 @@ export async function removeLink(linkId: string) {
       updated_at: now(),
     })
   }
-  await db.links.delete(linkId)
+  await deleteSynced('links', linkId)
 }
 
+/**
+ * Действующий тренер клиента.
+ *
+ * Связей в базе может оказаться несколько: человек сменил тренера, а прежняя
+ * строка осталась. Берём свежайшую активную — иначе чат, отчёты и бейджи
+ * цепляются к случайной из них, и разговор с новым тренером идёт в ветку со
+ * старым.
+ */
 export async function trainerOfClient(clientId = currentUserId()) {
-  const link = await db.links
-    .where('client_id')
-    .equals(clientId)
-    .and((l) => l.status !== 'PAUSED')
-    .first()
+  const links = await db.links.where('client_id').equals(clientId).toArray()
+  const active = links
+    .filter((l) => l.status === 'ACTIVE')
+    .sort((a, b) => b.updated_at - a.updated_at)
+  const link = active[0] ?? links.find((l) => l.status !== 'PAUSED')
   if (!link) return null
   const trainer = await db.profile.get(link.trainer_id)
   return trainer ? { link, trainer } : null
@@ -403,6 +441,85 @@ export async function loadClientDetail(clientId: string): Promise<ClientDetail |
 
 /* ---------------------- назначения и обратная связь -------------------- */
 
+/**
+ * Что именно получит клиент по назначению.
+ *
+ * Каталог одинаков у всех и приезжает при первом запуске — на него довольно
+ * сослаться. А собранную тренером программу клиент не увидел бы никогда: она
+ * не принадлежит никому лично (client_id пуст), поэтому не выгружается вовсе,
+ * и до клиента доезжало назначение без программы — ни плана, ни отметок в
+ * календаре, при том что тренер уверен, что всё назначил. Такую копируем под
+ * клиента: копия принадлежит ему, уезжает обычным обменом и заодно не меняется
+ * под ним, когда тренер правит исходный шаблон.
+ */
+async function programForClient(
+  programId: string,
+  clientId: string,
+  trainerId: string,
+): Promise<{ programId: string; routineMap: Map<string, string> }> {
+  const keep = { programId, routineMap: new Map<string, string>() }
+
+  const program = await db.programs.get(programId)
+  if (!program) return keep
+  // Свой план поверх каталога копировать незачем — программа уже на устройстве.
+  if (clientId === trainerId) return keep
+  if (program.author_id === 'system') return keep
+  if (program.client_id === clientId) return keep
+
+  // Тот же шаблон тому же клиенту переназначают не раз — при паузе, смене
+  // расписания, продлении. Копию на это заводим одну: иначе в кабинете
+  // копится вереница одинаковых программ, которые ничем не отличить.
+  const made = await db.programs
+    .where('client_id')
+    .equals(clientId)
+    .and((p) => p.source_id === programId && p.author_id === trainerId)
+    .first()
+
+  if (made) {
+    const [origin, copies] = await Promise.all([
+      db.routines.where('program_id').equals(programId).sortBy('day_order'),
+      db.routines.where('program_id').equals(made.id).sortBy('day_order'),
+    ])
+    const byDay = new Map(copies.map((r) => [r.day_order, r.id]))
+    const routineMap = new Map<string, string>()
+    for (const routine of origin) {
+      const copy = byDay.get(routine.day_order)
+      if (copy) routineMap.set(routine.id, copy)
+    }
+    return { programId: made.id, routineMap }
+  }
+
+  const ts = now()
+  const copyId = uid()
+  await db.programs.add({
+    ...program,
+    id: copyId,
+    client_id: clientId,
+    author_id: trainerId,
+    source_id: programId,
+    updated_at: ts,
+  })
+
+  // Расписание ссылается на дни программы, поэтому копии дней надо запомнить:
+  // со старыми идентификаторами у клиента не нашлось бы ни одного дня.
+  const routineMap = new Map<string, string>()
+  const routines = await db.routines.where('program_id').equals(programId).sortBy('day_order')
+  for (const routine of routines) {
+    const routineId = uid()
+    routineMap.set(routine.id, routineId)
+    await db.routines.add({ ...routine, id: routineId, program_id: copyId, updated_at: ts })
+
+    const items = await db.templateItems
+      .where('routine_id')
+      .equals(routine.id)
+      .sortBy('sequence_order')
+    for (const item of items) {
+      await db.templateItems.add({ ...item, id: uid(), routine_id: routineId, updated_at: ts })
+    }
+  }
+  return { programId: copyId, routineMap }
+}
+
 export async function assignProgram(input: {
   clientId: string
   programId: string
@@ -434,13 +551,20 @@ export async function assignProgram(input: {
   const id = uid()
   const startAt = now()
   const weeks = input.weeks
-  const schedule = input.schedule?.length ? input.schedule : undefined
+  const copy = await programForClient(input.programId, input.clientId, trainerId)
+  const programId = copy.programId
+  const schedule = input.schedule?.length
+    ? input.schedule.map((slot) => ({
+        ...slot,
+        routine_id: copy.routineMap.get(slot.routine_id) ?? slot.routine_id,
+      }))
+    : undefined
 
   await db.assignments.add({
     id,
     trainer_id: trainerId,
     client_id: input.clientId,
-    program_id: input.programId,
+    program_id: programId,
     // Расписание само задаёт недельный объём — дублировать его руками незачем.
     weekly_target: schedule?.length ?? input.weeklyTarget ?? 3,
     schedule,
@@ -559,9 +683,15 @@ export async function plannedDates(
     ? Math.min(startOfDay(to), assignment.end_at - 86400_000)
     : startOfDay(to)
 
-  for (let d = begin; d <= finish; d += 86400_000) {
+  // Шагаем календарными сутками, а не ровно 24 часами: в день перевода
+  // часов сутки короче или длиннее, и счёт в миллисекундах уводит на 23:00
+  // предыдущего дня — день недели съезжает, и план рисуется не там.
+  for (let d = begin; d <= finish;) {
     const name = nameByWeekday.get((new Date(d).getDay() + 6) % 7)
     if (name) out.set(d, name)
+    const next = new Date(d)
+    next.setDate(next.getDate() + 1)
+    d = next.getTime()
   }
   return out
 }
@@ -630,13 +760,25 @@ export async function deletePersonalProgram(programId: string) {
     }
   }
 
+  // Владелец дней и упражнений выводится из программы, а она удаляется
+  // последней — к моменту выгрузки искать его будет негде.
+  const owner = (await db.programs.get(programId))?.client_id
+
   const routines = await db.routines.where('program_id').equals(programId).toArray()
   for (const r of routines) {
     const items = await db.templateItems.where('routine_id').equals(r.id).toArray()
-    await db.templateItems.bulkDelete(items.map((i) => i.id))
+    await deleteManySynced(
+      'templateItems',
+      items.map((i) => i.id),
+      owner,
+    )
   }
-  await db.routines.bulkDelete(routines.map((r) => r.id))
-  await db.programs.delete(programId)
+  await deleteManySynced(
+    'routines',
+    routines.map((r) => r.id),
+    owner,
+  )
+  await deleteSynced('programs', programId)
 }
 
 export async function cancelAssignment(assignmentId: string) {
@@ -746,11 +888,14 @@ export async function attachmentsForSession(sessionId: string): Promise<Attachme
 export async function deleteAttachment(id: string) {
   const row = await db.attachments.get(id)
   await db.attachments.delete(id)
+  if (!row) return
 
   // Файл на сервере надо снести отдельно: иначе видео, которое человек у
   // себя удалил, продолжит лежать в хранилище и показываться тренеру.
-  if (row?.remote_id && isAuthed()) {
-    await deleteRemoteAttachment(row.remote_id).catch(() => {})
+  // Запись об удалении ставим в очередь в любом случае — без сети файл
+  // снести не выйдет, но и забывать об удалении нельзя.
+  if (row.remote_id) {
+    if (isAuthed()) await deleteRemoteAttachment(row.remote_id).catch(() => {})
     await enqueue('attachments', id, 'delete', row)
   }
 }
@@ -793,5 +938,5 @@ export async function listTrainerNotes(clientId: string, trainerId = currentUser
 }
 
 export async function deleteTrainerNote(noteId: string) {
-  await db.trainerNotes.delete(noteId)
+  await deleteSynced('trainerNotes', noteId)
 }

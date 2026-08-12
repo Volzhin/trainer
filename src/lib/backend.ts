@@ -53,6 +53,8 @@ function read(): Stored | null {
  */
 function write(next: Stored | null) {
   session = next
+  // Токен на файлы выписан прежнему входу — с новым он недействителен.
+  fileTokenValue = ''
   try {
     if (next) localStorage.setItem(TOKEN_KEY, JSON.stringify(next))
     else localStorage.removeItem(TOKEN_KEY)
@@ -286,6 +288,12 @@ type Page<T> = {
   items: T[]
 }
 
+/**
+ * Значение внутри filter-выражения. Кавычка в адресе почты рвёт условие
+ * пополам, и вместо поиска одного человека получается запрос с чужим смыслом.
+ */
+const quote = (v: string) => `"${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+
 /** Страница изменений начиная с метки. Тренеру приезжают и записи клиентов. */
 export async function pullRecords(since: number, page = 1, perPage = 200) {
   const filter = encodeURIComponent(`updated > ${since}`)
@@ -298,29 +306,18 @@ export async function pullRecords(since: number, page = 1, perPage = 200) {
  * Отправка пачки изменений. PocketBase умеет батч-запрос — одна поездка
  * вместо сотни, что заметно на мобильной сети.
  */
-export async function pushRecords(rows: Omit<RemoteRecord, 'id'>[]): Promise<void> {
-  if (!rows.length) return
-  const requests = rows.map((r) => ({
-    method: 'PUT',
-    url: `/api/collections/records/records?filter=${encodeURIComponent(
-      `owner="${r.owner}" && tbl="${r.tbl}" && rid="${r.rid}"`,
-    )}`,
-    body: r,
-  }))
-  await request('/api/batch', {
-    method: 'POST',
-    body: JSON.stringify({ requests }),
-  })
-}
-
-export async function upsertRecord(row: Omit<RemoteRecord, 'id'>): Promise<void> {
+async function findRecord(row: Omit<RemoteRecord, 'id'>): Promise<RemoteRecord | undefined> {
   const filter = encodeURIComponent(
-    `owner="${row.owner}" && tbl="${row.tbl}" && rid="${row.rid}"`,
+    `owner=${quote(row.owner)} && tbl=${quote(row.tbl)} && rid=${quote(row.rid)}`,
   )
   const found = await request<Page<RemoteRecord>>(
     `/api/collections/records/records?filter=${filter}&perPage=1`,
   )
-  const existing = found.items[0]
+  return found.items[0]
+}
+
+export async function upsertRecord(row: Omit<RemoteRecord, 'id'>): Promise<void> {
+  const existing = await findRecord(row)
   if (existing) {
     if (existing.updated >= row.updated) return
     await request(`/api/collections/records/records/${existing.id}`, {
@@ -329,16 +326,34 @@ export async function upsertRecord(row: Omit<RemoteRecord, 'id'>): Promise<void>
     })
     return
   }
-  await request('/api/collections/records/records', {
-    method: 'POST',
-    body: JSON.stringify(row),
-  })
+
+  try {
+    await request('/api/collections/records/records', {
+      method: 'POST',
+      body: JSON.stringify(row),
+    })
+  } catch (e) {
+    // Между поиском и созданием строку мог завести второй телефон того же
+    // человека — уникальный индекс (owner, tbl, rid) такую запись отклоняет.
+    // Это не ошибка обмена: перечитываем победителя и дописываем в него.
+    if (!(e instanceof ApiError) || e.status !== 400) throw e
+    const rival = await findRecord(row)
+    // Соперника нет — значит сервер отказал по существу (не прошла проверка,
+    // payload больше допустимого). Молчать здесь нельзя: выгрузка сочла бы
+    // строку отправленной, сдвинула курсор и потеряла её навсегда.
+    if (!rival) throw e
+    if (rival.updated >= row.updated) return
+    await request(`/api/collections/records/records/${rival.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(row),
+    })
+  }
 }
 
 // --- Люди ---
 
 export async function findUser(email: string): Promise<AuthUser | null> {
-  const filter = encodeURIComponent(`email="${email.trim().toLowerCase()}"`)
+  const filter = encodeURIComponent(`email=${quote(email.trim().toLowerCase())}`)
   const res = await request<Page<AuthUser>>(
     `/api/collections/users/records?filter=${filter}&perPage=1`,
   )
@@ -346,7 +361,7 @@ export async function findUser(email: string): Promise<AuthUser | null> {
 }
 
 export async function listClients(trainerId: string): Promise<AuthUser[]> {
-  const filter = encodeURIComponent(`trainer="${trainerId}"`)
+  const filter = encodeURIComponent(`trainer=${quote(trainerId)}`)
   const res = await request<Page<AuthUser>>(
     `/api/collections/users/records?filter=${filter}&perPage=200`,
   )
@@ -363,10 +378,31 @@ export async function getUser(id: string): Promise<AuthUser | null> {
 
 // --- Приглашения ---
 
-export async function createInvite(code: string, trainerId: string) {
+export async function createInvite(code: string, trainerId: string, expires: number) {
   return request('/api/collections/invites/records', {
     method: 'POST',
-    body: JSON.stringify({ code, trainer: trainerId, status: 'PENDING' }),
+    // Срок обязателен: без него сервер считает код вечным, а приложение
+    // показывает тренеру семь дней — и «протухшие» коды гасятся годами.
+    body: JSON.stringify({ code, trainer: trainerId, status: 'PENDING', expires }),
+  })
+}
+
+/**
+ * Отзывает код на сервере.
+ *
+ * Удалить его у себя недостаточно: гасит код сервер, и запись со статусом
+ * PENDING продолжает работать после того, как тренер счёл её отозванной.
+ */
+export async function revokeInvite(code: string): Promise<void> {
+  const filter = encodeURIComponent(`code=${quote(code)}`)
+  const found = await request<Page<{ id: string }>>(
+    `/api/collections/invites/records?filter=${filter}&perPage=1`,
+  )
+  const row = found.items[0]
+  if (!row) return
+  await request(`/api/collections/invites/records/${row.id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'REVOKED' }),
   })
 }
 
@@ -496,5 +532,42 @@ export async function deleteRemoteAttachment(recordId: string): Promise<void> {
   })
 }
 
-export const attachmentUrl = (recordId: string, file: string) =>
-  `${API_BASE}/api/files/attachments/${recordId}/${file}`
+/**
+ * Токен на скачивание защищённых файлов.
+ *
+ * Поле file объявлено protected, поэтому ссылка на видео больше не работает
+ * сама по себе — иначе адрес, утёкший через историю браузера или пересылку,
+ * открывал бы чужое видео кому угодно и после разрыва связи с тренером.
+ * Сервер выдаёт короткоживущий токен; держим его до истечения, чтобы не
+ * ходить за новым на каждый ролик в списке.
+ */
+let fileTokenValue = ''
+let fileTokenAt = 0
+/** Сервер держит токен около двух минут — обновляем заметно раньше. */
+const FILE_TOKEN_TTL = 60_000
+
+async function fileToken(force = false): Promise<string> {
+  if (!isAuthed()) return ''
+  if (!force && fileTokenValue && Date.now() - fileTokenAt < FILE_TOKEN_TTL) {
+    return fileTokenValue
+  }
+  const res = await request<{ token: string }>('/api/files/token', { method: 'POST' })
+  fileTokenValue = res.token
+  fileTokenAt = Date.now()
+  return fileTokenValue
+}
+
+/**
+ * Ссылка на файл вложения. `fresh` заставляет выписать новый токен: у длинного
+ * ролика проигрывание переживает срок действия прежнего, и докачка обрывается
+ * на середине — плеер в этот момент просит ссылку заново.
+ */
+export async function attachmentUrl(
+  recordId: string,
+  file: string,
+  fresh = false,
+): Promise<string> {
+  const url = `${API_BASE}/api/files/attachments/${recordId}/${file}`
+  const token = await fileToken(fresh).catch(() => '')
+  return token ? `${url}?token=${encodeURIComponent(token)}` : url
+}

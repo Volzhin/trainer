@@ -294,7 +294,14 @@ function InviteSheet({
             </button>
             <button
               className="icon-btn"
-              onClick={() => revokeInvite(i.code)}
+              onClick={async () => {
+                try {
+                  await revokeInvite(i.code)
+                  onToast('Код отозван')
+                } catch (e) {
+                  onToast(e instanceof Error ? e.message : 'Не удалось отозвать код')
+                }
+              }}
               aria-label="Отозвать"
             >
               <IconTrash size={16} />
