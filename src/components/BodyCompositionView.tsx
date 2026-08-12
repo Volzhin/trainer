@@ -27,6 +27,7 @@ import {
   IcoWeight,
 } from './MetricIcons'
 import { Sheet } from './Sheet'
+import { MeasurementsTable } from './MeasurementsTable'
 import { IconTrash } from './Icons'
 import { formatDate, plural } from '../lib/calc'
 import { deriveComposition } from '../lib/anthropometry'
@@ -667,6 +668,10 @@ export function BodyCompositionView({
           </div>
         </>
       )}
+
+      {/* Таблица идёт следом за графиком: тот показывает направление,
+          она — сами числа, по которым разговаривают. */}
+      <MeasurementsTable metrics={metrics ?? []} />
 
       {latest && (latest.optimal_weight_kg != null || latest.daily_kcal != null) && (
         <>

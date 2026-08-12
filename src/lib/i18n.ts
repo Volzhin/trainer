@@ -430,6 +430,15 @@ const EN: Record<string, string> = {
   Жир: 'Fat',
   Мышцы: 'Muscle',
   Замеры: 'Measurements',
+  'Таблица замеров': 'Measurements table',
+  старт: 'start',
+  'За две недели новых замеров нет — сравнивать пока не с чем.':
+    'No new measurements in two weeks — nothing to compare yet.',
+  Талия: 'Waist',
+  Грудь: 'Chest',
+  Таз: 'Hips',
+  Шея: 'Neck',
+  Бедро: 'Thigh',
   'без цифр': 'no numbers',
 
   /* --- дневник питания --- */

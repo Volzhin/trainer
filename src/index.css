@@ -2423,3 +2423,62 @@ button.group-row:active {
   background: var(--overlay);
   border-radius: var(--r-sm);
 }
+
+/* Таблица замеров. Прокручивается сама, а не страница: колонок бывает
+   больше, чем влезает в телефон. */
+.measure-scroll {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.measure-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.measure-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+}
+
+.measure-table th,
+.measure-table td {
+  padding: 10px 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Первый столбец держим на виду: без него непонятно, чья это строка. */
+.measure-table th:first-child,
+.measure-table tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  text-align: left;
+  font-weight: 400;
+  color: var(--text-2);
+  background: var(--surface);
+}
+
+.measure-table thead th {
+  color: var(--text-3);
+  font-weight: 400;
+  border-bottom: 1px solid var(--border);
+}
+
+.measure-table thead .cap {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.measure-table tbody tr + tr th,
+.measure-table tbody tr + tr td {
+  border-top: 1px solid var(--border);
+}
+
+/* Стартовая колонка — точка отсчёта, от неё и считают. Отделяем линией,
+   чтобы взгляд не путал её с очередным замером. */
+.measure-table th:nth-child(2),
+.measure-table td:nth-child(2) {
+  border-right: 1px solid var(--border);
+}
