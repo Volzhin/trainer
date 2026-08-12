@@ -4,38 +4,50 @@ import { db } from '../db/db'
 import { listMySessions } from '../db/repo'
 import { IconBack, IconCheck, IconChevronRight, IconDumbbell } from '../components/Icons'
 import { formatDate, formatDuration, plural, totalVolume } from '../lib/calc'
+import { t } from '../lib/i18n'
 
 /** Полная история тренировок. С главной убрана: там теперь только календарь. */
 export function History() {
   const nav = useNavigate()
-  const sessions = useLiveQuery(() => listMySessions(), [], [])
+  const sessions = useLiveQuery(() => listMySessions(), [])
   const allSets = useLiveQuery(() => db.sets.toArray(), [], [])
+  // Пока история не прочитана, «здесь появятся тренировки» — вранье: у человека
+  // они есть, просто ещё не доехали из базы. Пустой экран показываем только
+  // когда точно знаем, что записей нет.
+  const loading = sessions === undefined
 
   return (
     <div className="screen">
       <div className="header">
-        <button className="icon-btn" onClick={() => nav(-1)} aria-label="Назад">
+        <button className="icon-btn" onClick={() => nav(-1)} aria-label={t('Назад')}>
           <IconBack size={18} />
         </button>
         <div className="grow">
-          <h1 style={{ fontSize: 22 }}>История</h1>
+          <h1 className="detail">{t('История')}</h1>
           <div className="sub">
-            {(sessions ?? []).length}{' '}
-            {plural((sessions ?? []).length, ['тренировка', 'тренировки', 'тренировок'])}
+            {loading
+              ? ' '
+              : `${sessions.length} ${plural(sessions.length, ['тренировка', 'тренировки', 'тренировок'])}`}
           </div>
         </div>
       </div>
 
-      {(sessions ?? []).length === 0 ? (
+      {loading ? (
+        <div className="stack">
+          <div className="card skeleton" style={{ height: 64 }} />
+          <div className="card skeleton" style={{ height: 64 }} />
+          <div className="card skeleton" style={{ height: 64 }} />
+        </div>
+      ) : sessions.length === 0 ? (
         <div className="empty">
           <div className="big">
             <IconDumbbell size={34} />
           </div>
-          Здесь появятся завершённые тренировки.
+          {t('Здесь появятся завершённые тренировки.')}
         </div>
       ) : (
         <div className="group stagger">
-          {(sessions ?? []).map((s, i) => {
+          {sessions.map((s, i) => {
             const sets = (allSets ?? []).filter((x) => x.workout_session_id === s.id)
             return (
               <button
@@ -49,10 +61,10 @@ export function History() {
                 </span>
                 <span className="grow">
                   <span className="title">{s.title}</span>
-                  <span className="sub" style={{ display: 'block' }}>
+                  <span className="sub">
                     {formatDate(s.start_time)} · {sets.length}{' '}
                     {plural(sets.length, ['подход', 'подхода', 'подходов'])} ·{' '}
-                    {Math.round(totalVolume(sets))} кг ·{' '}
+                    {Math.round(totalVolume(sets))} {t('кг')} ·{' '}
                     {formatDuration((s.end_time ?? s.start_time) - s.start_time)}
                   </span>
                 </span>

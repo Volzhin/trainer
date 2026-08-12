@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { db, currentUserId, now } from '../db/db'
-import { authUser, deleteAccount, logout, onAuthChange, updateAccount } from '../lib/backend'
+import { db, currentUserId } from '../db/db'
+import { authUser, deleteAccount, logout, onAuthChange } from '../lib/backend'
 import { leaveDemoMode } from '../db/account'
 import { stopSync, syncNow } from '../db/sync'
 import { useApp } from '../store/app'
 import { Sheet } from './Sheet'
+import { t } from '../lib/i18n'
 
 /**
  * Аккаунт: вход, режим работы и удаление.
@@ -25,7 +26,7 @@ export function AccountSection() {
   if (!user) {
     return (
       <>
-        <div className="section-title">Аккаунт</div>
+        <div className="section-title">{t('Аккаунт')}</div>
         <button
           className="group-row"
           onClick={() => {
@@ -34,9 +35,9 @@ export function AccountSection() {
           }}
         >
           <span className="grow">
-            <span className="title">Войти или зарегистрироваться</span>
-            <span className="sub" style={{ display: 'block' }}>
-              Сейчас данные лежат только на этом устройстве
+            <span className="title">{t('Войти или зарегистрироваться')}</span>
+            <span className="sub">
+              {t('Сейчас данные лежат только на этом устройстве')}
             </span>
           </span>
         </button>
@@ -52,31 +53,11 @@ export function AccountSection() {
     setBusy(false)
     toast(
       res
-        ? `Отправлено ${res.pushed}, получено ${res.pulled}`
-        : 'Нет связи с сервером — попробуем позже',
+        ? `${t('Отправлено')} ${res.pushed}, ${t('получено')} ${res.pulled}`
+        : t('Нет связи с сервером — попробуем позже'),
     )
   }
 
-  /**
-   * Смена режима. Один человек часто и тренирует, и тренируется сам:
-   * заводить ради этого второй аккаунт значит разрывать его собственную
-   * историю тренировок пополам.
-   */
-  const switchRole = async () => {
-    const next = isTrainer ? 'client' : 'trainer'
-    setBusy(true)
-    try {
-      await updateAccount({ role: next })
-      await db.profile.update(user.id, {
-        role: next === 'trainer' ? 'TRAINER' : 'CLIENT',
-        updated_at: now(),
-      })
-      location.reload()
-    } catch {
-      toast('Не удалось переключить режим')
-      setBusy(false)
-    }
-  }
 
   const exit = () => {
     stopSync()
@@ -96,82 +77,69 @@ export function AccountSection() {
       leaveDemoMode()
       location.reload()
     } catch {
-      toast('Не удалось удалить аккаунт')
+      toast(t('Не удалось удалить аккаунт'))
       setBusy(false)
     }
   }
 
   return (
     <>
-      <div className="section-title">Аккаунт</div>
+      <div className="section-title">{t('Аккаунт')}</div>
       <div className="group">
         <button className="group-row" onClick={sync} disabled={busy}>
           <span className="grow">
             <span className="title">{user.email}</span>
-            <span className="sub" style={{ display: 'block' }}>
-              {busy ? 'Синхронизация…' : 'Нажмите, чтобы синхронизировать сейчас'}
-            </span>
-          </span>
-        </button>
-
-        <button className="group-row" onClick={switchRole} disabled={busy}>
-          <span className="grow">
-            <span className="title">
-              {isTrainer ? 'Перейти в режим занимающегося' : 'Перейти в режим тренера'}
-            </span>
-            <span className="sub" style={{ display: 'block' }}>
-              {isTrainer
-                ? 'Свой дневник, замеры и питание'
-                : 'Клиенты, программы и обратная связь'}
+            <span className="sub">
+              {busy ? t('Синхронизация…') : t('Нажмите, чтобы синхронизировать сейчас')}
             </span>
           </span>
         </button>
 
         <button className="group-row" onClick={exit}>
           <span className="grow">
-            <span className="title">Выйти</span>
-            <span className="sub" style={{ display: 'block' }}>
-              Данные останутся на сервере
+            <span className="title">{t('Выйти')}</span>
+            <span className="sub">
+              {t('Данные останутся на сервере')}
             </span>
           </span>
         </button>
 
         <button className="group-row danger" onClick={() => setConfirmOpen(true)}>
           <span className="grow">
-            <span className="title">Удалить аккаунт</span>
-            <span className="sub" style={{ display: 'block' }}>
-              Безвозвратно, вместе со всеми данными
+            <span className="title">{t('Удалить аккаунт')}</span>
+            <span className="sub">
+              {t('Безвозвратно, вместе со всеми данными')}
             </span>
           </span>
         </button>
       </div>
 
-      <Sheet open={confirmOpen} title="Удалить аккаунт" onClose={() => setConfirmOpen(false)}>
+      <Sheet open={confirmOpen} title={t('Удалить аккаунт')} onClose={() => setConfirmOpen(false)}>
         <div className="stack">
           <div className="card">
-            Удалим всё: тренировки, замеры, питание, программы и связь с
-            {isTrainer ? ' клиентами' : ' тренером'}. Восстановить будет нечем — резервной копии
-            вашего аккаунта у нас не остаётся.
+            {t('Удалим всё: тренировки, замеры, питание, программы и связь с')}
+            {isTrainer ? ` ${t('клиентами')}` : ` ${t('тренером')}`}.{' '}
+            {t('Восстановить будет нечем — резервной копии вашего аккаунта у нас не остаётся.')}
           </div>
           <div className="field">
-            <label>Введите слово «удалить», чтобы подтвердить</label>
+            <label>{t('Введите слово «удалить», чтобы подтвердить')}</label>
             <input
               className="input"
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
               autoCapitalize="none"
-              placeholder="удалить"
+              placeholder={t('удалить')}
             />
           </div>
           <button
             className="btn danger block"
-            disabled={confirmText.trim().toLowerCase() !== 'удалить' || busy}
+            disabled={confirmText.trim().toLowerCase() !== t('удалить') || busy}
             onClick={remove}
           >
-            {busy ? 'Удаляю…' : 'Удалить навсегда'}
+            {busy ? t('Удаляю…') : t('Удалить навсегда')}
           </button>
           <button className="btn block" onClick={() => setConfirmOpen(false)}>
-            Отмена
+            {t('Отмена')}
           </button>
         </div>
       </Sheet>
@@ -216,9 +184,6 @@ async function wipeLocal(userId: string) {
     .filter((r) => r.client_id === userId || r.trainer_id === userId)
     .delete()
   await db.nutritionTargets
-    .filter((t) => t.client_id === userId || t.trainer_id === userId)
-    .delete()
-  await db.coachTargets
     .filter((t) => t.client_id === userId || t.trainer_id === userId)
     .delete()
 

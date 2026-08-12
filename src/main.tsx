@@ -9,26 +9,58 @@ import App from './App'
 import { AppProvider } from './store/app'
 import { repairCatalogIds, seedIfEmpty, syncCatalogPrograms } from './db/seed'
 import { restoreSession } from './db/account'
-import { applyAccent, applyTheme, getAccentPref, getThemePref, loadActiveUser } from './db/db'
+import {
+  applyAccent,
+  applyTheme,
+  getAccentPref,
+  getLangPref,
+  getThemePref,
+  loadActiveUser,
+} from './db/db'
+import { setLang } from './lib/i18n'
 import './index.css'
+import { loadExerciseNames } from './lib/exerciseNames'
 
-// Service worker есть не везде (например, при раздаче одним файлом) —
-// приложение должно запускаться и без него.
+/*
+ * Обновление приложения.
+ *
+ * autoUpdate ставит новую версию сам, но уже открытая вкладка продолжает
+ * работать на старом коде: service worker не может подменить то, что
+ * браузер уже выполнил. А проверку он делает только при регистрации, то
+ * есть при загрузке страницы. Приложение держат открытым сутками — и
+ * человек всё это время видит вчерашнюю версию, не понимая, почему
+ * обещанного нет.
+ *
+ * Поэтому спрашиваем сами: при возвращении на вкладку и раз в десять
+ * минут. Когда новая версия встала у руля, перезагружаем страницу —
+ * данные лежат в IndexedDB и переживают это без потерь.
+ *
+ * Service worker есть не везде (например, при раздаче одним файлом) —
+ * приложение должно запускаться и без него.
+ */
 try {
-  registerSW({
-    immediate: true,
-    /**
-     * Установленное приложение с телефона не закрывают неделями, а новую
-     * версию оно ищет только при регистрации — то есть при первом запуске
-     * после перезагрузки. Без периодической проверки человек остаётся на
-     * сборке месячной давности и не понимает, почему у него нет того, что
-     * уже показывает тренер.
-     */
-    onRegisteredSW(_url, registration) {
-      if (!registration) return
-      setInterval(() => void registration.update(), 60 * 60 * 1000)
-    },
+  const update = registerSW({ immediate: true })
+
+  if ('serviceWorker' in navigator) {
+    // Смена контроллера означает, что новая версия активировалась.
+    // Перезагрузку делаем один раз: без флага браузер может зациклиться.
+    let reloading = false
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloading) return
+      reloading = true
+      location.reload()
+    })
+  }
+
+  const check = () => {
+    // Проверка сама по себе ничего не ломает: если версия та же, ничего и
+    // не произойдёт.
+    void update(true).catch(() => {})
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') check()
   })
+  setInterval(check, 10 * 60_000)
 } catch {
   /* офлайн-кеш недоступен, данные всё равно лежат в IndexedDB */
 }
@@ -48,6 +80,12 @@ seedIfEmpty()
   .then(async () => {
     applyTheme(await getThemePref())
     applyAccent(await getAccentPref())
+    // Язык — до рендера: иначе первый кадр выходит на одном языке, а
+    // второй на другом, и это видно.
+    setLang(await getLangPref())
+    // Названия упражнений — тоже до рендера: подгрузи их после, и список
+    // каталога на секунду остался бы русским, а потом дёрнулся.
+    await loadExerciseNames()
   })
   .finally(() => {
     createRoot(document.getElementById('root')!).render(

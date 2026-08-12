@@ -6,6 +6,7 @@ import { attachmentUrl } from '../lib/backend'
 import { IconGallery, IconTrash, IconVideo } from './Icons'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
 
 /** Blob из IndexedDB → временный URL, который освобождаем при размонтировании. */
 function useBlobUrl(blob?: Blob) {
@@ -63,7 +64,7 @@ export function AttachmentPlayer({
   if (!url) return null
 
   return (
-    <div style={{ marginTop: 8 }}>
+    <div className="mt-2">
       {attachment.kind === 'video' ? (
         <video
           src={url}
@@ -74,15 +75,15 @@ export function AttachmentPlayer({
           style={{ width: '100%', borderRadius: 12, background: '#000', display: 'block' }}
         />
       ) : (
-        <img src={url} alt="Техника выполнения" style={{ width: '100%', borderRadius: 12 }} />
+        <img src={url} alt={t('Техника выполнения')} style={{ width: '100%', borderRadius: 12 }} />
       )}
-      <div className="row between" style={{ marginTop: 6 }}>
+      <div className="row between mt-2">
         <span className="mute-sm">
           {attachment.kind === 'video' ? 'Видео' : 'Фото'} ·{' '}
           {(attachment.size / 1024 / 1024).toFixed(1)} МБ
         </span>
         {onDelete && (
-          <button className="icon-btn" onClick={onDelete} aria-label="Удалить">
+          <button className="icon-btn" onClick={onDelete} aria-label={t('Удалить')}>
             <IconTrash size={15} />
           </button>
         )}
@@ -127,7 +128,7 @@ export function VideoUploader({
       haptics.success()
       toast('Видео прикреплено')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Не удалось прикрепить файл')
+      toast(e instanceof Error ? t(e.message) : 'Не удалось прикрепить файл')
     } finally {
       setBusy(false)
       // Сбрасываем оба поля: иначе повторный выбор того же файла не
@@ -186,7 +187,7 @@ export function VideoUploader({
           onClick={() => galleryRef.current?.click()}
         >
           <IconGallery size={15} />
-          Из галереи
+          {t('Из галереи')}
         </button>
       </div>
     </div>

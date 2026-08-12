@@ -8,6 +8,7 @@ import { plural, startOfDay } from '../lib/calc'
 import { WorkoutCalendar } from '../components/WorkoutCalendar'
 import { IconChevronRight, IconPlay } from '../components/Icons'
 import { useApp } from '../store/app'
+import { t } from '../lib/i18n'
 
 /**
  * Главный экран — это календарь тренировок и ничего больше.
@@ -33,29 +34,31 @@ export function Home() {
     <div className={`screen${active ? ' with-banner' : ''}`}>
       <div className="header">
         <div>
-          <h1>Привет{profile?.name && profile.name !== 'Гость' ? `, ${profile.name}` : ''}</h1>
+          <h1>
+            {t('Привет')}
+            {profile?.name && profile.name !== 'Гость' ? `, ${profile.name}` : ''}
+          </h1>
           <div className="sub">
             {sessions === undefined
               ? ' '
               : sessions.length === 0
-                ? 'Выберите день и начните тренировку'
-                : `${thisWeek} ${plural(thisWeek, ['тренировка', 'тренировки', 'тренировок'])} за неделю`}
+                ? t('Выберите день и начните тренировку')
+                : `${thisWeek} ${plural(thisWeek, ['тренировка', 'тренировки', 'тренировок'])} ${t('за неделю')}`}
           </div>
         </div>
         {!online && (
           <span className="offline-pill">
-            <i className="dot" /> оффлайн
+            <i className="dot" /> {t('оффлайн')}
           </span>
         )}
       </div>
 
       {active && (
         <button
-          className="btn primary block"
-          style={{ marginBottom: 16 }}
+          className="btn primary block mb-4"
           onClick={() => nav(`/session/${active.id}`)}
         >
-          <IconPlay size={18} /> Вернуться к тренировке
+          <IconPlay size={18} /> {t('Вернуться к тренировке')}
         </button>
       )}
 
@@ -64,13 +67,12 @@ export function Home() {
           формы для них здесь нет. */}
       {todo.length > 0 && (
         <button
-          className="list-item"
-          style={{ marginBottom: 16 }}
+          className="list-item mb-4"
           onClick={() => nav('/reports')}
         >
           <div className="grow">
-            <div style={{ fontWeight: 600 }}>
-              {todo.length} {plural(todo.length, ['задание', 'задания', 'заданий'])} от тренера
+            <div className="strong">
+              {todo.length} {plural(todo.length, ['задание', 'задания', 'заданий'])} {t('от тренера')}
             </div>
             <div className="mute-sm truncate">{todo[0].title}</div>
           </div>
@@ -85,24 +87,25 @@ export function Home() {
           которого в этом плане нет. */}
       {assigned && !assigned.isSelfPlan && (
         <>
-          <div className="section-title">Программа от тренера</div>
+          <div className="section-title">{t('Программа от тренера')}</div>
           <div className="card">
-            <div style={{ fontWeight: 700, fontSize: 17 }}>{assigned.program.name}</div>
+            <div style={{ fontWeight: 700, fontSize: 17 }}>{t(assigned.program.name)}</div>
             <div className="mute-sm" style={{ marginTop: 3 }}>
-              {assigned.trainer?.name ?? 'Тренер'}
+              {assigned.trainer?.name ?? t('Тренер')}
               {assigned.weeksLeft != null &&
-                ` · осталось ${assigned.weeksLeft} ${plural(assigned.weeksLeft, ['неделя', 'недели', 'недель'])}`}
+                ` · ${t('осталось')} ${assigned.weeksLeft} ${plural(assigned.weeksLeft, ['неделя', 'недели', 'недель'])}`}
             </div>
 
             {/* Дни недели с планом: клиенту важно знать, когда он тренируется,
                 а не только сколько раз. */}
             {assigned.assignment.schedule?.length ? (
-              <div className="weekday-row" style={{ marginTop: 14 }}>
-                {['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'].map((label, wd) => {
+              <div className="weekday-row mt-4">
+                {['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'].map((rawLabel, wd) => {
+                  const label = t(rawLabel)
                   const on = assigned.assignment.schedule?.some((sl) => sl.weekday === wd)
                   return (
                     <div key={wd} className={`weekday${on ? ' on' : ''}`}>
-                      <span className="wd">{label}</span>
+                      <span className="wd">{t(label)}</span>
                       <span className="slot">{on ? '•' : '—'}</span>
                     </div>
                   )
@@ -110,10 +113,10 @@ export function Home() {
               </div>
             ) : null}
 
-            <div className="row between" style={{ marginTop: 16, marginBottom: 6 }}>
-              <span className="mute-sm">На этой неделе</span>
-              <span className="mute-sm" style={{ fontFamily: 'var(--font-num)' }}>
-                {assigned.doneThisWeek} из {assigned.assignment.weekly_target}
+            <div className="row between" style={{ marginTop: 16, marginBottom: 8 }}>
+              <span className="mute-sm">{t('На этой неделе')}</span>
+              <span className="mute-sm figures">
+                {assigned.doneThisWeek} {t('из')} {assigned.assignment.weekly_target}
               </span>
             </div>
             <div className="bar">
@@ -130,23 +133,17 @@ export function Home() {
 
             {assigned.assignment.note && (
               <div
-                className="mute-sm"
-                style={{
-                  marginTop: 14,
-                  paddingLeft: 10,
-                  borderLeft: '2px solid var(--accent)',
-                }}
+                className="mute-sm quote mt-4"
               >
                 {assigned.assignment.note}
               </div>
             )}
 
             <button
-              className="btn sm block"
-              style={{ marginTop: 14 }}
+              className="btn sm block mt-4"
               onClick={() => nav('/programs')}
             >
-              Открыть программу
+              {t('Открыть программу')}
             </button>
           </div>
         </>

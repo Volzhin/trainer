@@ -9,7 +9,7 @@ import {
   type WorkoutSession,
 } from './db'
 import { invalidateExercises } from './catalog'
-import { estimate1RM, startOfDay } from '../lib/calc'
+import { bestSet, estimate1RM, startOfDay } from '../lib/calc'
 import type { BodyMetric } from './db'
 import type { InBodyReport } from '../lib/inbody'
 
@@ -259,22 +259,24 @@ export async function updateSet(setId: string, patch: Partial<ExerciseSet>) {
 
 /**
  * Отмечает подход выполненным и проверяет личный рекорд по расчётному 1ПМ
- * среди всех ранее завершённых тренировок.
+ * среди ранее завершённых тренировок того же человека.
+ *
+ * Владельца берём у самой тренировки, а не у текущего аккаунта: подход
+ * может отмечаться и в чужой базе, и рекорд обязан считаться по тому, чья
+ * это тренировка.
  */
 export async function completeSet(setId: string): Promise<{ isPR: boolean }> {
   const set = await db.sets.get(setId)
   if (!set) return { isPR: false }
 
+  const session = await db.sessions.get(set.workout_session_id)
   let isPR = false
-  if (set.weight_kg && set.reps_completed) {
-    // Рекорд считаем по владельцу тренировки, а не по активному аккаунту:
-    // тренер может отметить подход, открыв тренировку клиента.
-    const session = await db.sessions.get(set.workout_session_id)
+  if (set.weight_kg && set.reps_completed && session) {
     const score = estimate1RM(set.weight_kg, set.reps_completed)
     const best = await bestPreviousScore(
       set.exercise_id,
       set.workout_session_id,
-      session?.user_id ?? currentUserId(),
+      session.user_id,
     )
     isPR = score > best && best > 0
   }
@@ -326,13 +328,51 @@ export async function discardSession(sessionId: string) {
 
 /* ------------------------------- история ------------------------------ */
 
+/** Подходы этого упражнения из последней завершённой тренировки. */
 /**
- * Подходы этого упражнения из последней завершённой тренировки.
+ * Лучший подход за всю историю и подходы последней тренировки.
  *
- * У подхода нет владельца — он висит на тренировке, поэтому отбор идёт по
- * ней. Без этого отбора в базе, где живут несколько аккаунтов (свой и
- * демонстрационный, а у тренера ещё и тренировки клиентов), подсказка
- * «прошлый раз» и предзаполненные веса берутся у случайного человека.
+ * Два разных ответа на два разных вопроса. «Лучший» говорит, на что человек
+ * способен, «последний» — от чего отталкиваться сегодня. Показывать только
+ * рекорд жестоко: он мог быть год назад и на свежих силах.
+ */
+export async function exerciseHistory(
+  exerciseId: string,
+  userId = currentUserId(),
+): Promise<{ best?: ExerciseSet; last: ExerciseSet[] }> {
+  const rows = await db.sets.where('exercise_id').equals(exerciseId).toArray()
+  const done = rows.filter((s) => s.is_done)
+  if (!done.length) return { last: [] }
+
+  const sessions = await db.sessions.bulkGet([
+    ...new Set(done.map((s) => s.workout_session_id)),
+  ])
+  const mine = new Map(
+    sessions
+      .filter((s): s is WorkoutSession => !!s && s.user_id === userId && s.is_completed === 1)
+      .map((s) => [s.id, s]),
+  )
+
+  const own = done.filter((s) => mine.has(s.workout_session_id))
+  if (!own.length) return { last: [] }
+
+  const latestId = [...mine.values()].sort((a, b) => b.start_time - a.start_time)[0].id
+
+  return {
+    best: bestSet(own),
+    last: own
+      .filter((s) => s.workout_session_id === latestId)
+      .sort((a, b) => a.set_number - b.set_number),
+  }
+}
+
+/**
+ * Подходы прошлой тренировки — только свои.
+ *
+ * Фильтр по владельцу обязателен. В базе тренера лежат тренировки всех его
+ * клиентов, а на общем устройстве — несколько аккаунтов, и без него
+ * «прошлый раз» показывал подходы того, кто просто тренировался позже.
+ * Хуже того, эти же числа подставляются в поля новой тренировки.
  */
 export async function lastSetsForExercise(
   exerciseId: string,
@@ -345,35 +385,47 @@ export async function lastSetsForExercise(
   const sessions = await db.sessions.bulkGet([
     ...new Set(done.map((s) => s.workout_session_id)),
   ])
-  const completed = sessions.filter(
+  const mine = sessions.filter(
     (s): s is WorkoutSession => !!s && s.is_completed === 1 && s.user_id === userId,
   )
-  if (!completed.length) return []
+  if (!mine.length) return []
 
-  const latest = completed.sort((a, b) => b.start_time - a.start_time)[0]
+  const latest = mine.sort((a, b) => b.start_time - a.start_time)[0]
   return done
     .filter((s) => s.workout_session_id === latest.id)
     .sort((a, b) => a.set_number - b.set_number)
 }
 
-/** Лучший результат в этом упражнении до текущей тренировки — по тому же
- *  человеку: рекорд, побитый чужим подходом, рекордом не является. */
+/**
+ * Лучший результат в упражнении до этой тренировки — только свой.
+ *
+ * Без фильтра по владельцу личный рекорд считался по подходам всех
+ * пользователей сразу: клиенту не засчитывался рекорд, потому что кто-то
+ * другой на том же устройстве или в базе тренера поднял больше. «Личный»
+ * в названии — не фигура речи.
+ */
 async function bestPreviousScore(
   exerciseId: string,
   excludeSessionId: string,
   userId: string,
 ): Promise<number> {
   const sets = await db.sets.where('exercise_id').equals(exerciseId).toArray()
+  const candidates = sets.filter(
+    (s) => s.workout_session_id !== excludeSessionId && s.is_done && s.weight_kg && s.reps_completed,
+  )
+  if (!candidates.length) return 0
+
+  const sessions = await db.sessions.bulkGet([
+    ...new Set(candidates.map((s) => s.workout_session_id)),
+  ])
   const mine = new Set(
-    (await db.sessions.where('user_id').equals(userId).primaryKeys()) as string[],
+    sessions.filter((s): s is WorkoutSession => !!s && s.user_id === userId).map((s) => s.id),
   )
 
   let best = 0
-  for (const s of sets) {
-    if (s.workout_session_id === excludeSessionId) continue
+  for (const s of candidates) {
     if (!mine.has(s.workout_session_id)) continue
-    if (!s.is_done || !s.weight_kg || !s.reps_completed) continue
-    best = Math.max(best, estimate1RM(s.weight_kg, s.reps_completed))
+    best = Math.max(best, estimate1RM(s.weight_kg!, s.reps_completed!))
   }
   return best
 }
@@ -522,15 +574,6 @@ export async function logBodyMetric(input: {
     logged_at: now(),
     updated_at: now(),
   })
-}
-
-export const FREE_PROGRAM_LIMIT = 3
-
-export async function canCreateProgram(): Promise<boolean> {
-  const profile = await db.profile.get(currentUserId())
-  if (profile?.plan === 'PRO') return true
-  const mine = await db.programs.where('author_id').equals(currentUserId()).count()
-  return mine < FREE_PROGRAM_LIMIT
 }
 
 export async function createProgram(name: string) {

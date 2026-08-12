@@ -1,17 +1,36 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, currentUserId, type WorkoutRoutine, type WorkoutTemplateItem } from '../db/db'
+import {
+  db,
+  currentUserId,
+  type Exercise,
+  type WorkoutRoutine,
+  type WorkoutTemplateItem,
+} from '../db/db'
 import { useExercises } from '../db/catalog'
 import { addTemplateItem, createRoutine, startSessionFromRoutine } from '../db/repo'
 import { activeAssignmentFor, cancelMyPlan, planProgramMyself } from '../db/coach'
-import { IconBack, IconChevronRight, IconPlay, IconPlus, IconTrash } from '../components/Icons'
+import {
+  IconBack,
+  IconChart,
+  IconChevronRight,
+  IconInfo,
+  IconPlay,
+  IconPlus,
+  IconTrash,
+} from '../components/Icons'
 import { ExercisePicker } from '../components/ExercisePicker'
 import { ExerciseTechniqueSheet } from '../components/ExerciseTechnique'
+import { ExerciseStatsSheet } from '../components/ExerciseStatsSheet'
+import { CoachHint } from '../components/CoachHint'
+import { ExerciseBrief } from '../components/ExerciseBrief'
 import { Sheet } from '../components/Sheet'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
 import { plural } from '../lib/calc'
+import { t } from '../lib/i18n'
+import { exName } from '../lib/exerciseNames'
 
 const WEEKDAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
 
@@ -21,6 +40,7 @@ export function ProgramDetail() {
   const { toast } = useApp()
   const [pickerFor, setPickerFor] = useState<string | null>(null)
   const [techniqueFor, setTechniqueFor] = useState<string | null>(null)
+  const [statsFor, setStatsFor] = useState<Exercise | null>(null)
   const [planOpen, setPlanOpen] = useState(false)
 
   const program = useLiveQuery(() => db.programs.get(id), [id])
@@ -39,7 +59,39 @@ export function ProgramDetail() {
 
   const plan = useLiveQuery(() => activeAssignmentFor(), [])
 
-  if (!program) return <div className="screen">Загрузка…</div>
+  /*
+   * Недельный объём по группам мышц — сумма подходов всех дней программы.
+   *
+   * Считается прямо здесь, из тех же строк, которые тренер сейчас правит:
+   * добавил упражнение — цифра сдвинулась. Смысл именно в этом. Свести
+   * объём после того, как программа собрана, можно и в голове, но тогда
+   * перекос обнаруживается, когда переделывать уже лень.
+   *
+   * Неделя считается как «каждый день программы по разу»: расписание
+   * задаётся при назначении клиенту, а до него у программы есть только
+   * состав. Если день поставят дважды, объём удвоится — но это уже про
+   * назначение, а не про программу.
+   */
+  const volume = useMemo(() => {
+    const exMap = new Map((exercises ?? []).map((e) => [e.id, e]))
+    const dayIds = new Set((routines ?? []).map((r) => r.id))
+    const byGroup = new Map<string, number>()
+
+    for (const item of items ?? []) {
+      if (!dayIds.has(item.routine_id)) continue
+      const group = exMap.get(item.exercise_id)?.muscle_group
+      if (!group) continue
+      byGroup.set(group, (byGroup.get(group) ?? 0) + item.target_sets)
+    }
+
+    return [...byGroup.entries()]
+      .map(([group, sets]) => ({ group, sets }))
+      .sort((a, b) => b.sets - a.sets)
+  }, [items, routines, exercises])
+
+  const volumeTotal = volume.reduce((a, v) => a + v.sets, 0)
+
+  if (!program) return <div className="screen">{t('Загрузка…')}</div>
 
   const editable = program.author_id === currentUserId()
   // Планирует человек себе, поэтому чужую персональную программу — ту, что
@@ -50,7 +102,7 @@ export function ProgramDetail() {
   const plannedDays = myPlan?.assignment.schedule
     ? [...myPlan.assignment.schedule]
         .sort((a, b) => a.weekday - b.weekday)
-        .map((s) => WEEKDAYS[s.weekday])
+        .map((s) => t(WEEKDAYS[s.weekday]))
     : []
   const exMap = new Map((exercises ?? []).map((e) => [e.id, e]))
 
@@ -60,14 +112,14 @@ export function ProgramDetail() {
   return (
     <div className="screen">
       <div className="header">
-        <button className="icon-btn" onClick={() => nav(-1)} aria-label="Назад">
+        <button className="icon-btn" onClick={() => nav(-1)} aria-label={t('Назад')}>
           <IconBack size={18} />
         </button>
         <div className="grow">
-          <h1 style={{ fontSize: 22 }}>{program.name}</h1>
+          <h1 className="detail">{t(program.name)}</h1>
           <div className="sub">
             {program.goal} · {program.level}
-            {!editable && ' · программа платформы'}
+            {!editable && ` · ${t('программа платформы')}`}
           </div>
         </div>
       </div>
@@ -78,14 +130,14 @@ export function ProgramDetail() {
         <div className="card" style={{ borderColor: 'var(--accent)' }}>
           <div className="row between">
             <div className="grow">
-              <div className="mute-sm">Программа для клиента</div>
-              <div style={{ fontWeight: 600, marginTop: 2 }}>{clientName ?? '—'}</div>
+              <div className="mute-sm">{t('Программа для клиента')}</div>
+              <div className="strong" style={{ marginTop: 2 }}>{clientName ?? '—'}</div>
             </div>
             <button
               className="btn sm"
               onClick={() => nav(`/trainer/clients/${program.client_id}`)}
             >
-              К клиенту
+              {t('К клиенту')}
             </button>
           </div>
         </div>
@@ -105,28 +157,29 @@ export function ProgramDetail() {
         >
           <div className="row between">
             <div className="grow">
-              <div style={{ fontWeight: 600 }}>{myPlan ? 'В моём плане' : 'Мой план'}</div>
+              <div className="strong">{myPlan ? t('В моём плане') : t('Мой план')}</div>
               <div className="mute-sm" style={{ marginTop: 3 }}>
                 {lockedByTrainer
-                  ? `Сейчас действует программа от тренера${plan?.trainer ? ` · ${plan.trainer.name}` : ''}`
+                  ? `${t('Сейчас действует программа от тренера')}${plan?.trainer ? ` · ${plan.trainer.name}` : ''}`
                   : plannedDays.length
                     ? `${plannedDays.join(', ')} · ${plannedDays.length} ${plural(
                         plannedDays.length,
                         ['тренировка', 'тренировки', 'тренировок'],
-                      )} в неделю`
-                    : 'Разложите дни по дням недели — они появятся в календаре на главной'}
+                      )} ${t('в неделю')}`
+                    : t('Разложите дни по дням недели — они появятся в календаре на главной')}
               </div>
             </div>
             {!lockedByTrainer && (
               <button className="btn sm" onClick={() => setPlanOpen(true)}>
-                {myPlan ? 'Изменить' : 'В план'}
+                {myPlan ? t('Изменить') : t('В план')}
               </button>
             )}
           </div>
 
           {myPlan && (
-            <div className="weekday-row" style={{ marginTop: 14 }}>
-              {WEEKDAYS.map((label, wd) => {
+            <div className="weekday-row mt-4">
+              {WEEKDAYS.map((rawLabel, wd) => {
+                const label = t(rawLabel)
                 const on = myPlan.assignment.schedule?.some((s) => s.weekday === wd)
                 return (
                   <div key={wd} className={`weekday${on ? ' on' : ''}`}>
@@ -147,28 +200,28 @@ export function ProgramDetail() {
 
         return (
           <div key={routine.id} style={{ marginTop: 16 }}>
-            <div className="row between" style={{ marginBottom: 8 }}>
-              <div style={{ fontWeight: 600 }}>{routine.name}</div>
+            <div className="row between mb-2">
+              <div className="strong">{t(routine.name)}</div>
               <button
                 className="btn sm primary"
                 onClick={async () => {
                   haptics.impact()
                   const sid = await startSessionFromRoutine(routine.id)
                   if (!sid) {
-                    toast('В этом дне пока нет упражнений')
+                    toast(t('В этом дне пока нет упражнений'))
                     return
                   }
                   nav(`/session/${sid}`)
                 }}
               >
-                <IconPlay size={13} /> Начать
+                <IconPlay size={13} /> {t('Начать')}
               </button>
             </div>
 
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
               {dayItems.length === 0 && (
                 <div className="mute-sm" style={{ padding: 16, textAlign: 'center' }}>
-                  Пока пусто
+                  {t('Пока пусто')}
                 </div>
               )}
               {dayItems.map((item, idx) => {
@@ -196,40 +249,105 @@ export function ProgramDetail() {
                         )}
                         <span className="grow">
                           <span className="truncate" style={{ display: 'block' }}>
-                            {ex?.name ?? 'Упражнение'}
+                            {exName(ex?.name) || t('Упражнение')}
                           </span>
-                          <span className="mute-sm">{ex?.muscle_group} · как делать</span>
+                          <span className="mute-sm">{t(ex?.muscle_group ?? '')} · {t('как делать')}</span>
                         </span>
                         <span className="chevron">
                           <IconChevronRight size={16} />
                         </span>
                       </button>
+
+                      {/* Те же две кнопки, что в тренировке: техника и
+                          статистика. Программу открывают до зала, чтобы
+                          понять, что предстоит, — и там эти вопросы те же,
+                          что у снаряда. */}
+                      {ex && (
+                        <>
+                          <button
+                            className="icon-btn"
+                            onClick={() => setTechniqueFor(ex.id)}
+                            aria-label={`${t('Как делать')}: ${exName(ex.name)}`}
+                            title={t('Как делать')}
+                          >
+                            <IconInfo size={17} />
+                          </button>
+                          <button
+                            className="icon-btn"
+                            onClick={() => setStatsFor(ex)}
+                            aria-label={`${t('Статистика')}: ${exName(ex.name)}`}
+                            title={t('Статистика по подходам')}
+                          >
+                            <IconChart size={17} />
+                          </button>
+                        </>
+                      )}
                       {editable && (
                         <button
                           className="icon-btn"
                           onClick={() => db.templateItems.delete(item.id)}
-                          aria-label="Убрать"
+                          aria-label={t('Удалить')}
                         >
                           <IconTrash size={16} />
                         </button>
                       )}
                     </div>
 
-                    <div className="row" style={{ marginTop: 8, gap: 8 }}>
+                    {/* Слово тренера и своя история — только у того, кто по
+                        программе занимается. Тренеру, который её правит,
+                        показывать нечего: клиента здесь нет, а его
+                        собственные подходы к чужой программе отношения не
+                        имеют. */}
+                    {!editable && ex && (
+                      <>
+                        <CoachHint exerciseId={ex.id} />
+                        <ExerciseBrief exerciseId={ex.id} />
+                      </>
+                    )}
+
+                    {/* Три поля в строке на узком экране становятся по
+                        восемьдесят пикселей, а с верхней границей их четыре.
+                        Поэтому отдых уехал во вторую строку: он меняется
+                        реже всех, и терять на нём ширину обиднее всего. */}
+                    <div className="row mt-2" style={{ gap: 8 }}>
                       <NumField
-                        label="подходы"
+                        label={t('подходы')}
                         value={item.target_sets}
                         disabled={!editable}
                         onChange={(v) => patchItem(item.id, { target_sets: v })}
                       />
                       <NumField
-                        label="повторы"
+                        label={t('повторы от')}
                         value={item.target_reps ?? 0}
                         disabled={!editable}
-                        onChange={(v) => patchItem(item.id, { target_reps: v })}
+                        onChange={(v) =>
+                          patchItem(item.id, {
+                            target_reps: v,
+                            // Верх ниже низа — не диапазон, а опечатка.
+                            // Подтягиваем его, а не запрещаем ввод.
+                            ...(item.target_reps_max != null && item.target_reps_max < v
+                              ? { target_reps_max: v }
+                              : {}),
+                          })
+                        }
                       />
                       <NumField
-                        label="отдых, сек"
+                        label={t('до')}
+                        value={item.target_reps_max ?? item.target_reps ?? 0}
+                        min={item.target_reps ?? 0}
+                        disabled={!editable}
+                        onChange={(v) =>
+                          patchItem(item.id, {
+                            // Верх, равный низу, это не диапазон — стираем,
+                            // чтобы не показывать клиенту «10-10».
+                            target_reps_max: v > (item.target_reps ?? 0) ? v : undefined,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="row mt-2" style={{ gap: 8 }}>
+                      <NumField
+                        label={t('отдых, сек')}
                         value={item.rest_seconds}
                         step={15}
                         disabled={!editable}
@@ -243,7 +361,7 @@ export function ProgramDetail() {
               {editable && (
                 <div style={{ padding: 12, borderTop: '1px solid var(--border)' }}>
                   <button className="btn sm block" onClick={() => setPickerFor(routine.id)}>
-                    <IconPlus size={15} /> Добавить упражнение
+                    <IconPlus size={15} /> {t('Добавить упражнение')}
                   </button>
                 </div>
               )}
@@ -254,16 +372,50 @@ export function ProgramDetail() {
 
       {editable && (
         <button
-          className="btn block"
-          style={{ marginTop: 16 }}
+          className="btn block mt-4"
           onClick={async () => {
             const count = (routines ?? []).length
-            await createRoutine(id, `День ${count + 1}`)
-            toast('День добавлен')
+            await createRoutine(id, `${t('День')} ${count + 1}`)
+            toast(t('День добавлен'))
           }}
         >
-          <IconPlus size={17} /> Добавить день
+          <IconPlus size={17} /> {t('Добавить день')}
         </button>
+      )}
+
+      {volume.length > 0 && (
+        <>
+          <div className="section-title">{t('Объём за неделю')}</div>
+          <div className="card">
+            <div className="mute-sm mb-3">
+              {t('Подходы по всем дням программы. Пересчитывается на месте — видно, куда перекосило, пока программу ещё собирают.')}
+            </div>
+            <div className="stack">
+              {volume.map((v) => (
+                <div key={v.group}>
+                  <div className="row between mb-1">
+                    <span className="muted truncate">{v.group}</span>
+                    <span className="mute-sm figures" style={{ flex: '0 0 auto' }}>
+                      {v.sets} {plural(v.sets, ['подход', 'подхода', 'подходов'])}
+                    </span>
+                  </div>
+                  <div className="bar">
+                    {/* Доля от самой нагруженной группы, а не от общего числа:
+                        сравнивают группы между собой, и полоска в три
+                        процента ничего не показывает. */}
+                    <i style={{ width: `${(v.sets / volume[0].sets) * 100}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="row between mt-4">
+              <span className="mute-sm">{t('Всего за неделю')}</span>
+              <span className="figures strong">
+                {volumeTotal} {plural(volumeTotal, ['подход', 'подхода', 'подходов'])}
+              </span>
+            </div>
+          </div>
+        </>
       )}
 
       <PlanSheet
@@ -276,6 +428,12 @@ export function ProgramDetail() {
       />
 
       <ExerciseTechniqueSheet exerciseId={techniqueFor} onClose={() => setTechniqueFor(null)} />
+
+      <ExerciseStatsSheet
+        exerciseId={statsFor?.id ?? null}
+        name={statsFor?.name}
+        onClose={() => setStatsFor(null)}
+      />
 
       <ExercisePicker
         open={!!pickerFor}
@@ -362,10 +520,10 @@ function PlanSheet({
     setBusy(true)
     try {
       await planProgramMyself({ programId, schedule, weeks })
-      toast('План сохранён — дни появятся в календаре')
+      toast(t('План сохранён — дни появятся в календаре'))
       onClose()
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Не удалось сохранить план')
+      toast(e instanceof Error ? t(e.message) : t('Не удалось сохранить план'))
     } finally {
       setBusy(false)
     }
@@ -375,7 +533,7 @@ function PlanSheet({
     setBusy(true)
     try {
       await cancelMyPlan()
-      toast('План снят')
+      toast(t('План снят'))
       onClose()
     } finally {
       setBusy(false)
@@ -383,12 +541,13 @@ function PlanSheet({
   }
 
   return (
-    <Sheet open={open} title="Запланировать программу" onClose={onClose}>
+    <Sheet open={open} title={t('Запланировать программу')} onClose={onClose}>
       <div className="stack">
         <div className="field">
-          <label>Дни недели</label>
+          <label>{t('Дни недели')}</label>
           <div className="weekday-row">
-            {WEEKDAYS.map((label, wd) => {
+            {WEEKDAYS.map((rawLabel, wd) => {
+              const label = t(rawLabel)
               const mark = markOf(slots[wd])
               return (
                 <button
@@ -402,10 +561,10 @@ function PlanSheet({
               )
             })}
           </div>
-          <div className="mute-sm" style={{ marginTop: 8 }}>
+          <div className="mute-sm mt-2">
             {schedule.length
-              ? `${schedule.length} ${plural(schedule.length, ['тренировка', 'тренировки', 'тренировок'])} в неделю`
-              : 'Выберите хотя бы один день'}
+              ? `${schedule.length} ${plural(schedule.length, ['тренировка', 'тренировки', 'тренировок'])} ${t('в неделю')}`
+              : t('Выберите хотя бы один день')}
           </div>
         </div>
 
@@ -416,9 +575,9 @@ function PlanSheet({
                 <span className="metric-icon" style={{ color: 'var(--accent-ink)' }}>
                   {String.fromCharCode(65 + i)}
                 </span>
-                <span className="grow title">{r.name}</span>
+                <span className="grow title">{t(r.name)}</span>
                 <span className="value">
-                  {WEEKDAYS.filter((_, wd) => slots[wd] === r.id).join(', ') || 'не назначен'}
+                  {WEEKDAYS.filter((_, wd) => slots[wd] === r.id).map(t).join(', ') || t('не назначен')}
                 </span>
               </div>
             ))}
@@ -426,7 +585,7 @@ function PlanSheet({
         )}
 
         <div className="field">
-          <label>Сколько недель</label>
+          <label>{t('Сколько недель')}</label>
           <div className="segmented">
             {[4, 6, 8, 12].map((v) => (
               <button key={v} className={weeks === v ? 'on' : ''} onClick={() => setWeeks(v)}>
@@ -441,12 +600,12 @@ function PlanSheet({
           disabled={busy || !schedule.length}
           onClick={save}
         >
-          Запланировать на {weeks} {plural(weeks, ['неделю', 'недели', 'недель'])}
+          {t('Запланировать на')} {weeks} {plural(weeks, ['неделю', 'недели', 'недель'])}
         </button>
 
         {current?.length ? (
           <button className="btn block" disabled={busy} onClick={drop}>
-            Убрать из плана
+            {t('Убрать из плана')}
           </button>
         ) : null}
       </div>
@@ -459,12 +618,15 @@ function NumField({
   value,
   onChange,
   step = 1,
+  min = 0,
   disabled,
 }: {
   label: string
   value: number
   onChange: (v: number) => void
   step?: number
+  /** Нижняя граница — у верхнего конца диапазона это его нижний конец. */
+  min?: number
   disabled?: boolean
 }) {
   return (
@@ -476,12 +638,12 @@ function NumField({
           disabled={disabled}
           onClick={() => {
             haptics.selection()
-            onChange(Math.max(0, value - step))
+            onChange(Math.max(min, value - step))
           }}
         >
           −
         </button>
-        <span style={{ minWidth: 34, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+        <span className="strong" style={{ minWidth: 34, fontVariantNumeric: 'tabular-nums' }}>
           {value}
         </span>
         <button

@@ -109,6 +109,16 @@ export async function setSatiety(date: string, satiety: NutritionDay['satiety'])
   await db.nutritionDays.update(day.id, { satiety, updated_at: now() })
 }
 
+/** Итог дня, введённый рукой: четыре числа вместо разбора по продуктам. */
+export async function setManualNutrition(
+  date: string,
+  manual: NutritionDay['manual'],
+  userId = currentUserId(),
+) {
+  const day = await ensureNutritionDay(date, userId)
+  await db.nutritionDays.update(day.id, { manual, updated_at: now() })
+}
+
 export async function submitNutritionDay(date: string, comment?: string) {
   const day = await ensureNutritionDay(date)
   const ts = now()
@@ -165,17 +175,6 @@ export async function nutritionDaysOf(clientId: string, from: string, to: string
 }
 
 /* --------------------------- проверка тренером ------------------------- */
-
-/**
- * Разбирает ли тренер дни питания.
- *
- * Раздел питания снят с интерфейса клиента (см. закомментированные маршруты
- * в App.tsx), и прочитать ответ на день питания ему негде. Пока это так, дни
- * не попадают ни в очередь разбора, ни в счётчик непроверенного: тренер
- * писал бы разбор в пустоту и считал, что ответил. Вернётся раздел —
- * достаточно поменять здесь.
- */
-export const NUTRITION_REVIEW_ENABLED = false
 
 /**
  * Ключ ответа. Для тренировки это сам отчёт, для дня питания — клиент и дата:
@@ -289,6 +288,15 @@ async function legacyComment(
  */
 export const replyText = (reply?: ReportReply, legacy?: string): string | undefined =>
   reply ? reply.text || undefined : legacy
+
+/** Сохранённый ответ по одной цели разбора. */
+export async function replyFor(
+  clientId: string,
+  target: ReviewTarget,
+  ref: string,
+): Promise<ReportReply | undefined> {
+  return db.reportReplies.get(replyId(clientId, target, ref))
+}
 
 /** Ответы тренера по клиенту, по ключу ответа — для списков и календарей. */
 export async function repliesOf(clientId: string): Promise<Map<string, ReportReply>> {
@@ -508,6 +516,37 @@ export async function addTask(input: {
   return id
 }
 
+/* --------------------------- шаблоны заданий --------------------------- */
+
+export async function listTaskTemplates(trainerId = currentUserId()) {
+  const rows = await db.taskTemplates.where('trainer_id').equals(trainerId).toArray()
+  return rows.sort((a, b) => b.created_at - a.created_at)
+}
+
+export async function saveTaskTemplate(input: {
+  title: string
+  description?: string
+  dueDays?: number
+  trainerId?: string
+}) {
+  const id = uid()
+  const ts = now()
+  await db.taskTemplates.add({
+    id,
+    trainer_id: input.trainerId ?? currentUserId(),
+    title: input.title.trim(),
+    description: input.description?.trim() || undefined,
+    due_days: input.dueDays,
+    created_at: ts,
+    updated_at: ts,
+  })
+  return id
+}
+
+export async function deleteTaskTemplate(id: string) {
+  await db.taskTemplates.delete(id)
+}
+
 export async function completeTask(taskId: string, answer?: string) {
   const ts = now()
   await db.tasks.update(taskId, {
@@ -528,6 +567,299 @@ export async function openTasks(clientId = currentUserId()): Promise<ClientTask[
 export async function tasksOf(clientId: string): Promise<ClientTask[]> {
   const rows = await db.tasks.where('client_id').equals(clientId).toArray()
   return rows.sort((a, b) => b.created_at - a.created_at)
+}
+
+/* ------------------------- лента сданного ------------------------------ */
+
+export type SubmittedEntry = {
+  id: string
+  kind: 'weight' | 'measure' | 'inbody' | 'activity'
+  at: number
+  title: string
+  detail: string
+}
+
+/**
+ * Что клиент уже сдал — коротко и с возможностью удалить.
+ *
+ * Удаление здесь не про «передумал», а про опечатку: лишний ноль в весе
+ * перекашивает и график, и расчёт расхода, и рекомендации тренера. Пока
+ * исправить это было нельзя, человеку оставалось смотреть на сломанную
+ * статистику или чистить всю историю целиком.
+ */
+export async function submittedEntries(
+  userId = currentUserId(),
+  limit = 40,
+): Promise<SubmittedEntry[]> {
+  const metrics = await db.bodyMetrics.where('user_id').equals(userId).toArray()
+  const activity = await db.dailyActivity.where('user_id').equals(userId).toArray()
+
+  const fromMetrics = metrics.map<SubmittedEntry>((m) => {
+    const girths = [
+      m.waist_cm != null && `талия ${m.waist_cm}`,
+      m.chest_cm != null && `грудь ${m.chest_cm}`,
+      m.hip_cm != null && `бёдра ${m.hip_cm}`,
+    ].filter(Boolean)
+
+    // Взвешивание отличаем от замера по тому, что в нём есть кроме веса:
+    // «сдал вес» и «сдал замеры» — разные обещания тренеру.
+    const kind: SubmittedEntry['kind'] =
+      m.source === 'inbody'
+        ? 'inbody'
+        : girths.length || m.body_fat_pct != null
+          ? 'measure'
+          : 'weight'
+
+    return {
+      id: m.id,
+      kind,
+      at: m.logged_at,
+      title: kind === 'inbody' ? 'InBody' : kind === 'measure' ? 'Замеры' : 'Вес',
+      detail: [
+        m.weight_kg != null && `${m.weight_kg} кг`,
+        m.body_fat_pct != null && `жир ${m.body_fat_pct}%`,
+        ...girths,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    }
+  })
+
+  const fromActivity = activity
+    .filter((a) => a.steps != null || a.sleep_minutes != null)
+    .map<SubmittedEntry>((a) => ({
+      id: a.id,
+      kind: 'activity',
+      at: new Date(`${a.date}T12:00:00`).getTime(),
+      title: 'Шаги и сон',
+      detail: [
+        a.steps != null && `${a.steps} шагов`,
+        a.sleep_minutes != null && `сон ${Math.floor(a.sleep_minutes / 60)} ч`,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    }))
+
+  return [...fromMetrics, ...fromActivity].sort((a, b) => b.at - a.at).slice(0, limit)
+}
+
+/** Удалить сданную запись. Тип решает, из какой таблицы её убирать. */
+export async function deleteSubmittedEntry(entry: SubmittedEntry) {
+  if (entry.kind === 'activity') await db.dailyActivity.delete(entry.id)
+  else await db.bodyMetrics.delete(entry.id)
+}
+
+/* --------------------------- сводка недели ----------------------------- */
+
+export type WeekProgress = {
+  /** Завершённых тренировок с понедельника. */
+  sessionsDone: number
+  /** План на неделю из назначения. null — программа не назначена. */
+  sessionsTarget: number | null
+  /** Дней, за которые клиент что-то записал в дневник питания. */
+  nutritionDays: number
+}
+
+/**
+ * Насколько клиент держится недели: тренировки и дневник питания.
+ *
+ * Считается от понедельника, а не за последние семь дней: клиент и тренер
+ * договариваются про неделю как календарную, и «4 из 7» в среду означало бы
+ * четыре дня из трёх прошедших.
+ *
+ * Дни питания считаем по записям еды, а не по сданным отчётам: человек мог
+ * вести дневник и не сдать его — это разные упущения, и мешать их в одно
+ * число значит не понять, о чём говорить.
+ */
+export async function weekProgress(clientId: string): Promise<WeekProgress> {
+  const monday = weekStart(Date.now())
+
+  const sessions = await db.sessions
+    .where('user_id')
+    .equals(clientId)
+    .and((s) => s.is_completed === 1 && s.start_time >= monday)
+    .count()
+
+  const assignment = await db.assignments
+    .where('client_id')
+    .equals(clientId)
+    .and((a) => a.status === 'ACTIVE')
+    .first()
+
+  const from = localDate(monday)
+  const to = localDate(Date.now())
+  const logs = await db.foodLogs
+    .where('[user_id+date]')
+    .between([clientId, from], [clientId, to], true, true)
+    .toArray()
+
+  // День считается заполненным и тогда, когда он собран из продуктов, и
+  // тогда, когда итог перенесён рукой из стороннего счётчика. Для клиента
+  // это одна и та же работа, и делить её на «настоящую» и нет незачем.
+  const days = await db.nutritionDays
+    .where('[user_id+date]')
+    .between([clientId, from], [clientId, to], true, true)
+    .toArray()
+  const filled = new Set(logs.map((l) => l.date))
+  for (const d of days) {
+    const m = d.manual
+    if (m && (m.kcal != null || m.protein != null || m.fat != null || m.carbs != null)) {
+      filled.add(d.date)
+    }
+  }
+
+  return {
+    sessionsDone: sessions,
+    sessionsTarget: assignment?.schedule?.length ?? assignment?.weekly_target ?? null,
+    nutritionDays: filled.size,
+  }
+}
+
+/**
+ * Стадия разбора по виду отчётов. Ровно три состояния, как и в календарях:
+ * ничего не сдано, сдано и ждёт разбора, всё разобрано.
+ */
+export type ReviewStage = 'none' | 'pending' | 'reviewed'
+
+export type WeekStatus = WeekProgress & {
+  workouts: ReviewStage
+  nutrition: ReviewStage
+}
+
+/**
+ * Строка клиента в списке тренера: сколько сделано за неделю и есть ли по
+ * этому непрочитанная работа.
+ *
+ * Стадия считается по всему сданному, а не только по недельному: отчёт,
+ * пролежавший неделю, не перестаёт ждать разбора оттого, что началась
+ * новая. Счётчик при этом недельный — по нему судят о текущем темпе.
+ * Две разные вещи, и мешать их в одно число нельзя.
+ */
+export async function weekStatus(clientId: string): Promise<WeekStatus> {
+  const base = await weekProgress(clientId)
+
+  const workoutReports = await db.workoutReports
+    .where('[user_id+status]')
+    .equals([clientId, 'submitted'])
+    .toArray()
+  const days = await db.nutritionDays
+    .where('[user_id+status]')
+    .equals([clientId, 'submitted'])
+    .toArray()
+
+  const [seenWorkouts, seenDays] = await Promise.all([
+    reviewedRefs(clientId, 'workout'),
+    reviewedRefs(clientId, 'nutrition'),
+  ])
+
+  const stage = (total: number, unreviewed: number): ReviewStage =>
+    total === 0 ? 'none' : unreviewed > 0 ? 'pending' : 'reviewed'
+
+  return {
+    ...base,
+    workouts: stage(
+      workoutReports.length,
+      workoutReports.filter((r) => !seenWorkouts.has(r.id)).length,
+    ),
+    nutrition: stage(days.length, days.filter((d) => !seenDays.has(d.date)).length),
+  }
+}
+
+/* ------------------- статистика для недельных целей -------------------- */
+
+const DAY = 86400_000
+
+export type WeeklyStats = {
+  /** Вес за две последние недели — точками для графика. */
+  weightPoints: { x: number; y: number }[]
+  /** Среднее за каждую из двух недель и разница в процентах по среднему. */
+  weightAvgPrev: number | null
+  weightAvgLast: number | null
+  weightDeltaPct: number | null
+  /**
+   * Процент жира за две последние недели — то же окно, что у веса.
+   *
+   * Стартовый замер отсюда убран: цели выдают на неделю, и цифра
+   * полугодовой давности к этому решению отношения не имеет, а рядом с
+   * двумя свежими читается как часть той же динамики.
+   */
+  fatPoints: { at: number; value: number }[]
+  /** Средние за последнюю неделю. null — данных нет, а не ноль. */
+  avgSteps: number | null
+  avgSleepMinutes: number | null
+  avgSatiety: number | null
+}
+
+const mean = (xs: number[]): number | null =>
+  xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null
+
+/**
+ * Цифры, по которым тренер назначает цели на неделю (пункт 5.6).
+ *
+ * Считается одним проходом и отдаётся экрану целиком: раньше эти числа
+ * были разбросаны по разным блокам кабинета, и тренер выставлял калории,
+ * не видя ни веса, ни сытости.
+ *
+ * Везде, где данных не хватает, возвращается null, а не ноль: «шагов не
+ * вводили» и «прошёл ноль шагов» — разные утверждения, и второе из них
+ * приложение придумывать не вправе.
+ */
+export async function weeklyStats(clientId: string): Promise<WeeklyStats> {
+  const now_ = Date.now()
+  const weekAgo = now_ - 7 * DAY
+  const twoWeeksAgo = now_ - 14 * DAY
+
+  const metrics = await db.bodyMetrics.where('user_id').equals(clientId).sortBy('logged_at')
+
+  const weights = metrics.filter((m) => m.weight_kg != null)
+  const inWindow = weights.filter((m) => m.logged_at >= twoWeeksAgo)
+  const lastWeek = inWindow.filter((m) => m.logged_at >= weekAgo)
+  const prevWeek = inWindow.filter((m) => m.logged_at < weekAgo)
+
+  const weightAvgLast = mean(lastWeek.map((m) => m.weight_kg!))
+  const weightAvgPrev = mean(prevWeek.map((m) => m.weight_kg!))
+
+  // Разница считается по средним, а не по крайним точкам: вес за сутки
+  // гуляет на килограмм от одной воды, и два случайных взвешивания дали бы
+  // цифру, к динамике отношения не имеющую.
+  const weightDeltaPct =
+    weightAvgPrev != null && weightAvgLast != null && weightAvgPrev !== 0
+      ? Math.round(((weightAvgLast - weightAvgPrev) / weightAvgPrev) * 1000) / 10
+      : null
+
+  const fatPoints = metrics
+    .filter((m) => m.body_fat_pct != null && m.logged_at >= twoWeeksAgo)
+    .map((m) => ({ at: m.logged_at, value: m.body_fat_pct! }))
+
+  const from = localDate(weekAgo)
+  const to = localDate(now_)
+
+  const activity = await db.dailyActivity
+    .where('[user_id+date]')
+    .between([clientId, from], [clientId, to], true, true)
+    .toArray()
+
+  const days = await db.nutritionDays
+    .where('[user_id+date]')
+    .between([clientId, from], [clientId, to], true, true)
+    .toArray()
+
+  const avgSteps = mean(activity.filter((a) => a.steps != null).map((a) => a.steps!))
+  const avgSleep = mean(
+    activity.filter((a) => a.sleep_minutes != null).map((a) => a.sleep_minutes!),
+  )
+  const avgSatiety = mean(days.filter((d) => d.satiety != null).map((d) => d.satiety!))
+
+  return {
+    weightPoints: inWindow.map((m) => ({ x: m.logged_at, y: m.weight_kg! })),
+    weightAvgPrev: weightAvgPrev == null ? null : Math.round(weightAvgPrev * 10) / 10,
+    weightAvgLast: weightAvgLast == null ? null : Math.round(weightAvgLast * 10) / 10,
+    weightDeltaPct,
+    fatPoints,
+    avgSteps: avgSteps == null ? null : Math.round(avgSteps),
+    avgSleepMinutes: avgSleep == null ? null : Math.round(avgSleep),
+    avgSatiety: avgSatiety == null ? null : Math.round(avgSatiety * 10) / 10,
+  }
 }
 
 /* ------------------------- рекомендации по весу ------------------------ */
@@ -595,7 +927,62 @@ export async function progressionFor(
   return { progression: last.progression!, text: last.text || undefined }
 }
 
+/**
+ * Последний разбор упражнения от тренера — текст и рекомендация по весу.
+ *
+ * Раньше комментарий доставался только вместе с рекомендацией: выборка
+ * отбирала строки, где progression заполнен. Тренер, написавший «пауза
+ * внизу» и не тронувший вес, разговаривал сам с собой.
+ */
+export async function coachNoteFor(
+  exerciseId: string,
+  clientId = currentUserId(),
+): Promise<{ progression?: Progression; text?: string; at: number } | null> {
+  const rows = await db.feedback
+    .where('exercise_id')
+    .equals(exerciseId)
+    .and((f) => f.client_id === clientId && (!!f.progression || !!f.text.trim()))
+    .toArray()
+  if (!rows.length) return null
+
+  const last = rows.sort((a, b) => b.created_at - a.created_at)[0]
+  return {
+    progression: last.progression,
+    text: last.text.trim() || undefined,
+    at: last.created_at,
+  }
+}
+
 /* ------------------------------ сводка --------------------------------- */
+
+/**
+ * Сколько ждёт разбора, по видам отдельно.
+ *
+ * Раздельно, потому что разбирают их в разных вкладках: одно общее число
+ * говорит «где-то есть работа», но не куда идти.
+ */
+export async function pendingByTarget(
+  clientId: string,
+): Promise<{ workouts: number; nutrition: number }> {
+  const workouts = await db.workoutReports
+    .where('[user_id+status]')
+    .equals([clientId, 'submitted'])
+    .toArray()
+  const days = await db.nutritionDays
+    .where('[user_id+status]')
+    .equals([clientId, 'submitted'])
+    .toArray()
+
+  const [seenWorkouts, seenDays] = await Promise.all([
+    reviewedRefs(clientId, 'workout'),
+    reviewedRefs(clientId, 'nutrition'),
+  ])
+
+  return {
+    workouts: workouts.filter((r) => !seenWorkouts.has(r.id)).length,
+    nutrition: days.filter((d) => !seenDays.has(d.date)).length,
+  }
+}
 
 /** Сколько отчётов ждёт проверки — бейдж в списке клиентов у тренера. */
 export async function pendingReviewCount(clientId: string): Promise<number> {
@@ -615,9 +1002,8 @@ export async function pendingReviewCount(clientId: string): Promise<number> {
 
   // Считаем непроверенное, а не сданное: тренеру важно, сколько ещё
   // предстоит разобрать, а не сколько клиент прислал за всё время.
-  const pendingDays = NUTRITION_REVIEW_ENABLED
-    ? days.filter((d) => !seenDays.has(d.date)).length
-    : 0
-
-  return workouts.filter((r) => !seenWorkouts.has(r.id)).length + pendingDays
+  return (
+    workouts.filter((r) => !seenWorkouts.has(r.id)).length +
+    days.filter((d) => !seenDays.has(d.date)).length
+  )
 }

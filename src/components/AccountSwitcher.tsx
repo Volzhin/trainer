@@ -6,6 +6,7 @@ import { createAccount } from '../db/coach'
 import { Sheet } from './Sheet'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
 
 /**
  * Переключатель аккаунтов — приём прототипа: без сервера иначе не показать,
@@ -45,7 +46,7 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
   }
 
   return (
-    <Sheet open={open} title="Аккаунты устройства" onClose={onClose}>
+    <Sheet open={open} title={t('Аккаунты устройства')} onClose={onClose}>
       <div className="stack">
         {(accounts ?? []).map((a) => (
           <button
@@ -62,14 +63,14 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
                 {a.specialization ? ` · ${a.specialization}` : ''}
               </div>
             </div>
-            {a.id === userId && <span className="badge pro">активен</span>}
+            {a.id === userId && <span className="badge pro">{t('активен')}</span>}
           </button>
         ))}
 
         {creating ? (
           <div className="card stack">
             <div className="field">
-              <label>Имя</label>
+              <label>{t('Имя')}</label>
               <input
                 className="input"
                 value={name}
@@ -80,31 +81,31 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
             </div>
             {creating === 'TRAINER' && (
               <div className="field">
-                <label>Специализация</label>
+                <label>{t('Специализация')}</label>
                 <input
                   className="input"
                   value={spec}
                   onChange={(e) => setSpec(e.target.value)}
-                  placeholder="Силовой тренинг, реабилитация"
+                  placeholder={t('Силовой тренинг, реабилитация')}
                 />
               </div>
             )}
             <div className="row" style={{ gap: 8 }}>
               <button className="btn grow" onClick={() => setCreating(null)}>
-                Отмена
+                {t('Отмена')}
               </button>
               <button className="btn primary grow" onClick={create}>
-                Создать
+                {t('Создать')}
               </button>
             </div>
           </div>
         ) : (
           <div className="row" style={{ gap: 8 }}>
             <button className="btn grow" onClick={() => setCreating('CLIENT')}>
-              Новый клиент
+              {t('Новый клиент')}
             </button>
             <button className="btn grow" onClick={() => setCreating('TRAINER')}>
-              Новый тренер
+              {t('Новый тренер')}
             </button>
           </div>
         )}

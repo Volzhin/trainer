@@ -1,4 +1,5 @@
 import { db } from '../db/db'
+import { exName } from './exerciseNames'
 
 /**
  * Списки для фильтров собираются из самого каталога, а не задаются в коде:
@@ -43,6 +44,12 @@ export function matchesQuery(
 ): boolean {
   if (!term) return true
   const t = term.toLowerCase().replace(/ё/g, 'е')
-  const hay = [ex.name, ...(ex.alt_names ?? [])].join(' ').toLowerCase().replace(/ё/g, 'е')
+  // Английское название ищем наравне с русским: человек, читающий каталог
+  // по-английски, набирает «bench press», а не «жим лёжа», — и без этого
+  // поиск не находил бы ровно то, что у него на экране.
+  const hay = [ex.name, exName(ex.name), ...(ex.alt_names ?? [])]
+    .join(' ')
+    .toLowerCase()
+    .replace(/ё/g, 'е')
   return hay.includes(t)
 }

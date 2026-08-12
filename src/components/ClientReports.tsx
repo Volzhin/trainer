@@ -1,35 +1,33 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type NutritionDay, type ReportReply, type WorkoutReport } from '../db/db'
 import {
-  activityRange,
   addTask,
-  currentTargets,
-  reviewReport,
-  repliesOf,
-  replyText,
-  NUTRITION_REVIEW_ENABLED,
+  deleteTaskTemplate,
+  listTaskTemplates,
   reviewedRefs,
-  setWeeklyTargets,
+  saveTaskTemplate,
   submittedNutritionDays,
   tasksOf,
   workoutReportsOf,
 } from '../db/reports'
-import { formatDate, plural } from '../lib/calc'
-import { localDate } from '../lib/tdee'
+import type { ClientTask } from '../db/db'
+import { formatDate } from '../lib/calc'
 import { Sheet } from './Sheet'
-import { SATIETY_LABELS } from './NutritionDayReport'
+import { ReviewSheet, type ReviewSubject } from './ReviewSheet'
 import { Group, Row } from './Group'
-import { IconCheck, IconPlus } from './Icons'
+import { IconCheck, IconPlus, IconTrash } from './Icons'
+import { Toggle } from './Toggle'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
-
-/** Глубина ленты отчётов: дальше двух недель разбирать уже поздно. */
-const WINDOW_DAYS = 14
+import { t } from '../lib/i18n'
 
 /**
- * Отчётность клиента глазами тренера: что сдано и ещё не разобрано, какие
- * задания висят, какие цели выданы на неделю и сколько человек ходит и спит.
+ * Что у тренера в работе по клиенту: очередь разбора и задания.
+ *
+ * Очередь сводит тренировки и дни питания в один список намеренно — это
+ * одна стопка дел, и разложенная по двум вкладкам она перестаёт быть
+ * стопкой. Сами разборы при этом открываются и отсюда, и из своих вкладок:
+ * лист один и тот же.
  *
  * Отметка о проверке остаётся здесь и к клиенту не уезжает — он видит у
  * своего отчёта только «сдан». А вот ответ тренера адресован именно ему,
@@ -38,30 +36,16 @@ const WINDOW_DAYS = 14
 export function ClientReports({ clientId }: { clientId: string }) {
   const { toast, userId } = useApp()
 
-  const today = localDate()
-  const from = localDate(Date.now() - (WINDOW_DAYS - 1) * 86400_000)
 
   const reports = useLiveQuery(() => workoutReportsOf(clientId), [clientId])
   const days = useLiveQuery(() => submittedNutritionDays(clientId), [clientId])
   const seenWorkouts = useLiveQuery(() => reviewedRefs(clientId, 'workout'), [clientId])
   const seenDays = useLiveQuery(() => reviewedRefs(clientId, 'nutrition'), [clientId])
-  const replies = useLiveQuery(() => repliesOf(clientId), [clientId])
-  const sessions = useLiveQuery(
-    () => db.sessions.where('user_id').equals(clientId).toArray(),
-    [clientId],
-  )
   const tasks = useLiveQuery(() => tasksOf(clientId), [clientId])
-  const targets = useLiveQuery(() => currentTargets(clientId), [clientId])
-  const activity = useLiveQuery(
-    () => activityRange(clientId, from, today),
-    [clientId, from, today],
-  )
 
   const [reviewing, setReviewing] = useState<ReviewSubject | null>(null)
   const [taskOpen, setTaskOpen] = useState(false)
-  const [targetsOpen, setTargetsOpen] = useState(false)
 
-  const titleOf = useMemo(() => new Map((sessions ?? []).map((s) => [s.id, s])), [sessions])
 
   const loading =
     reports === undefined ||
@@ -70,153 +54,54 @@ export function ClientReports({ clientId }: { clientId: string }) {
     seenDays === undefined ||
     tasks === undefined
 
-  if (loading) return <div className="empty">Загрузка…</div>
+  if (loading) return <div className="empty">{t('Загрузка…')}</div>
 
-  const submittedWorkouts = reports.filter((r) => r.status === 'submitted')
 
-  // Дни питания в очередь не идут, пока раздел снят у клиента: ответ на них
-  // ему негде прочитать (см. NUTRITION_REVIEW_ENABLED).
-  const queue: ReviewSubject[] = [
-    ...submittedWorkouts.map((r) =>
-      toWorkoutSubject(r, titleOf.get(r.session_id)?.title, replies?.get(r.id)),
-    ),
-    ...(NUTRITION_REVIEW_ENABLED
-      ? days.map((d) => toDaySubject(d, replies?.get(`${clientId}:${d.date}`)))
-      : []),
-  ].sort((a, b) => (b.submittedAt ?? 0) - (a.submittedAt ?? 0))
-
-  const isReviewed = (s: ReviewSubject) =>
-    s.target === 'workout' ? seenWorkouts.has(s.ref) : seenDays.has(s.ref)
-
-  const pending = queue.filter((s) => !isReviewed(s))
-  const openTasks = tasks.filter((t) => t.status === 'open')
-  const doneTasks = tasks.filter((t) => t.status === 'done')
+  /*
+   * Состояния по дням для календарей. Ключ — локальная дата: тренер
+   * смотрит на сетку дней, а не на идентификаторы отчётов.
+   *
+   * Проверенный день перекрывает сданный, если в один день их несколько:
+   * жёлтая клетка означает «здесь ещё есть работа», и гасить её, пока
+   * что-то не разобрано, нельзя.
+   */
+  const openTasks = tasks.filter((x) => x.status === 'open')
+  const doneTasks = tasks.filter((x) => x.status === 'done')
 
   return (
-    <div style={{ marginTop: 14 }}>
+    <div className="mt-4">
+      {/* Разбор живёт там, где сдавали: тренировки в своей вкладке,
+          питание в своей. Общая очередь дублировала бы их третьим списком,
+          и разобранное в календаре оставалось бы «новым» здесь. */}
       <div className="stat-grid">
         <div className="stat">
-          <div className="value" style={{ color: pending.length ? 'var(--warn)' : undefined }}>
-            {pending.length}
-          </div>
-          <div className="label">ждут разбора</div>
+          <div className="value">{openTasks.length}</div>
+          <div className="label">{t('заданий не выполнено')}</div>
         </div>
         <div className="stat">
-          <div className="value">{openTasks.length}</div>
-          <div className="label">заданий не выполнено</div>
+          <div className="value">{doneTasks.length}</div>
+          <div className="label">{t('выполнено')}</div>
         </div>
       </div>
 
-      <div className="section-title">Сданные отчёты</div>
-      {queue.length === 0 ? (
-        <div className="empty compact">Клиент пока ничего не сдавал.</div>
-      ) : (
-        <div>
-          {queue.map((s) => (
-            <button
-              key={`${s.target}:${s.ref}`}
-              className="list-item"
-              onClick={() => setReviewing(s)}
-            >
-              <div className="grow">
-                <div className="truncate" style={{ fontWeight: 600 }}>
-                  {s.title}
-                </div>
-                <div className="mute-sm truncate">
-                  {s.subtitle}
-                  {s.comment ? ` · ${s.comment}` : ''}
-                </div>
-              </div>
-              {isReviewed(s) ? (
-                <span className="badge">
-                  <IconCheck size={11} />
-                  разобран
-                </span>
-              ) : (
-                <span className="badge pro">новый</span>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div className="section-title">Цели на неделю</div>
-      <div className="card">
-        {targets ? (
-          <>
-            <div className="mute-sm" style={{ fontFamily: 'var(--font-num)' }}>
-              {[
-                targets.kcal && `${targets.kcal} ккал`,
-                targets.protein && `Б ${targets.protein}`,
-                targets.fat && `Ж ${targets.fat}`,
-                targets.carbs && `У ${targets.carbs}`,
-                targets.steps && `${targets.steps} шагов`,
-              ]
-                .filter(Boolean)
-                .join(' · ') || 'без цифр'}
-            </div>
-            {targets.note && (
-              <div
-                className="mute-sm"
-                style={{
-                  marginTop: 10,
-                  paddingLeft: 10,
-                  borderLeft: '2px solid var(--accent)',
-                }}
-              >
-                {targets.note}
-              </div>
-            )}
-            <button
-              className="btn sm block"
-              style={{ marginTop: 12 }}
-              onClick={() => setTargetsOpen(true)}
-            >
-              Обновить цели
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="muted">Цели на эту неделю не выданы.</div>
-            <button
-              className="btn primary block"
-              style={{ marginTop: 14 }}
-              onClick={() => setTargetsOpen(true)}
-            >
-              Выдать цели
-            </button>
-          </>
-        )}
-      </div>
-
-      <div className="section-title">Шаги и сон за {WINDOW_DAYS} дней</div>
-      <ActivityList rows={activity ?? []} />
-
-      <div className="section-title">Задания</div>
+      <div className="section-title">{t('Задания')}</div>
       {openTasks.length === 0 && doneTasks.length === 0 ? (
-        <div className="empty compact">Заданий нет.</div>
+        <div className="empty compact">{t('Заданий нет.')}</div>
       ) : (
         <Group>
-          {[...openTasks, ...doneTasks].map((t) => (
+          {[...openTasks, ...doneTasks].map((task) => (
             <Row
-              key={t.id}
-              title={t.title}
-              sub={
-                t.status === 'done'
-                  ? t.answer
-                    ? `Выполнено · ${t.answer}`
-                    : 'Выполнено'
-                  : t.required === 1
-                    ? 'Обязательное · не выполнено'
-                    : 'Не выполнено'
-              }
-              value={t.status === 'done' ? <IconCheck size={16} /> : undefined}
+              key={task.id}
+              title={task.title}
+              sub={taskSub(task)}
+              value={task.status === 'done' ? <IconCheck size={16} /> : undefined}
+              danger={isOverdue(task)}
             />
           ))}
         </Group>
       )}
-      <button className="btn block" style={{ marginTop: 12 }} onClick={() => setTaskOpen(true)}>
-        <IconPlus size={16} /> Выдать задание
+      <button className="btn block mt-3" onClick={() => setTaskOpen(true)}>
+        <IconPlus size={16} /> {t('Выдать задание')}
       </button>
 
       <ReviewSheet
@@ -224,7 +109,7 @@ export function ClientReports({ clientId }: { clientId: string }) {
         clientId={clientId}
         trainerId={userId}
         onClose={() => setReviewing(null)}
-        onDone={() => toast('Отчёт разобран')}
+        onDone={() => toast(t('Отчёт разобран'))}
       />
       <TaskSheet
         open={taskOpen}
@@ -233,195 +118,35 @@ export function ClientReports({ clientId }: { clientId: string }) {
         onClose={() => setTaskOpen(false)}
         onDone={() => toast('Задание выдано')}
       />
-      <TargetsSheet
-        open={targetsOpen}
-        clientId={clientId}
-        trainerId={userId}
-        current={targets ?? undefined}
-        onClose={() => setTargetsOpen(false)}
-        onDone={() => toast('Цели на неделю выданы')}
-      />
     </div>
   )
 }
 
 /* ------------------------- отчёт как предмет разбора ------------------- */
 
-type ReviewSubject = {
-  target: 'workout' | 'nutrition'
-  /** id отчёта о тренировке либо дата дня питания. */
-  ref: string
-  title: string
-  subtitle: string
-  /** Что написал клиент, сдавая отчёт. */
-  comment?: string
-  /** Что тренер уже отвечал — ответ можно поправить. */
-  reply?: string
-  submittedAt?: number
+/**
+ * Просрочено ли задание.
+ *
+ * Сравниваем с началом сегодняшнего дня: срок — это день целиком, и
+ * задание со сроком «сегодня» не просрочено до завтра. Выполненное не
+ * просрочивается никогда, даже если сдано поздно: ругать за сделанное
+ * бессмысленно.
+ */
+export function isOverdue(task: ClientTask): boolean {
+  if (task.status === 'done' || task.due_at == null) return false
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  return task.due_at < start.getTime()
 }
 
-// Ответ приходит отдельной строкой: поле в самом отчёте осталось только ради
-// написанного до этого разделения, и читается через replyText — пустой ответ
-// означает снятый, а не отсутствующий.
-const toWorkoutSubject = (
-  r: WorkoutReport,
-  title?: string,
-  reply?: ReportReply,
-): ReviewSubject => ({
-  target: 'workout',
-  ref: r.id,
-  title: title ?? 'Тренировка',
-  subtitle: r.submitted_at ? `Сдана ${formatDate(r.submitted_at)}` : 'Сдана',
-  comment: r.client_comment,
-  reply: replyText(reply, r.trainer_comment),
-  submittedAt: r.submitted_at,
-})
-
-const toDaySubject = (d: NutritionDay, reply?: ReportReply): ReviewSubject => ({
-  target: 'nutrition',
-  ref: d.date,
-  title: `Питание · ${formatDate(new Date(`${d.date}T12:00:00`).getTime())}`,
-  subtitle: d.satiety ? `Сытость: ${SATIETY_LABELS[d.satiety]}` : 'День питания',
-  comment: d.comment,
-  reply: replyText(reply, d.trainer_comment),
-  submittedAt: d.submitted_at,
-})
-
-function ReviewSheet({
-  subject,
-  clientId,
-  trainerId,
-  onClose,
-  onDone,
-}: {
-  subject: ReviewSubject | null
-  clientId: string
-  trainerId: string
-  onClose: () => void
-  onDone: () => void
-}) {
-  const [reply, setReply] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  useEffect(() => setReply(subject?.reply ?? ''), [subject?.target, subject?.ref])
-
-  if (!subject) return null
-
-  const send = async () => {
-    setBusy(true)
-    try {
-      await reviewReport({
-        clientId,
-        trainerId,
-        target: subject.target,
-        ref: subject.ref,
-        comment: reply,
-      })
-      haptics.success()
-      onDone()
-      onClose()
-    } finally {
-      setBusy(false)
-    }
+/** Подпись задания: что с ним и к какому сроку. */
+function taskSub(task: ClientTask): string {
+  if (task.status === 'done') {
+    return task.answer ? `${t('Выполнено')} · ${task.answer}` : t('Выполнено')
   }
-
-  return (
-    <Sheet open={!!subject} title={subject.title} onClose={onClose}>
-      <div className="mute-sm">{subject.subtitle}</div>
-
-      {subject.comment && (
-        <div className="card" style={{ marginTop: 12 }}>
-          <div className="mute-sm">Что написал клиент</div>
-          <div style={{ marginTop: 4 }}>{subject.comment}</div>
-        </div>
-      )}
-
-      <div className="stack" style={{ marginTop: 14 }}>
-        <div className="field">
-          <label>Ответ клиенту</label>
-          <textarea
-            className="textarea"
-            value={reply}
-            onChange={(e) => setReply(e.target.value)}
-            placeholder="Что получилось, что меняем к следующему разу"
-          />
-        </div>
-        {/* Отметка о проверке ставится и без ответа: пустой ответ — это
-            «посмотрел, вопросов нет», и клиенту про это знать нечего.
-            Стёртый ответ именно стирается — иначе кнопка обещала бы одно, а
-            клиент продолжал видеть прежний разбор. */}
-        <button className="btn primary block" disabled={busy} onClick={send}>
-          {reply.trim()
-            ? 'Ответить и отметить разобранным'
-            : subject.reply
-              ? 'Удалить ответ и отметить разобранным'
-              : 'Отметить разобранным'}
-        </button>
-      </div>
-    </Sheet>
-  )
-}
-
-/* ------------------------------ шаги и сон ----------------------------- */
-
-const sleepLabel = (m?: number) => {
-  if (!m) return '—'
-  const h = Math.floor(m / 60)
-  const rest = m % 60
-  return rest ? `${h} ч ${rest} мин` : `${h} ч`
-}
-
-function ActivityList({
-  rows,
-}: {
-  rows: { date: string; steps?: number; sleep_minutes?: number }[]
-}) {
-  const withData = rows.filter((r) => r.steps || r.sleep_minutes)
-  if (withData.length === 0) {
-    return <div className="empty compact">Клиент не вводил шаги и сон. Это ручной ввод.</div>
-  }
-
-  const steps = withData.filter((r) => r.steps).map((r) => r.steps as number)
-  const sleep = withData.filter((r) => r.sleep_minutes).map((r) => r.sleep_minutes as number)
-  const avg = (xs: number[]) => Math.round(xs.reduce((a, b) => a + b, 0) / xs.length)
-
-  return (
-    <>
-      <div className="card">
-        <div className="metrics">
-          <div className="metric">
-            <div className="num">{steps.length ? avg(steps) : '—'}</div>
-            <div className="cap">шагов в среднем</div>
-          </div>
-          <div className="metric">
-            <div className="num">{sleep.length ? sleepLabel(avg(sleep)) : '—'}</div>
-            <div className="cap">сна в среднем</div>
-          </div>
-        </div>
-        <div className="mute-sm" style={{ marginTop: 12 }}>
-          Данные за {withData.length} {plural(withData.length, ['день', 'дня', 'дней'])} из{' '}
-          {WINDOW_DAYS}
-        </div>
-      </div>
-
-      <Group>
-        {withData
-          .slice()
-          .reverse()
-          .map((r) => (
-            <Row
-              key={r.date}
-              title={formatDate(new Date(`${r.date}T12:00:00`).getTime())}
-              value={
-                <span style={{ fontFamily: 'var(--font-num)' }}>
-                  {r.steps ?? '—'} · {sleepLabel(r.sleep_minutes)}
-                </span>
-              }
-            />
-          ))}
-      </Group>
-    </>
-  )
+  const base = task.required === 1 ? t('Обязательное · не выполнено') : t('Не выполнено')
+  if (task.due_at == null) return base
+  return `${base} · ${isOverdue(task) ? t('просрочено') : t('до')} ${formatDate(task.due_at)}`
 }
 
 /* ------------------------------- задание ------------------------------- */
@@ -442,17 +167,34 @@ function TaskSheet({
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [busy, setBusy] = useState(false)
+  /** Сохранить набранное как заготовку — галочка рядом с выдачей. */
+  const [asTemplate, setAsTemplate] = useState(false)
+  const [due, setDue] = useState('')
+
+  const templates = useLiveQuery(() => listTaskTemplates(trainerId), [trainerId, open])
 
   useEffect(() => {
     if (!open) return
     setTitle('')
     setDescription('')
+    setAsTemplate(false)
+    setDue('')
   }, [open])
 
   const save = async () => {
     setBusy(true)
     try {
-      await addTask({ clientId, trainerId, title, description })
+      await addTask({
+        clientId,
+        trainerId,
+        title,
+        description,
+        // Полдень местного времени: срок — это день, а не момент. С
+        // полуночью задание, выданное «на завтра», просрочивается в ту же
+        // секунду, как наступает завтра.
+        dueAt: due ? new Date(`${due}T12:00:00`).getTime() : undefined,
+      })
+      if (asTemplate) await saveTaskTemplate({ title, description, trainerId })
       haptics.success()
       onDone()
       onClose()
@@ -462,148 +204,86 @@ function TaskSheet({
   }
 
   return (
-    <Sheet open={open} title="Задание клиенту" onClose={onClose}>
+    <Sheet open={open} title={t('Задание клиенту')} onClose={onClose}>
       <div className="stack">
+        {/* Заготовки сверху: чаще всего задание не сочиняют заново, а берут
+            уже сформулированное. Нажатие подставляет текст в поля, а не
+            выдаёт сразу — перед отправкой его почти всегда правят под
+            конкретного человека. */}
+        {(templates ?? []).length > 0 && (
+          <>
+            <div className="mute-sm">{t('Из заготовок')}</div>
+            <div className="group">
+              {(templates ?? []).map((t) => (
+                <div className="group-row" key={t.id}>
+                  <button
+                    className="grow"
+                    style={{ textAlign: 'left' }}
+                    onClick={() => {
+                      setTitle(t.title)
+                      setDescription(t.description ?? '')
+                    }}
+                  >
+                    <span className="title">{t.title}</span>
+                    {t.description && <span className="sub truncate">{t.description}</span>}
+                  </button>
+                  <button
+                    className="icon-btn"
+                    aria-label={`Удалить заготовку «${t.title}»`}
+                    onClick={() => deleteTaskTemplate(t.id)}
+                  >
+                    <IconTrash size={15} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
         <div className="field">
-          <label>Что сделать</label>
+          <label>{t('Что сделать')}</label>
           <input
             className="input"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Например: прислать видео приседа"
+            placeholder={t('Например: прислать видео приседа')}
           />
         </div>
         <div className="field">
-          <label>Подробности</label>
+          <label>{t('Подробности')}</label>
           <textarea
             className="textarea"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Зачем это нужно и как сделать"
+            placeholder={t('Зачем это нужно и как сделать')}
           />
-        </div>
-        <button className="btn primary block" disabled={busy || !title.trim()} onClick={save}>
-          Выдать задание
-        </button>
-      </div>
-    </Sheet>
-  )
-}
-
-/* --------------------------- цели на неделю ---------------------------- */
-
-function TargetsSheet({
-  open,
-  clientId,
-  trainerId,
-  current,
-  onClose,
-  onDone,
-}: {
-  open: boolean
-  clientId: string
-  trainerId: string
-  current?: {
-    kcal?: number
-    protein?: number
-    fat?: number
-    carbs?: number
-    steps?: number
-    note?: string
-  }
-  onClose: () => void
-  onDone: () => void
-}) {
-  const [values, setValues] = useState<Record<string, string>>({})
-  const [note, setNote] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  useEffect(() => {
-    if (!open) return
-    setValues({
-      kcal: current?.kcal ? String(current.kcal) : '',
-      protein: current?.protein ? String(current.protein) : '',
-      fat: current?.fat ? String(current.fat) : '',
-      carbs: current?.carbs ? String(current.carbs) : '',
-      steps: current?.steps ? String(current.steps) : '',
-    })
-    setNote(current?.note ?? '')
-  }, [open])
-
-  // Пустое поле остаётся пустым: цель, которой не задали, — это не ноль, и
-  // подставлять расчётное значение вместо пропуска нельзя.
-  const num = (key: string) => {
-    const raw = (values[key] ?? '').replace(',', '.').trim()
-    if (!raw) return undefined
-    const n = Number(raw)
-    return Number.isFinite(n) && n > 0 ? n : undefined
-  }
-
-  const save = async () => {
-    setBusy(true)
-    try {
-      await setWeeklyTargets({
-        clientId,
-        trainerId,
-        kcal: num('kcal'),
-        protein: num('protein'),
-        fat: num('fat'),
-        carbs: num('carbs'),
-        steps: num('steps'),
-        note,
-      })
-      haptics.success()
-      onDone()
-      onClose()
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const field = (key: string, label: string) => (
-    <div className="field grow" key={key}>
-      <label>{label}</label>
-      <input
-        className="input"
-        inputMode="decimal"
-        value={values[key] ?? ''}
-        placeholder="—"
-        onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
-        style={{ fontFamily: 'var(--font-num)' }}
-      />
-    </div>
-  )
-
-  return (
-    <Sheet open={open} title="Цели на неделю" onClose={onClose}>
-      <div className="stack">
-        <div className="muted">
-          Пустое поле означает, что цели по этой метрике нет — приложение покажет клиенту только
-          факт.
-        </div>
-
-        <div className="row" style={{ gap: 8 }}>
-          {field('kcal', 'Ккал')}
-          {field('steps', 'Шаги')}
-        </div>
-        <div className="row" style={{ gap: 8 }}>
-          {field('protein', 'Белки, г')}
-          {field('fat', 'Жиры, г')}
-          {field('carbs', 'Углеводы, г')}
         </div>
 
         <div className="field">
-          <label>Комментарий</label>
-          <textarea
-            className="textarea"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="На чём держим фокус на этой неделе"
+          <label htmlFor="task-due">{t('Срок')}</label>
+          <input
+            id="task-due"
+            className="input"
+            type="date"
+            value={due}
+            onChange={(e) => setDue(e.target.value)}
+          />
+          <div className="mute-sm mt-1">
+            {t('Необязательно. С сроком просроченное задание видно обоим.')}
+          </div>
+        </div>
+
+        <div className="row between">
+          <span className="muted">{t('Сохранить как заготовку')}</span>
+          <Toggle
+            label={t('Сохранить как заготовку')}
+            value={asTemplate}
+            onChange={setAsTemplate}
           />
         </div>
 
-        <button className="btn primary block" disabled={busy} onClick={save}>
-          Выдать цели
+        <button className="btn primary block" disabled={busy || !title.trim()} onClick={save}>
+          {t('Выдать задание')}
         </button>
       </div>
     </Sheet>

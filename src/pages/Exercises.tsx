@@ -8,6 +8,8 @@ import { Sheet } from '../components/Sheet'
 import { loadFacets, matchesQuery } from '../lib/facets'
 import { useApp } from '../store/app'
 import { plural } from '../lib/calc'
+import { t } from '../lib/i18n'
+import { exName } from '../lib/exerciseNames'
 
 export function Exercises() {
   const nav = useNavigate()
@@ -34,7 +36,7 @@ export function Exercises() {
       .filter((e) => (muscle === 'Все' ? true : e.muscle_group === muscle))
       .filter((e) => (equipment === 'Всё' ? true : e.equipment === equipment))
       .filter((e) => matchesQuery(e, term))
-      .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+      .sort((a, b) => exName(a.name).localeCompare(exName(b.name)))
   }, [exercises, q, muscle, equipment])
 
   const visible = list.slice(0, limit)
@@ -43,16 +45,16 @@ export function Exercises() {
     <div className="screen">
       <div className="header">
         <div>
-          <h1>Упражнения</h1>
+          <h1>{t('Упражнения')}</h1>
           <div className="sub">
-            {list.length} {plural(list.length, ['упражнение', 'упражнения', 'упражнений'])} в
-            каталоге
+            {list.length} {plural(list.length, ['упражнение', 'упражнения', 'упражнений'])}{' '}
+            {t('в каталоге')}
           </div>
         </div>
         <button
           className="icon-btn"
           onClick={() => setCreateOpen(true)}
-          aria-label="Создать упражнение"
+          aria-label={t('Создать упражнение')}
         >
           <IconPlus size={18} />
         </button>
@@ -62,7 +64,7 @@ export function Exercises() {
         <IconSearch />
         <input
           className="input"
-          placeholder="Поиск: жим, тяга, присед…"
+          placeholder={t('Поиск: жим, тяга, присед…')}
           value={q}
           onChange={(e) => {
             setQ(e.target.value)
@@ -84,7 +86,7 @@ export function Exercises() {
                 setLimit(60)
               }}
             >
-              {m}
+              {t(m)}
             </button>
           ))}
         </div>
@@ -93,13 +95,15 @@ export function Exercises() {
           style={{ flex: '0 0 auto' }}
           onClick={() => setFilterOpen(true)}
         >
-          {equipment === 'Всё' ? 'Инвентарь' : equipment}
+          {equipment === 'Всё' ? t('Инвентарь') : t(equipment)}
         </button>
       </div>
 
-      <div className="group stagger" style={{ marginTop: 14 }}>
+      <div className="group stagger mt-4">
         {list.length === 0 && (
-          <div className="empty">Ничего не нашлось. Можно создать своё упражнение.</div>
+          <div className="empty">
+            {t('Ничего не нашлось. Можно создать своё упражнение.')}
+          </div>
         )}
         {visible.map((ex, i) => (
           <button
@@ -109,27 +113,26 @@ export function Exercises() {
             onClick={() => nav(`/exercises/${ex.id}`)}
           >
             <span className="grow">
-              <span className="title">{ex.name}</span>
-              <span className="sub" style={{ display: 'block' }}>
-                {ex.muscle_group} · {ex.equipment}
+              <span className="title">{exName(ex.name)}</span>
+              <span className="sub">
+                {t(ex.muscle_group)} · {t(ex.equipment)}
               </span>
             </span>
-            {ex.is_custom === 1 && <span className="badge">своё</span>}
+            {ex.is_custom === 1 && <span className="badge">{t('своё')}</span>}
           </button>
         ))}
       </div>
 
       {list.length > visible.length && (
         <button
-          className="btn block"
-          style={{ marginTop: 12 }}
+          className="btn block mt-3"
           onClick={() => setLimit((v) => v + 120)}
         >
-          Показать ещё · осталось {list.length - visible.length}
+          {t('Показать ещё')} · {t('осталось')} {list.length - visible.length}
         </button>
       )}
 
-      <Sheet open={filterOpen} title="Инвентарь" onClose={() => setFilterOpen(false)}>
+      <Sheet open={filterOpen} title={t('Инвентарь')} onClose={() => setFilterOpen(false)}>
         <div className="stack">
           {['Всё', ...facets.equipment].map((e) => (
             <button
@@ -141,7 +144,7 @@ export function Exercises() {
                 setFilterOpen(false)
               }}
             >
-              {e}
+              {t(e)}
             </button>
           ))}
         </div>
@@ -150,7 +153,7 @@ export function Exercises() {
       <CreateExerciseSheet
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreated={() => toast('Упражнение добавлено')}
+        onCreated={() => toast(t('Упражнение добавлено'))}
       />
     </div>
   )
@@ -191,55 +194,55 @@ function CreateExerciseSheet({
   }
 
   return (
-    <Sheet open={open} title="Своё упражнение" onClose={onClose}>
+    <Sheet open={open} title={t('Своё упражнение')} onClose={onClose}>
       <div className="stack">
         <div className="field">
-          <label>Название</label>
+          <label>{t('Название')}</label>
           <input
             className="input"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Например: Тяга Пендлея"
+            placeholder={t('Например: Тяга Пендлея')}
           />
         </div>
         <div className="field">
-          <label>Мышечная группа</label>
+          <label>{t('Мышечная группа')}</label>
           <select
             className="select"
             value={muscle || facets.muscles[0] || ''}
             onChange={(e) => setMuscle(e.target.value)}
           >
             {facets.muscles.map((m) => (
-              <option key={m}>{m}</option>
+              <option key={m} value={m}>{t(m)}</option>
             ))}
           </select>
         </div>
         <div className="field">
-          <label>Оборудование</label>
+          <label>{t('Оборудование')}</label>
           <select
             className="select"
             value={equipment || facets.equipment[0] || ''}
             onChange={(e) => setEquipment(e.target.value)}
           >
             {facets.equipment.map((e) => (
-              <option key={e}>{e}</option>
+              <option key={e} value={e}>{t(e)}</option>
             ))}
           </select>
         </div>
         <div className="field">
-          <label>Заметка по технике</label>
+          <label>{t('Заметка по технике')}</label>
           <textarea
             className="textarea"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Необязательно"
+            placeholder={t('Необязательно')}
           />
         </div>
         <button className="btn primary block" disabled={!name.trim()} onClick={submit}>
-          Создать
+          {t('Создать')}
         </button>
         <div className="mute-sm" style={{ textAlign: 'center' }}>
-          Своё упражнение видно только вам.
+          {t('Своё упражнение видно только вам.')}
         </div>
       </div>
     </Sheet>

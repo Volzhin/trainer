@@ -10,6 +10,8 @@ import {
   type Assignment,
   type Attachment,
   type ClientMode,
+  type Consent,
+  type ConsentKind,
   type Contact,
   type ContactKind,
   type Feedback,
@@ -17,6 +19,7 @@ import {
   type ScheduleSlot,
   type TrainerLink,
   type UserProfile,
+  type WorkoutRoutine,
   type WorkoutSession,
 } from './db'
 import { issueRequiredTasks } from './reports'
@@ -27,6 +30,7 @@ import {
   isAuthed,
   redeemInvite as remoteRedeemInvite,
   revokeInvite as remoteRevokeInvite,
+  unlinkClient,
 } from '../lib/backend'
 
 /**
@@ -54,7 +58,7 @@ export async function createAccount(input: {
     name: input.name.trim() || (input.role === 'TRAINER' ? 'Тренер' : 'Клиент'),
     role: input.role,
     specialization: input.specialization,
-    plan: input.role === 'TRAINER' ? 'PRO' : 'FREE',
+    plan: 'FREE',
     default_rest_seconds: 90,
     haptics_enabled: 1,
     sound_enabled: 1,
@@ -67,6 +71,31 @@ export async function switchAccount(userId: string) {
   const profile = await db.profile.get(userId)
   if (!profile) throw new Error('Аккаунт не найден')
   await setActiveUser(userId)
+}
+
+/* ---------------------------- подписка -------------------------------- */
+
+/**
+ * Подписка есть только у тренера — клиенту приложение бесплатно целиком.
+ *
+ * Платит тот, кто зарабатывает: тренер ведёт клиентов и получает за это
+ * деньги. Брать с клиента за то, чтобы он мог отчитаться перед тренером,
+ * значит продавать ему обязанность, а не возможность.
+ */
+export async function hasSubscription(trainerId = currentUserId()): Promise<boolean> {
+  const profile = await db.profile.get(trainerId)
+  return profile?.role === 'TRAINER' && profile.plan === 'PRO'
+}
+
+/**
+ * Ворота на платные действия тренера. Проверка живёт здесь, а не только в
+ * кнопках: набор клиентов и назначение программ вызываются из разных мест,
+ * и правило должно быть одно.
+ */
+async function requireSubscription(trainerId = currentUserId()) {
+  if (!(await hasSubscription(trainerId))) {
+    throw new Error('Нужна подписка: без неё нельзя набирать клиентов и назначать им программы')
+  }
 }
 
 /* ------------------------- приглашения и связь ------------------------ */
@@ -101,6 +130,7 @@ function makeCode(): string {
 export async function createInvite(trainerId = currentUserId()): Promise<string> {
   const trainer = await db.profile.get(trainerId)
   if (trainer?.role !== 'TRAINER') throw new Error('Приглашения выпускает только тренер')
+  await requireSubscription(trainerId)
 
   let code = makeCode()
   while (await db.invites.get(code)) code = makeCode()
@@ -146,10 +176,19 @@ export async function revokeInvite(code: string) {
 }
 
 /**
- * Клиент активирует код тренера. Связь создаётся сразу активной:
- * клиент сам ввёл код, то есть согласие уже выражено.
+ * Погашение кода.
+ *
+ * Подписи прикладываются, если тренер приложил документы. Требовать их
+ * безусловно нельзя: документы у каждого тренера свои, и у того, кто
+ * ничего не приложил, подписывать нечего — связь бы просто не заводилась.
+ * Что подписано, хранится вместе с идентификатором файла: заменив
+ * документ, тренер получает другой, и прежняя подпись к нему не относится.
  */
-export async function redeemInvite(code: string, clientId = currentUserId()) {
+export async function redeemInvite(
+  code: string,
+  clientId = currentUserId(),
+  consents: Consent[] = [],
+) {
   const clean = code.trim().toUpperCase()
   let invite = await db.invites.get(clean)
 
@@ -193,29 +232,33 @@ export async function redeemInvite(code: string, clientId = currentUserId()) {
   if (invite.expires_at < now()) throw new Error('Срок действия кода истёк')
   if (invite.trainer_id === clientId) throw new Error('Нельзя пригласить самого себя')
 
-  const existing = await db.links
-    .where('[trainer_id+client_id]')
-    .equals([invite.trainer_id, clientId])
-    .first()
-  if (existing && existing.status !== 'PAUSED')
+  /*
+   * Тренер у клиента ровно один.
+   *
+   * Проверять только связь с этим же тренером было мало: код второго
+   * тренера заводил вторую связь, и дальше всё зависело от того, какую из
+   * них вернёт база первой. Отчёты, комментарии и назначения расходились
+   * между двумя кабинетами непредсказуемо, а на сервере поле trainer у
+   * клиента одно — та связь молча переписывала другую.
+   */
+  const links = await db.links.where('client_id').equals(clientId).toArray()
+  const active = links.filter((l) => l.status !== 'PAUSED')
+
+  if (active.some((l) => l.trainer_id === invite.trainer_id))
     throw new Error('Вы уже работаете с этим тренером')
+  if (active.length)
+    throw new Error('У вас уже есть тренер — отключите его, прежде чем подключать другого')
+
+  const existing = links.find((l) => l.trainer_id === invite.trainer_id)
 
   const ts = now()
-
-  // Прежнюю связь приостанавливаем: активной она остаётся до тех пор, пока
-  // её кто-нибудь не снимет, и тогда у человека два действующих тренера
-  // сразу. Кто из них «его», решает порядок строк — то есть случайность.
-  const others = await db.links
-    .where('client_id')
-    .equals(clientId)
-    .and((l) => l.status === 'ACTIVE' && l.trainer_id !== invite.trainer_id)
-    .toArray()
-  for (const l of others) {
-    await db.links.update(l.id, { status: 'PAUSED', updated_at: ts })
-  }
+  const signed = consents.map((c) => ({ ...c, signed_at: c.signed_at || ts }))
 
   if (existing) {
-    await db.links.update(existing.id, { status: 'ACTIVE', updated_at: ts })
+    // Возобновляя работу, человек подписывает актуальные редакции заново —
+    // за время паузы текст мог смениться, а прежняя подпись относилась к
+    // прежней редакции.
+    await db.links.update(existing.id, { status: 'ACTIVE', consents: signed, updated_at: ts })
   } else {
     await db.links.add({
       id: linkId(invite.trainer_id, clientId),
@@ -223,6 +266,7 @@ export async function redeemInvite(code: string, clientId = currentUserId()) {
       client_id: clientId,
       status: 'ACTIVE',
       initiated_by: 'TRAINER',
+      consents: signed,
       created_at: ts,
       updated_at: ts,
     })
@@ -251,6 +295,22 @@ export async function setLinkMode(linkId: string, mode: ClientMode) {
   await db.links.update(linkId, { mode, updated_at: now() })
 }
 
+/**
+ * Даты оплаты ведёт тренер: приложение денег не принимает и о платежах
+ * узнаёт только с его слов. Пустое значение стирает дату — «не помню, когда
+ * платил» честнее задним числом выдуманного числа.
+ */
+export async function setLinkPayment(
+  linkId: string,
+  input: { paidAt?: number; nextPaymentAt?: number },
+) {
+  await db.links.update(linkId, {
+    paid_at: input.paidAt,
+    next_payment_at: input.nextPaymentAt,
+    updated_at: now(),
+  })
+}
+
 /** Разрыв связи доступен обеим сторонам. Данные клиента при этом остаются у клиента. */
 export async function removeLink(linkId: string) {
   const link = await db.links.get(linkId)
@@ -266,23 +326,41 @@ export async function removeLink(linkId: string) {
       updated_at: now(),
     })
   }
+  // Через deleteSynced: строка связи уезжает на сервер как все остальные, и
+  // без тумбстоуна она вернулась бы обратно первым же приёмом данных.
   await deleteSynced('links', linkId)
+
+  /*
+   * Снимаем связь и на сервере — иначе она останется там навсегда: у
+   * клиента он числился бы за прежним тренером и не смог бы подключить
+   * нового, а тренер продолжал бы видеть его данные.
+   *
+   * Рвут обе стороны через один обработчик: поле лежит в записи клиента,
+   * и открывать её на запись всем ради этого нельзя — сервер сам решает,
+   * кому можно.
+   */
+  if (isAuthed()) {
+    const iAmClient = link.client_id === currentUserId()
+    await unlinkClient(iAmClient ? undefined : link.client_id).catch(() => {
+      /* сеть подождёт: местная связь уже снята, экраны это увидят */
+    })
+  }
 }
 
 /**
- * Действующий тренер клиента.
+ * Тренер клиента.
  *
- * Связей в базе может оказаться несколько: человек сменил тренера, а прежняя
- * строка осталась. Берём свежайшую активную — иначе чат, отчёты и бейджи
- * цепляются к случайной из них, и разговор с новым тренером идёт в ветку со
- * старым.
+ * Берём самую свежую связь, а не первую попавшуюся: порядок выдачи у базы
+ * свой, и при двух связях (например, оставшейся от прежнего тренера)
+ * приложение показывало бы то одного, то другого между перезагрузками.
  */
 export async function trainerOfClient(clientId = currentUserId()) {
-  const links = await db.links.where('client_id').equals(clientId).toArray()
-  const active = links
-    .filter((l) => l.status === 'ACTIVE')
-    .sort((a, b) => b.updated_at - a.updated_at)
-  const link = active[0] ?? links.find((l) => l.status !== 'PAUSED')
+  const links = await db.links
+    .where('client_id')
+    .equals(clientId)
+    .and((l) => l.status !== 'PAUSED')
+    .toArray()
+  const link = links.sort((a, b) => b.created_at - a.created_at)[0]
   if (!link) return null
   const trainer = await db.profile.get(link.trainer_id)
   return trainer ? { link, trainer } : null
@@ -302,7 +380,6 @@ export type ClientSummary = {
   assignment?: Assignment
   assignedProgramName?: string
   /** Рекорды за последние 14 дней. */
-  recentPRs: number
   unreadFeedback: number
 }
 
@@ -319,7 +396,6 @@ export async function loadClientSummaries(
   const programMap = new Map(programs.map((p) => [p.id, p]))
 
   const thisWeek = weekStart(Date.now())
-  const prCutoff = Date.now() - 14 * 86400_000
 
   const out: ClientSummary[] = []
   for (const [i, link] of links.entries()) {
@@ -337,14 +413,6 @@ export async function loadClientSummaries(
     const assignment = assignments.find(
       (a) => a.client_id === client.id && a.status === 'ACTIVE',
     )
-
-    // Рекорды считаем только по свежим сессиям — тренеру важно недавнее.
-    let recentPRs = 0
-    for (const s of sessions) {
-      if (s.start_time < prCutoff) break
-      const rows = await db.sets.where('workout_session_id').equals(s.id).toArray()
-      recentPRs += rows.filter((r) => r.is_pr === 1).length
-    }
 
     const unread = await db.feedback
       .where('[trainer_id+client_id]')
@@ -364,7 +432,6 @@ export async function loadClientSummaries(
       weeklyTarget: assignment?.weekly_target ?? 3,
       assignment,
       assignedProgramName: assignment ? programMap.get(assignment.program_id)?.name : undefined,
-      recentPRs,
       unreadFeedback: unread,
     })
   }
@@ -378,7 +445,6 @@ export type ClientDetail = {
   sessions: WorkoutSession[]
   volumeByWeek: { label: string; value: number }[]
   records: { name: string; score: number }[]
-  weightPoints: { x: number; y: number }[]
 }
 
 /** Полная выборка по одному клиенту для карточки в кабинете тренера. */
@@ -423,8 +489,6 @@ export async function loadClientDetail(clientId: string): Promise<ClientDetail |
     best.set(s.exercise_id, Math.max(best.get(s.exercise_id) ?? 0, score))
   }
 
-  const metrics = await db.bodyMetrics.where('user_id').equals(clientId).sortBy('logged_at')
-
   return {
     client,
     sessions,
@@ -433,9 +497,6 @@ export async function loadClientDetail(clientId: string): Promise<ClientDetail |
       .map(([exId, score]) => ({ name: exMap.get(exId)?.name ?? '—', score }))
       .sort((a, b) => b.score - a.score)
       .slice(0, 6),
-    weightPoints: metrics
-      .filter((m) => m.weight_kg != null)
-      .map((m) => ({ x: m.logged_at, y: m.weight_kg! })),
   }
 }
 
@@ -532,6 +593,7 @@ export async function assignProgram(input: {
   trainerId?: string
 }) {
   const trainerId = input.trainerId ?? currentUserId()
+  await requireSubscription(trainerId)
   // Активное назначение всегда одно: новое отменяет предыдущее — и своё, и
   // чужое. Раньше снимались только назначения того же автора, и план, который
   // человек составил себе сам, продолжал жить рядом с назначением тренера;
@@ -707,6 +769,7 @@ export async function createPersonalProgram(input: {
   trainerId?: string
 }) {
   const trainerId = input.trainerId ?? currentUserId()
+  await requireSubscription(trainerId)
   const client = await db.profile.get(input.clientId)
   const ts = now()
 
@@ -828,6 +891,86 @@ export async function activeAssignmentFor(clientId = currentUserId()) {
   }
 }
 
+/**
+ * Очередь тренировок плана: что делать следующим и что идёт за этим.
+ *
+ * Показывать одну «следующую» кнопку оказалось мало. План — это не
+ * конвейер: заболело плечо, зал занят, уехал в командировку, — и человек
+ * хочет взять другой день, а не выбирать между «строго по плану» и пустой
+ * тренировкой. Поэтому отдаём весь список, но начинаем с той, что по
+ * плану, — порядок и есть подсказка.
+ *
+ * Порядок исполнения задаёт расписание, а не нумерация дней в программе:
+ * тренер вправе поставить второй день на понедельник, и тогда именно он
+ * идёт первым. Дни программы, которых в расписании нет, добавляем следом —
+ * они не выпадают из списка, просто не привязаны к дню недели.
+ */
+export async function planQueue(date: number, clientId = currentUserId()) {
+  const plan = await activeAssignmentFor(clientId)
+  if (!plan || !plan.routines.length) return null
+
+  const byId = new Map(plan.routines.map((r) => [r.id, r]))
+  const schedule = [...(plan.assignment.schedule ?? [])].sort((a, b) => a.weekday - b.weekday)
+
+  const ordered: WorkoutRoutine[] = []
+  const seen = new Set<string>()
+  for (const slot of schedule) {
+    const r = byId.get(slot.routine_id)
+    if (r && !seen.has(r.id)) {
+      seen.add(r.id)
+      ordered.push(r)
+    }
+  }
+  for (const r of plan.routines) {
+    if (!seen.has(r.id)) {
+      seen.add(r.id)
+      ordered.push(r)
+    }
+  }
+
+  const nextId = await nextRoutineId(date, clientId, ordered, schedule)
+  const at = ordered.findIndex((r) => r.id === nextId)
+  // Разворачиваем список от следующей тренировки, а не просто помечаем её:
+  // «дальше по порядку» должно читаться сверху вниз, иначе продолжение
+  // плана оказывается выше его начала.
+  const queue = at > 0 ? [...ordered.slice(at), ...ordered.slice(0, at)] : ordered
+
+  return { plan, queue, nextId: queue[0]?.id }
+}
+
+/**
+ * Какую тренировку человек должен сделать следующей.
+ *
+ * Сначала спрашиваем расписание: выбранный день, а если он пустой — ближайший
+ * плановый в пределах недели. Без расписания идём от сделанного: следующая
+ * после последней завершённой. Оба пути могут не дать ответа — тогда начало
+ * плана, с него и начинают.
+ */
+async function nextRoutineId(
+  date: number,
+  clientId: string,
+  ordered: WorkoutRoutine[],
+  schedule: ScheduleSlot[],
+): Promise<string | undefined> {
+  if (schedule.length) {
+    for (let i = 0; i < 7; i++) {
+      const planned = await plannedForDate(date + i * 86400_000, clientId)
+      if (planned) return planned.routine.id
+    }
+  }
+
+  const last = await db.sessions
+    .where('user_id')
+    .equals(clientId)
+    .and((s) => s.is_completed === 1 && !!s.routine_id)
+    .sortBy('start_time')
+  const lastId = last[last.length - 1]?.routine_id
+  const at = lastId ? ordered.findIndex((r) => r.id === lastId) : -1
+  if (at >= 0) return ordered[(at + 1) % ordered.length].id
+
+  return ordered[0]?.id
+}
+
 export async function addFeedback(input: {
   clientId: string
   sessionId: string
@@ -878,6 +1021,83 @@ export async function addAttachment(input: {
   }
   await db.attachments.add(attachment)
   return attachment.id
+}
+
+/**
+ * Скриншот дневника питания за день.
+ *
+ * Кладём в ту же таблицу, что и видео техники: у неё есть свой путь
+ * выгрузки файлов, а обычная синхронизация возит json и Blob не увезёт.
+ */
+export async function addNutritionShot(input: {
+  date: string
+  blob: Blob
+  userId?: string
+}): Promise<string> {
+  const id = uid()
+  const ts = now()
+  await db.attachments.add({
+    id,
+    user_id: input.userId ?? currentUserId(),
+    nutrition_date: input.date,
+    kind: 'photo',
+    blob: input.blob,
+    mime: input.blob.type || 'image/jpeg',
+    size: input.blob.size,
+    created_at: ts,
+    updated_at: ts,
+  })
+  return id
+}
+
+export async function nutritionShots(
+  date: string,
+  userId = currentUserId(),
+): Promise<Attachment[]> {
+  const rows = await db.attachments.where('nutrition_date').equals(date).toArray()
+  return rows.filter((a) => a.user_id === userId).sort((a, b) => a.created_at - b.created_at)
+}
+
+/* ---------------------------- документы -------------------------------- */
+
+/**
+ * Документы тренера: оферта и согласие на обработку данных.
+ *
+ * Свои у каждого — тренеры работают по разным договорам, и общий текст
+ * подошёл бы не всем. Не прикрепил ни одного — клиенту нечего подписывать,
+ * и шаг с галочками ему не показывают вовсе.
+ */
+export async function trainerDocs(trainerId = currentUserId()): Promise<Attachment[]> {
+  const rows = await db.attachments.where('user_id').equals(trainerId).toArray()
+  return rows.filter((a) => a.kind === 'document')
+}
+
+/** Прикрепить документ. Одного вида может быть только один: новый заменяет. */
+export async function setTrainerDoc(input: {
+  kind: ConsentKind
+  blob: Blob
+  fileName: string
+  trainerId?: string
+}): Promise<string> {
+  const trainerId = input.trainerId ?? currentUserId()
+  const existing = (await trainerDocs(trainerId)).filter((a) => a.doc_kind === input.kind)
+  for (const old of existing) await deleteAttachment(old.id)
+
+  const id = uid()
+  const ts = now()
+  await db.attachments.add({
+    id,
+    user_id: trainerId,
+    doc_kind: input.kind,
+    kind: 'document',
+    blob: input.blob,
+    mime: input.blob.type || 'application/pdf',
+    size: input.blob.size,
+    remote_file: undefined,
+    created_at: ts,
+    updated_at: ts,
+  })
+  return id
 }
 
 export async function attachmentsForSession(sessionId: string): Promise<Attachment[]> {

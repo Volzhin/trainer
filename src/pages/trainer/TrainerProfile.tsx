@@ -1,22 +1,34 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Contact, type ContactKind } from '../../db/db'
 import { isAuthed, updateAccount } from '../../lib/backend'
 import { ContactEditor } from '../../components/ContactLinks'
-import { AccountSection } from '../../components/AccountSection'
 import { Sheet } from '../../components/Sheet'
-import { AccountSwitcher } from '../../components/AccountSwitcher'
-import { useApp, useProfile } from '../../store/app'
-import { plural } from '../../lib/calc'
-import { seedTrainerDemo } from '../../db/demo'
 import { haptics } from '../../lib/native'
+import { IconSettings } from '../../components/Icons'
+import { TrainerDocs } from '../../components/TrainerDocs'
+import { useApp, useProfile } from '../../store/app'
+import { t } from '../../lib/i18n'
 
 export function TrainerProfile() {
-  const { toast, userId, online } = useApp()
+  const nav = useNavigate()
+  const { toast, userId } = useApp()
   const profile = useProfile()
   const [editOpen, setEditOpen] = useState(false)
-  const [accountsOpen, setAccountsOpen] = useState(false)
-  const [demoBusy, setDemoBusy] = useState(false)
+  const [payOpen, setPayOpen] = useState(false)
+
+  const isPro = profile?.plan === 'PRO'
+
+  const togglePlan = async () => {
+    await db.profile.update(userId, {
+      plan: isPro ? 'FREE' : 'PRO',
+      updated_at: Date.now(),
+    })
+    haptics.success()
+    toast(isPro ? t('Подписка отключена') : t('Подписка активна'))
+    setPayOpen(false)
+  }
 
   const counts = useLiveQuery(async () => {
     const clients = await db.links.where('trainer_id').equals(userId).count()
@@ -29,29 +41,24 @@ export function TrainerProfile() {
     return { clients, programs, assignments }
   }, [userId])
 
-  const loadDemo = async () => {
-    setDemoBusy(true)
-    try {
-      const res = await seedTrainerDemo(userId)
-      haptics.success()
-      toast(
-        `Добавлено ${res.clients} ${plural(res.clients, ['клиент', 'клиента', 'клиентов'])}`,
-      )
-    } catch (e) {
-      toast(e instanceof Error ? e.message : 'Не удалось создать демо-клиентов')
-    } finally {
-      setDemoBusy(false)
-    }
-  }
 
   return (
     <div className="screen">
       <div className="header">
         <div>
-          <h1>Профиль</h1>
-          <div className="sub">Кабинет тренера</div>
+          <h1>{t('Профиль')}</h1>
+          <div className="sub">{t('Кабинет тренера')}</div>
         </div>
-        <span className="badge pro">ТРЕНЕР</span>
+        <div className="row" style={{ gap: 8 }}>
+          <span className="badge pro">{t('ТРЕНЕР')}</span>
+          <button
+            className="icon-btn"
+            onClick={() => nav('/settings')}
+            aria-label={t('Настройки')}
+          >
+            <IconSettings size={18} />
+          </button>
+        </div>
       </div>
 
       <div className="card">
@@ -60,69 +67,108 @@ export function TrainerProfile() {
             {(profile?.name ?? 'Т').slice(0, 1)}
           </div>
           <div className="grow">
-            <div style={{ fontWeight: 600 }}>{profile?.name}</div>
+            <div className="strong">{profile?.name}</div>
             <div className="mute-sm">
-              {profile?.specialization ?? 'Специализация не указана'}
+              {profile?.specialization ?? t('Специализация не указана')}
             </div>
           </div>
           <button className="btn sm" onClick={() => setEditOpen(true)}>
-            Изменить
+            {t('Изменить')}
           </button>
         </div>
         {profile?.bio && (
-          <div className="muted" style={{ marginTop: 10 }}>
+          <div className="muted mt-3">
             {profile.bio}
           </div>
         )}
       </div>
 
-      <div className="section-title">Практика</div>
+      {/* Подписка — единственное платное в приложении, и платит её тот, кто
+          на нём зарабатывает. Состояние показано всегда, а не только когда
+          что-то упёрлось: тренер должен знать, что подписка кончилась, до
+          того, как не сможет позвать клиента. */}
+      <div className="section-title">{t('Подписка')}</div>
+      <div className={`card${isPro ? '' : ' mt-0'}`} style={isPro ? undefined : { borderColor: 'var(--accent)' }}>
+        {isPro ? (
+          <>
+            <div className="row between">
+              <div className="grow">
+                <div className="strong">{t('Подписка активна')}</div>
+                <div className="mute-sm mt-1">
+                  {t('Набор клиентов, ведение и назначение программ — без ограничений.')}
+                </div>
+              </div>
+              <span className="badge pro">PRO</span>
+            </div>
+            <button className="btn ghost danger block mt-3" onClick={togglePlan}>
+              {t('Отключить подписку')}
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="strong">{t('Подписка не оформлена')}</div>
+            <div className="mute-sm mt-1">
+              {t('Без неё нельзя выпускать коды приглашения, назначать программы и собирать персональные планы. Уже набранные клиенты и их история остаются на месте — вы просто не сможете добавлять новых и менять назначения.')}
+            </div>
+            <button className="btn primary block mt-3" onClick={() => setPayOpen(true)}>
+              {t('Оформить за 499 ₽ в месяц')}
+            </button>
+          </>
+        )}
+      </div>
+
+      <div className="section-title">{t('Практика')}</div>
       <div className="card stack">
         <div className="row between">
-          <span className="muted">Клиентов</span>
+          <span className="muted">{t('клиентов')}</span>
           <strong>{counts?.clients ?? 0}</strong>
         </div>
         <div className="row between">
-          <span className="muted">Активных назначений</span>
+          <span className="muted">{t('Активных назначений')}</span>
           <strong>{counts?.assignments ?? 0}</strong>
         </div>
         <div className="row between">
-          <span className="muted">Своих программ</span>
+          <span className="muted">{t('Своих программ')}</span>
           <strong>{counts?.programs ?? 0}</strong>
         </div>
-        {/* Не «режим»: этим словом теперь называется формат работы с
-            клиентом — очно или онлайн. Здесь речь про сеть. */}
-        <div className="row between">
-          <span className="muted">Связь</span>
-          <strong>{online ? 'есть' : 'нет сети'}</strong>
-        </div>
       </div>
 
-      <div className="section-title">Аккаунты</div>
-      <div className="card stack">
-        <div className="muted">
-          Прототип держит несколько аккаунтов в одной базе, чтобы можно было посмотреть на
-          связку с обеих сторон.
-        </div>
-        <button className="btn block" onClick={() => setAccountsOpen(true)}>
-          Переключить аккаунт
-        </button>
-        <button className="btn block" disabled={demoBusy} onClick={loadDemo}>
-          {demoBusy ? 'Создаю…' : 'Добавить демо-клиентов'}
-        </button>
-      </div>
+      <TrainerDocs />
 
-      <AccountSection />
 
-      <div className="mute-sm" style={{ textAlign: 'center', marginTop: 20 }}>
-        Прототип v0.2 · кабинет тренера
-      </div>
-
-      <Sheet open={editOpen} title="Профиль тренера" onClose={() => setEditOpen(false)}>
+      <Sheet open={editOpen} title={t('Профиль тренера')} onClose={() => setEditOpen(false)}>
         <TrainerForm onDone={() => setEditOpen(false)} />
       </Sheet>
 
-      <AccountSwitcher open={accountsOpen} onClose={() => setAccountsOpen(false)} />
+      <Sheet open={payOpen} title={t('Подписка тренера')} onClose={() => setPayOpen(false)}>
+        <div className="stack">
+          <div className="card">
+            <div className="row between">
+              <span>{t('Месяц')}</span>
+              <strong>499 ₽</strong>
+            </div>
+            <div className="row between mt-2">
+              <span>
+                {t('Год')} <span className="badge">−40%</span>
+              </span>
+              <strong>3 590 ₽</strong>
+            </div>
+          </div>
+          <div className="muted">
+            {t('Клиентам приложение бесплатно целиком — они ничего не оплачивают и ни во что не упираются.')}
+          </div>
+          <button className="btn primary block" onClick={togglePlan}>
+            {t('Оплатить через СБП')}
+          </button>
+          <button className="btn block" onClick={togglePlan}>
+            {t('Банковской картой (ЮKassa)')}
+          </button>
+          <div className="mute-sm text-center">
+            {t('В прототипе оплата эмулируется и просто включает подписку. В проде права выдаёт эквайер по вебхуку.')}
+          </div>
+        </div>
+      </Sheet>
+
     </div>
   )
 }
@@ -169,7 +215,7 @@ function TrainerForm({ onDone }: { onDone: () => void }) {
   return (
     <div className="stack">
       <div className="field">
-        <label>Имя</label>
+        <label>{t('Имя')}</label>
         <input
           className="input"
           value={name}
@@ -178,27 +224,27 @@ function TrainerForm({ onDone }: { onDone: () => void }) {
         />
       </div>
       <div className="field">
-        <label>Специализация</label>
+        <label>{t('Специализация')}</label>
         <input
           className="input"
           value={spec}
           onChange={(e) => setSpec(e.target.value)}
-          placeholder={profile?.specialization ?? 'Силовой тренинг'}
+          placeholder={profile?.specialization ?? t('Силовой тренинг')}
         />
       </div>
       <div className="field">
-        <label>О себе</label>
+        <label>{t('О себе')}</label>
         <textarea
           className="textarea"
           value={bio}
           onChange={(e) => setBio(e.target.value)}
-          placeholder={profile?.bio ?? 'Опыт, образование, подход к работе'}
+          placeholder={profile?.bio ?? t('Опыт, образование, подход к работе')}
         />
       </div>
       <div className="divider" />
-      <div className="field-group-title">Где с вами связаться</div>
-      <div className="mute-sm" style={{ marginBottom: 10 }}>
-        Клиент увидит эти ссылки в карточке тренера и напишет вам в один тап.
+      <div className="field-group-title">{t('Где с вами связаться')}</div>
+      <div className="mute-sm mb-3">
+        {t('Клиент увидит эти ссылки в карточке тренера и напишет вам в один тап.')}
       </div>
       <ContactEditor
         contacts={contacts}
@@ -210,7 +256,7 @@ function TrainerForm({ onDone }: { onDone: () => void }) {
       />
 
       <button className="btn primary block" onClick={submit}>
-        Сохранить
+        {t('Сохранить')}
       </button>
     </div>
   )

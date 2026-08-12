@@ -6,6 +6,7 @@ import { formatDate } from '../lib/calc'
 import { IconChat } from './Icons'
 import { haptics } from '../lib/native'
 import { useApp } from '../store/app'
+import { t } from '../lib/i18n'
 
 /**
  * Ветка переписки. Одна и та же у тренера и у клиента — разговор общий,
@@ -69,14 +70,14 @@ export function ChatThread({
     }
   }
 
-  if (messages === undefined) return <div className="empty">Загрузка…</div>
+  if (messages === undefined) return <div className="empty">{t('Загрузка…')}</div>
 
   return (
     <div className="chat">
       {messages.length === 0 ? (
         <div className="empty">
           <IconChat size={22} />
-          <div style={{ marginTop: 8 }}>{emptyHint}</div>
+          <div className="mt-2">{emptyHint}</div>
         </div>
       ) : (
         <div className="chat-log" ref={logRef}>
@@ -96,7 +97,7 @@ export function ChatThread({
           className="textarea"
           value={draft}
           rows={1}
-          placeholder="Сообщение"
+          placeholder={t('Сообщение')}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             // Enter отправляет, Shift+Enter переносит строку — как в
@@ -111,9 +112,9 @@ export function ChatThread({
           className="btn primary"
           disabled={busy || !draft.trim()}
           onClick={send}
-          aria-label="Отправить"
+          aria-label={t('Отправить')}
         >
-          Отправить
+          {t('Отправить')}
         </button>
       </div>
     </div>

@@ -27,6 +27,7 @@ import {
   IcoWeight,
 } from './MetricIcons'
 import { Sheet } from './Sheet'
+import { MeasurementsTable } from './MeasurementsTable'
 import { IconTrash } from './Icons'
 import { formatDate, plural } from '../lib/calc'
 import { BODY_FAT_RANGE, deriveComposition } from '../lib/anthropometry'
@@ -34,6 +35,7 @@ import { getNutritionProfile } from '../db/nutrition'
 import { macroTargets, MACRO_PRESETS } from '../lib/tdee'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
 
 // Цвета берём из токенов: они подобраны отдельно для светлой и тёмной темы.
 export const BODY_C = {
@@ -227,7 +229,10 @@ function cellsFor(m: BodyMetric, key: keyof BodyMetric, unit: string): (string |
   const abs = unit ? `${round1(v)} ${unit}` : String(round1(v))
 
   if (key === 'body_fat_pct') {
-    return [`${round1(v)} %`, m.body_fat_kg != null ? `${round1(m.body_fat_kg)} кг` : null]
+    return [
+      `${round1(v)} %`,
+      m.body_fat_kg != null ? `${round1(m.body_fat_kg)} ${t('кг')}` : null,
+    ]
   }
   if (AS_SHARE.includes(key)) {
     return [m.weight_kg ? `${round1((v / m.weight_kg) * 100)} %` : null, abs]
@@ -265,13 +270,23 @@ const TEXT = {
 export function BodyCompositionView({
   userId,
   subject = 'self',
+  /**
+   * Показывать ли сдачу замеров. По умолчанию нет: экран отвечает на
+   * вопрос «что с телом», и предложение что-то загрузить в его начале
+   * мешает тому, кто пришёл смотреть динамику. Сдают в «Отчётах» —
+   * см. MeasurementEntry.
+   */
+  allowEntry = false,
 }: {
   userId: string
   subject?: BodySubject
+  allowEntry?: boolean
 }) {
   const { toast } = useApp()
   const fileRef = useRef<HTMLInputElement>(null)
-  const t = TEXT[subject]
+  // Тексты, зависящие от того, на кого смотрят: на себя или на клиента.
+  // Имя не t — так зовут функцию перевода, и рядом они не уживаются.
+  const texts = TEXT[subject]
 
   const [pending, setPending] = useState<Parsed[] | null>(null)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
@@ -323,23 +338,30 @@ export function BodyCompositionView({
   const previous = scans[1]
 
   /**
-   * Свежее взвешивание часто содержит только вес: состав меряют реже.
-   * Поэтому кольцо, нормы и сегменты берём из последнего замера, где эти
-   * данные есть, и подписываем его дату — иначе разделы стоят пустыми,
-   * хотя разбор в истории имеется.
+   * Кольцо состава, нормы и сегменты рисуются только по биоимпедансу.
+   *
+   * Отбираем по источнику, а не по наличию полей: замеры лентой, сделанные
+   * до того, как приложение перестало досчитывать мышцы и воду, до сих пор
+   * лежат в базе с этими числами. По присутствию поля они неотличимы от
+   * отчёта InBody и подмешивались бы в диаграмму — а обхваты на неё влиять
+   * не должны вовсе.
+   *
+   * Берём последний отчёт, где состав есть: свежее взвешивание часто
+   * содержит один вес, и раздел стоял бы пустым при наличии разбора.
    */
+  const inbody = useMemo(() => scans.filter((m) => m.source === 'inbody'), [scans])
   const composed = useMemo(
-    () => scans.find((m) => m.skeletal_muscle_kg != null || m.body_water_l != null),
-    [scans],
+    () => inbody.find((m) => m.skeletal_muscle_kg != null || m.body_water_l != null),
+    [inbody],
   )
   const composedPrev = useMemo(
     () =>
-      scans.filter(
+      inbody.filter(
         (m) => m !== composed && (m.skeletal_muscle_kg != null || m.body_water_l != null),
       )[0],
-    [scans, composed],
+    [inbody, composed],
   )
-  const segmented = useMemo(() => scans.find((m) => m.muscle_segments), [scans])
+  const segmented = useMemo(() => inbody.find((m) => m.muscle_segments), [inbody])
 
   const onFiles = async (list: FileList | null) => {
     const files = Array.from(list ?? [])
@@ -355,7 +377,7 @@ export function BodyCompositionView({
       try {
         parsed.push({ fileName: file.name, report: await parseInBodyPdf(file) })
       } catch (e) {
-        const error = e instanceof Error ? e.message : 'Не удалось разобрать PDF'
+        const error = e instanceof Error ? t(e.message) : t('Не удалось разобрать PDF')
         parsed.push({ fileName: file.name, error })
       }
       setProgress((prev) => (prev ? { ...prev, done: prev.done + 1 } : prev))
@@ -372,8 +394,8 @@ export function BodyCompositionView({
       const reasons = new Set(parsed.map((x) => x.error))
       toast(
         reasons.size === 1
-          ? (parsed[0].error ?? 'Не удалось разобрать PDF')
-          : 'Ни один файл разобрать не удалось',
+          ? (parsed[0].error ?? t('Не удалось разобрать PDF'))
+          : t('Ни один файл разобрать не удалось'),
       )
     }
 
@@ -404,9 +426,12 @@ export function BodyCompositionView({
     setBusy(false)
     setPending(null)
     if (ordered.length === 1) {
-      toast(replaced ? 'Замер за эту дату обновлён' : 'Замер добавлен')
+      toast(replaced ? t('Замер за эту дату обновлён') : t('Замер добавлен'))
     } else {
-      const parts = [added && `добавлено ${added}`, replaced && `обновлено ${replaced}`]
+      const parts = [
+        added && `${t('добавлено')} ${added}`,
+        replaced && `${t('обновлено')} ${replaced}`,
+      ]
       toast(parts.filter(Boolean).join(', '))
     }
   }
@@ -507,21 +532,19 @@ export function BodyCompositionView({
 
       <div className="row between" style={{ margin: '4px 0 10px' }}>
         <div className="mute-sm">
-          {latest ? `Замер от ${formatDate(latest.logged_at)}` : 'Замеров пока нет'}
+          {latest ? `${t('Замер от')} ${formatDate(latest.logged_at)}` : t('Замеров пока нет')}
         </div>
         {scans.length > 1 && (
           <button className="btn sm" onClick={() => setHistoryOpen(true)}>
-            Все замеры · {scans.length}
+            {t('Все замеры')} · {scans.length}
           </button>
         )}
       </div>
 
       {!latest && (
-        <div className="card" style={{ marginBottom: 12 }}>
-          <div style={{ fontWeight: 600 }}>{t.emptyTitle}</div>
-          <div className="muted" style={{ marginTop: 4 }}>
-            {t.emptyHint}
-          </div>
+        <div className="card mb-3">
+          <div className="strong">{t(texts.emptyTitle)}</div>
+          <div className="muted mt-1">{t(texts.emptyHint)}</div>
         </div>
       )}
 
@@ -529,14 +552,14 @@ export function BodyCompositionView({
         <div className="card">
           <BodyDonut
             parts={donutParts}
-            centerLabel="Вес"
-            centerValue={`${composed.weight_kg ?? latest?.weight_kg ?? '—'} кг`}
-            status={weightStatus ? STATUS_TEXT[weightStatus] : undefined}
+            centerLabel={t('Вес')}
+            centerValue={`${composed.weight_kg ?? '—'} ${t('кг')}`}
+            status={weightStatus ? t(STATUS_TEXT[weightStatus]) : undefined}
             statusKind={weightStatus}
           />
           {composed !== latest && (
-            <div className="mute-sm" style={{ textAlign: 'center', marginTop: 10 }}>
-              Состав по замеру от {formatDate(composed.logged_at)}
+            <div className="mute-sm" style={{ textAlign: 'center', marginTop: 12 }}>
+              {t('Состав по замеру от')} {formatDate(composed.logged_at)}
             </div>
           )}
         </div>
@@ -544,7 +567,7 @@ export function BodyCompositionView({
 
       {latest && (
         <>
-          <div className="section-title">Основные параметры</div>
+          <div className="section-title">{t('Основные параметры')}</div>
           <div className="group stagger">
             {MAIN.map((row, i) => (
               <MetricRow
@@ -570,7 +593,7 @@ export function BodyCompositionView({
               пустая рамка с заголовком читается как поломка. */}
           {composed && OTHER.some((r) => composed[r.key] != null) && (
             <>
-              <div className="section-title">Другие</div>
+              <div className="section-title">{t('Другие')}</div>
               <div className="group stagger">
                 {OTHER.map((row, i) => (
                   <MetricRow
@@ -590,16 +613,16 @@ export function BodyCompositionView({
 
       {segmented?.muscle_segments && (
         <>
-          <div className="section-title">Анализ тела по сегментам</div>
-          <div className="segmented" style={{ marginBottom: 12 }}>
+          <div className="section-title">{t('Анализ тела по сегментам')}</div>
+          <div className="segmented mb-3">
             <button
               className={segTab === 'muscle' ? 'on' : ''}
               onClick={() => setSegTab('muscle')}
             >
-              Мышцы
+              {t('Мышцы')}
             </button>
             <button className={segTab === 'fat' ? 'on' : ''} onClick={() => setSegTab('fat')}>
-              Жир
+              {t('Жир')}
             </button>
           </div>
           <div className="card">
@@ -611,8 +634,8 @@ export function BodyCompositionView({
               total={segTab === 'muscle' ? segmented.skeletal_muscle_kg : segmented.body_fat_kg}
             />
             {segmented !== latest && (
-              <div className="mute-sm" style={{ textAlign: 'center', marginTop: 10 }}>
-                По замеру от {formatDate(segmented.logged_at)}
+              <div className="mute-sm" style={{ textAlign: 'center', marginTop: 12 }}>
+                {t('По замеру от')} {formatDate(segmented.logged_at)}
               </div>
             )}
           </div>
@@ -624,16 +647,18 @@ export function BodyCompositionView({
           не давали уйти с метрики без данных — раздел исчезал целиком. */}
       {trendable.length > 0 && (
         <>
-          <div className="section-title">Динамика</div>
-          <div className="chips" style={{ marginBottom: 10 }}>
-            {trendable.map((r) => (
+          <div className="section-title">{t('Динамика')}</div>
+          <div className="chips mb-3">
+            {TRACKABLE.filter((r) =>
+              (metrics ?? []).some((m) => typeof m[r.key] === 'number'),
+            ).map((r) => (
               <button
                 key={String(r.key)}
                 className={`chip${trendKeys.includes(r.key) ? ' active' : ''}`}
                 aria-pressed={trendKeys.includes(r.key)}
                 onClick={() => toggleTrend(r.key)}
               >
-                {r.label}
+                {t(r.label)}
               </button>
             ))}
           </div>
@@ -642,8 +667,8 @@ export function BodyCompositionView({
               <>
                 <LineChart
                   data={trendPoints}
-                  unit={trendRow.unit ? ` ${trendRow.unit}` : ''}
-                  label={trendRow.label}
+                  unit={trendRow.unit ? ` ${t(trendRow.unit)}` : ''}
+                  label={t(trendRow.label)}
                   norm={normFor(trendKey)}
                   color={color1}
                   second={
@@ -651,31 +676,37 @@ export function BodyCompositionView({
                       ? {
                           data: trendPoints2,
                           color: color2,
-                          unit: trendRow2.unit ? ` ${trendRow2.unit}` : '',
-                          label: trendRow2.label,
+                          unit: trendRow2.unit ? ` ${t(trendRow2.unit)}` : '',
+                          label: t(trendRow2.label),
                           norm: normFor(trendKey2),
                         }
                       : undefined
                   }
                 />
                 {(!trendRow2 || !trendPoints2.length || trendPoints.length === 1) && (
-                  <div className="mute-sm" style={{ marginTop: 8 }}>
+                  <div className="mute-sm mt-2">
                     {trendPoints.length === 1
-                      ? 'Нужен ещё один замер, чтобы увидеть тренд'
-                      : 'Нажмите вторую метрику, чтобы сравнить'}
+                      ? t('Нужен ещё один замер, чтобы увидеть тренд')
+                      : t('Нажмите вторую метрику, чтобы сравнить')}
                   </div>
                 )}
               </>
             ) : (
-              <div className="empty">Нет данных по метрике «{trendRow.label}»</div>
+              <div className="empty">
+                {t('Нет данных по метрике')} «{t(trendRow.label)}»
+              </div>
             )}
           </div>
         </>
       )}
 
+      {/* Таблица идёт следом за графиком: тот показывает направление,
+          она — сами числа, по которым разговаривают. */}
+      <MeasurementsTable metrics={metrics ?? []} userId={userId} />
+
       {latest && (latest.optimal_weight_kg != null || latest.daily_kcal != null) && (
         <>
-          <div className="section-title">Может быть полезным</div>
+          <div className="section-title">{t('Может быть полезным')}</div>
           <div className="group">
             {latest.optimal_weight_kg != null && (
               <div className="group-row">
@@ -683,12 +714,12 @@ export function BodyCompositionView({
                   <IcoTarget size={20} />
                 </span>
                 <span className="grow">
-                  <span className="title">Оптимальный вес</span>
-                  <span className="sub" style={{ display: 'block' }}>
-                    По росту и балансу мышц, жира и воды
-                  </span>
+                  <span className="title">{t('Оптимальный вес')}</span>
+                  <span className="sub">{t('По росту и балансу мышц, жира и воды')}</span>
                 </span>
-                <strong>{latest.optimal_weight_kg} кг</strong>
+                <strong>
+                  {latest.optimal_weight_kg} {t('кг')}
+                </strong>
               </div>
             )}
             {latest.daily_kcal != null && (
@@ -697,37 +728,38 @@ export function BodyCompositionView({
                   <IcoApple size={20} />
                 </span>
                 <span className="grow">
-                  <span className="title">Приём калорий</span>
-                  <span className="sub" style={{ display: 'block' }}>
-                    Ежедневный
-                  </span>
+                  <span className="title">{t('Приём калорий')}</span>
+                  <span className="sub">{t('Ежедневный')}</span>
                 </span>
-                <strong>{latest.daily_kcal} ккал</strong>
+                <strong>
+                  {latest.daily_kcal} {t('ккал')}
+                </strong>
               </div>
             )}
             {macros && (
               <div className="group-row" style={{ display: 'block' }}>
-                <div className="sub" style={{ marginBottom: 8 }}>
-                  Разбивка по БЖУ · {Math.round(split.protein * 100)} /{' '}
-                  {Math.round(split.fat * 100)} / {Math.round(split.carbs * 100)} % калорий
+                <div className="sub mb-2">
+                  {t('Разбивка по БЖУ')} · {Math.round(split.protein * 100)} /{' '}
+                  {Math.round(split.fat * 100)} / {Math.round(split.carbs * 100)} %{' '}
+                  {t('калорий')}
                 </div>
                 <div className="metrics">
                   <div className="metric">
-                    <div className="cap">Белки</div>
+                    <div className="cap">{t('Белки')}</div>
                     <div className="num" style={{ fontSize: 18, color: 'var(--c-protein)' }}>
-                      {macros.protein} г
+                      {macros.protein} {t('г')}
                     </div>
                   </div>
                   <div className="metric">
-                    <div className="cap">Жиры</div>
+                    <div className="cap">{t('Жиры')}</div>
                     <div className="num" style={{ fontSize: 18, color: 'var(--c-fat)' }}>
-                      {macros.fat} г
+                      {macros.fat} {t('г')}
                     </div>
                   </div>
                   <div className="metric">
-                    <div className="cap">Углеводы</div>
+                    <div className="cap">{t('Углеводы')}</div>
                     <div className="num" style={{ fontSize: 18, color: 'var(--c-muscle)' }}>
-                      {macros.carbs} г
+                      {macros.carbs} {t('г')}
                     </div>
                   </div>
                 </div>
@@ -739,71 +771,67 @@ export function BodyCompositionView({
 
       {latest?.optimal_weight_kg != null && latest.weight_kg != null && (
         <>
-          <div className="section-title">Улучшение композиции тела</div>
+          <div className="section-title">{t('Улучшение композиции тела')}</div>
           <div className="card">
             <div className="metrics">
-              <Target label="Вес" value={round1(latest.optimal_weight_kg - latest.weight_kg)} />
               <Target
-                label="Жир"
+                label={t('Вес')}
+                value={round1(latest.optimal_weight_kg - latest.weight_kg)}
+              />
+              <Target
+                label={t('Жир')}
                 value={
                   latest.body_fat_kg != null
                     ? round1(latest.optimal_weight_kg - latest.weight_kg)
                     : undefined
                 }
               />
-              <Target label="Мышцы" value={0} />
+              <Target label={t('Мышцы')} value={0} />
             </div>
-            <div className="mute-sm" style={{ marginTop: 10 }}>
-              Сколько осталось до оптимального веса при сохранении мышечной массы.
+            <div className="mute-sm mt-3">
+              {t('Сколько осталось до оптимального веса при сохранении мышечной массы.')}
             </div>
           </div>
         </>
       )}
 
-      <button
-        className="btn primary block"
-        style={{ marginTop: 20 }}
-        disabled={busy}
-        onClick={() => fileRef.current?.click()}
-      >
-        {busy
-          ? progress && progress.total > 1
-            ? `Читаю ${progress.done + 1} из ${progress.total}…`
-            : 'Читаю отчёт…'
-          : latest
-            ? t.uploadMore
-            : t.uploadFirst}
-      </button>
-      <div className="mute-sm" style={{ textAlign: 'center', marginTop: 6 }}>
-        Можно выбрать сразу несколько файлов
-      </div>
-
-      {/* Отчёт InBody есть не у всех: домашние весы, замер в другом зале или
-          просто взвешивание тоже должны попадать в тренд. */}
-      <button
-        className="btn block"
-        style={{ marginTop: 8 }}
-        onClick={() => setManualOpen(true)}
-      >
-        Ввести замер вручную
-      </button>
+      {allowEntry && (
+        <>
+          <button
+            className="btn primary block mt-5"
+            disabled={busy}
+            onClick={() => fileRef.current?.click()}
+          >
+            {busy
+              ? progress && progress.total > 1
+                ? `${t('Читаю')} ${progress.done + 1} ${t('из')} ${progress.total}…`
+                : t('Читаю отчёт…')
+              : latest
+                ? t(texts.uploadMore)
+                : t(texts.uploadFirst)}
+          </button>
+          <button className="btn block mt-2" onClick={() => setManualOpen(true)}>
+            {t('Ввести замер вручную')}
+          </button>
+        </>
+      )}
 
       <ManualMeasurementSheet
         open={manualOpen}
         userId={userId}
         onClose={() => setManualOpen(false)}
-        onSaved={(replaced) => toast(replaced ? 'Замер обновлён' : 'Замер добавлен')}
+        onSaved={(replaced) => toast(replaced ? t('Замер обновлён') : t('Замер добавлен'))}
       />
 
       <Sheet
         open={!!pending}
-        title={single ? 'Данные из отчёта' : `Отчёты · ${pending?.length ?? 0}`}
+        title={single ? t('Данные из отчёта') : `${t('Отчёты')} · ${pending?.length ?? 0}`}
         onClose={() => setPending(null)}
       >
         {single && (
           <div className="stack">
             <div className="muted">
-              Отчёт от {formatDate(single.report.measured_at)}
+              {t('Отчёт от')} {formatDate(single.report.measured_at)}
               {single.report.person ? ` · ${single.report.person}` : ''}
             </div>
             <div className="group">
@@ -815,10 +843,10 @@ export function BodyCompositionView({
               ))}
             </div>
             <button className="btn primary block" disabled={busy} onClick={confirmImport}>
-              {busy ? 'Сохраняю…' : 'Добавить замер'}
+              {busy ? t('Сохраняю…') : t('Добавить замер')}
             </button>
             <div className="mute-sm" style={{ textAlign: 'center' }}>
-              {t.privacy}
+              {t(texts.privacy)}
             </div>
           </div>
         )}
@@ -837,13 +865,14 @@ export function BodyCompositionView({
                     <span className="title">
                       {x.report ? formatDate(x.report.measured_at) : x.fileName}
                     </span>
-                    <span className="sub" style={{ display: 'block' }}>
+                    <span className="sub">
                       {x.error ??
                         [
-                          x.report?.weight_kg != null && `${x.report.weight_kg} кг`,
+                          x.report?.weight_kg != null && `${x.report.weight_kg} ${t('кг')}`,
                           x.report?.skeletal_muscle_kg != null &&
-                            `мышцы ${x.report.skeletal_muscle_kg}`,
-                          x.report?.body_fat_pct != null && `жир ${x.report.body_fat_pct}%`,
+                            `${t('мышцы')} ${x.report.skeletal_muscle_kg}`,
+                          x.report?.body_fat_pct != null &&
+                            `${t('жир')} ${x.report.body_fat_pct}%`,
                         ]
                           .filter(Boolean)
                           .join(' · ')}
@@ -854,8 +883,8 @@ export function BodyCompositionView({
             </div>
             {failedCount > 0 && (
               <div className="mute-sm">
-                {failedCount} {plural(failedCount, ['файл', 'файла', 'файлов'])} прочитать не
-                удалось — эти пропустим.
+                {failedCount} {plural(failedCount, ['файл', 'файла', 'файлов'])}{' '}
+                {t('прочитать не удалось — эти пропустим.')}
               </div>
             )}
             <button
@@ -863,10 +892,10 @@ export function BodyCompositionView({
               disabled={busy || readyCount === 0}
               onClick={confirmImport}
             >
-              {busy ? 'Сохраняю…' : `Добавить замеры · ${readyCount}`}
+              {busy ? t('Сохраняю…') : `${t('Добавить замеры')} · ${readyCount}`}
             </button>
             <div className="mute-sm" style={{ textAlign: 'center' }}>
-              {t.privacy}
+              {t(texts.privacy)}
             </div>
           </div>
         )}
@@ -885,7 +914,7 @@ export function BodyCompositionView({
 
       <Sheet
         open={historyOpen}
-        title="Замеры"
+        title={t('Замеры')}
         onClose={() => {
           setHistoryOpen(false)
           setConfirmWipe(false)
@@ -896,11 +925,11 @@ export function BodyCompositionView({
             <div className="group-row" key={m.id}>
               <span className="grow">
                 <span className="title">{formatDate(m.logged_at)}</span>
-                <span className="sub" style={{ display: 'block' }}>
+                <span className="sub">
                   {[
-                    m.weight_kg != null && `${m.weight_kg} кг`,
-                    m.skeletal_muscle_kg != null && `мышцы ${m.skeletal_muscle_kg}`,
-                    m.body_fat_pct != null && `жир ${m.body_fat_pct}%`,
+                    m.weight_kg != null && `${m.weight_kg} ${t('кг')}`,
+                    m.skeletal_muscle_kg != null && `${t('мышцы')} ${m.skeletal_muscle_kg}`,
+                    m.body_fat_pct != null && `${t('жир')} ${m.body_fat_pct}%`,
                   ]
                     .filter(Boolean)
                     .join(' · ')}
@@ -910,9 +939,9 @@ export function BodyCompositionView({
                 className="icon-btn"
                 onClick={async () => {
                   await deleteBodyMetric(m.id)
-                  toast('Замер удалён')
+                  toast(t('Замер удалён'))
                 }}
-                aria-label="Удалить"
+                aria-label={t('Удалить')}
               >
                 <IconTrash size={15} />
               </button>
@@ -926,8 +955,7 @@ export function BodyCompositionView({
             без предупреждения его пропажа выглядела бы поломкой. */}
         {scans.length > 0 && (
           <button
-            className="btn danger block"
-            style={{ marginTop: 14 }}
+            className="btn danger block mt-4"
             disabled={wiping}
             onClick={async () => {
               if (!confirmWipe) {
@@ -940,12 +968,12 @@ export function BodyCompositionView({
               setConfirmWipe(false)
               setHistoryOpen(false)
               haptics.success()
-              toast(`Удалено ${n} ${plural(n, ['замер', 'замера', 'замеров'])}`)
+              toast(`${t('Удалено')} ${n} ${plural(n, ['замер', 'замера', 'замеров'])}`)
             }}
           >
             {confirmWipe
-              ? 'Точно удалить? Вместе с ними исчезнет история веса'
-              : 'Удалить все замеры'}
+              ? t('Точно удалить? Вместе с ними исчезнет история веса')
+              : t('Удалить все замеры')}
           </button>
         )}
       </Sheet>
@@ -986,9 +1014,9 @@ function NormScale({
   return (
     <div className="norm-scale">
       <div className="norm-scale-heads">
-        <span className={status === 'low' ? 'on' : undefined}>Ниже нормы</span>
-        <span className={status === 'normal' ? 'on' : undefined}>Норма</span>
-        <span className={status === 'high' ? 'on' : undefined}>Выше нормы</span>
+        <span className={status === 'low' ? 'on' : undefined}>{t('Ниже нормы')}</span>
+        <span className={status === 'normal' ? 'on' : undefined}>{t('Норма')}</span>
+        <span className={status === 'high' ? 'on' : undefined}>{t('Выше нормы')}</span>
       </div>
       <div className="norm-scale-bar">
         <i className="norm-scale-fill" style={{ width: `${pos * 100}%`, background: color }} />
@@ -1025,7 +1053,7 @@ function MetricInfoSheet({
   const status = statusFor(value, norm)
 
   return (
-    <Sheet open={!!row} title={row?.label ?? ''} onClose={onClose}>
+    <Sheet open={!!row} title={row ? t(row.label) : ''} onClose={onClose}>
       {row && (
         <div className="stack">
           <div className="row between" style={{ alignItems: 'center' }}>
@@ -1035,23 +1063,23 @@ function MetricInfoSheet({
             <span style={{ fontWeight: 700, fontSize: 24, fontVariantNumeric: 'tabular-nums' }}>
               {value == null ? '—' : round1(value)}
               <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-3)' }}>
-                {row.unit ? ` ${row.unit}` : ''}
+                {row.unit ? ` ${t(row.unit)}` : ''}
               </span>
             </span>
           </div>
 
           {value != null && norm ? (
-            <NormScale value={value} norm={norm} unit={row.unit} status={status} />
+            <NormScale value={value} norm={norm} unit={t(row.unit)} status={status} />
           ) : (
-            <div className="mute-sm">Границы нормы в отчёте не указаны.</div>
+            <div className="mute-sm">{t('Границы нормы в отчёте не указаны.')}</div>
           )}
 
           {info && (
             <>
-              <div>{info.what}</div>
+              <div>{t(info.what)}</div>
               <div>
-                <div style={{ fontWeight: 700, marginBottom: 6 }}>
-                  Что влияет на {row.label.toLowerCase()}
+                <div style={{ fontWeight: 700, marginBottom: 8 }}>
+                  {t('Что влияет на')} {t(row.label).toLowerCase()}
                 </div>
                 <ul className="bullets">
                   {info.affects.map((x) => (
@@ -1072,7 +1100,7 @@ function Target({ label, value }: { label: string; value?: number }) {
     <div className="metric">
       <div className="cap">{label}</div>
       <div className="num" style={{ fontSize: 22 }}>
-        {value == null ? '—' : `${value > 0 ? '+' : ''}${value} кг`}
+        {value == null ? '—' : `${value > 0 ? '+' : ''}${value} ${t('кг')}`}
       </div>
     </div>
   )
@@ -1118,10 +1146,10 @@ function MetricRow({
         <row.Icon size={20} />
       </span>
       <span className="grow">
-        <span className="title">{row.label}</span>
+        <span className="title">{t(row.label)}</span>
         {status && (
           <span style={{ display: 'block', marginTop: 3 }}>
-            <span className={`status ${status}`}>{STATUS_TEXT[status]}</span>
+            <span className={`status ${status}`}>{t(STATUS_TEXT[status])}</span>
           </span>
         )}
       </span>
@@ -1129,7 +1157,7 @@ function MetricRow({
         <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
           {shown}
           <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-3)' }}>
-            {row.unit ? ` ${row.unit}` : ''}
+            {row.unit ? ` ${t(row.unit)}` : ''}
           </span>
         </span>
         {diff != null && diff !== 0 && (
@@ -1151,7 +1179,7 @@ function MetricRow({
   )
 }
 
-function metricRows(m: Partial<BodyMetric>): [string, string][] {
+export function metricRows(m: Partial<BodyMetric>): [string, string][] {
   const rows: [string, string, number | undefined][] = [
     ['Вес', 'кг', m.weight_kg],
     ['Скелетные мышцы', 'кг', m.skeletal_muscle_kg],
@@ -1169,7 +1197,7 @@ function metricRows(m: Partial<BodyMetric>): [string, string][] {
   ]
   return rows
     .filter(([, , v]) => v != null)
-    .map(([label, unit, v]) => [label, `${v}${unit ? ` ${unit}` : ''}`])
+    .map(([label, unit, v]) => [t(label), `${v}${unit ? ` ${t(unit)}` : ''}`])
 }
 
 /**
@@ -1177,7 +1205,7 @@ function metricRows(m: Partial<BodyMetric>): [string, string][] {
  * считается процент жира и производный состав, поэтому измерительная лента
  * заменяет весы с биоимпедансом там, где их нет.
  */
-function ManualMeasurementSheet({
+export function ManualMeasurementSheet({
   open,
   userId,
   onClose,
@@ -1205,6 +1233,12 @@ function ManualMeasurementSheet({
 
   const heightCm = num('height_cm') ?? profile?.height_cm
   const sex = profile?.gender ?? 'м'
+  /**
+   * Шея почти не меняется, поэтому её вносят один раз — как рост. Спрашиваем
+   * только пока её нет; дальше берём из профиля, а исправляют в настройках.
+   */
+  const neckCm = profile?.neck_cm ?? num('neck_cm')
+  const askNeck = profile?.neck_cm == null
 
   // Считаем на лету: человек должен видеть, что даёт очередной обхват,
   // а не узнавать результат после сохранения.
@@ -1215,7 +1249,7 @@ function ManualMeasurementSheet({
         heightCm,
         sex,
         girths: {
-          neck: num('neck_cm'),
+          neck: neckCm,
           waist: num('waist_cm'),
           hip: num('hip_cm'),
           chest: num('chest_cm'),
@@ -1223,7 +1257,7 @@ function ManualMeasurementSheet({
         },
         knownBodyFatPct: num('body_fat_pct'),
       }),
-    [values, heightCm, sex],
+    [values, heightCm, sex, neckCm],
   )
 
   /**
@@ -1240,7 +1274,15 @@ function ManualMeasurementSheet({
     ownFat != null && (ownFat < BODY_FAT_RANGE.min || ownFat > BODY_FAT_RANGE.max)
 
   const girthFields: { key: string; label: string; hint?: string }[] = [
-    { key: 'neck_cm', label: 'Шея', hint: 'под кадыком, лента горизонтально' },
+    ...(askNeck
+      ? [
+          {
+            key: 'neck_cm',
+            label: 'Шея',
+            hint: 'один раз на старте, потом меняется в настройках',
+          },
+        ]
+      : []),
     { key: 'waist_cm', label: 'Талия', hint: 'на уровне пупка, не втягивая живот' },
     { key: 'hip_cm', label: 'Таз', hint: 'по самой широкой части ягодиц' },
     { key: 'chest_cm', label: 'Грудь' },
@@ -1256,7 +1298,6 @@ function ManualMeasurementSheet({
       const res = await saveManualMeasurement(
         {
           weight_kg: weight,
-          neck_cm: num('neck_cm'),
           waist_cm: num('waist_cm'),
           hip_cm: num('hip_cm'),
           chest_cm: num('chest_cm'),
@@ -1267,10 +1308,8 @@ function ManualMeasurementSheet({
           body_fat_pct: derived.bodyFatPct,
           body_fat_kg: derived.fatMassKg,
           fat_free_mass_kg: derived.leanMassKg,
-          skeletal_muscle_kg: derived.skeletalMuscleKg,
-          body_water_l: derived.bodyWaterL,
-          protein_kg: derived.proteinKg,
-          minerals_kg: derived.mineralsKg,
+          // Мышцы, вода, белок и минералы сюда не пишутся: лентой их не
+          // измеришь, а поля эти читаются как показатели биоимпеданса.
           bmi: derived.bmi,
           waist_to_height: derived.waistToHeight,
           waist_to_hip: derived.waistToHip,
@@ -1279,6 +1318,19 @@ function ManualMeasurementSheet({
         },
         userId,
       )
+      /**
+       * Рост и шею сохраняем в профиль: их вносят один раз, и без этого
+       * поле шеи спрашивалось бы при каждом замере, а таблица не смогла бы
+       * посчитать процент жира — формуле нужны обе величины.
+       */
+      const patch: { height_cm?: number; neck_cm?: number } = {}
+      if (profile?.height_cm == null && num('height_cm') != null)
+        patch.height_cm = num('height_cm')
+      if (profile?.neck_cm == null && num('neck_cm') != null) patch.neck_cm = num('neck_cm')
+      if (Object.keys(patch).length) {
+        await db.profile.update(userId, { ...patch, updated_at: Date.now() })
+      }
+
       setValues({})
       onSaved(res.replaced)
       onClose()
@@ -1291,13 +1343,6 @@ function ManualMeasurementSheet({
     ['Жир', derived.bodyFatPct != null ? `${derived.bodyFatPct} %` : undefined],
     ['Жировая масса', derived.fatMassKg != null ? `${derived.fatMassKg} кг` : undefined],
     ['Безжировая масса', derived.leanMassKg != null ? `${derived.leanMassKg} кг` : undefined],
-    [
-      'Скелетные мышцы',
-      derived.skeletalMuscleKg != null ? `${derived.skeletalMuscleKg} кг` : undefined,
-    ],
-    ['Вода', derived.bodyWaterL != null ? `${derived.bodyWaterL} л` : undefined],
-    ['Белок', derived.proteinKg != null ? `${derived.proteinKg} кг` : undefined],
-    ['Минералы', derived.mineralsKg != null ? `${derived.mineralsKg} кг` : undefined],
     ['ИМТ', derived.bmi != null ? String(derived.bmi) : undefined],
     [
       'Талия к росту',
@@ -1308,10 +1353,10 @@ function ManualMeasurementSheet({
   const shown = rows.filter(([, v]) => v)
 
   return (
-    <Sheet open={open} title="Замер вручную" onClose={onClose}>
+    <Sheet open={open} title={t('Замер вручную')} onClose={onClose}>
       <div className="stack">
         <div className="field">
-          <label>Дата</label>
+          <label>{t('Дата')}</label>
           <input
             className="input"
             type="date"
@@ -1328,40 +1373,34 @@ function ManualMeasurementSheet({
 
         <div className="row" style={{ gap: 8 }}>
           <div className="field grow">
-            <label>Вес, кг</label>
+            <label>{t('Вес, кг')}</label>
             <input
               className="input"
               inputMode="decimal"
               value={values.weight_kg ?? ''}
               onChange={set('weight_kg')}
               placeholder="—"
-              style={{ fontFamily: 'var(--font-num)' }}
             />
           </div>
           <div className="field grow">
-            <label>Рост, см</label>
+            <label>{t('Рост, см')}</label>
             <input
               className="input"
               inputMode="numeric"
               value={values.height_cm ?? (profile?.height_cm ? String(profile.height_cm) : '')}
               onChange={set('height_cm')}
               placeholder="—"
-              style={{ fontFamily: 'var(--font-num)' }}
             />
           </div>
         </div>
 
-        <div className="section-title">Обхваты, см</div>
+        <div className="section-title">{t('Обхваты, см')}</div>
         <div className="group">
           {girthFields.map((f) => (
             <div className="group-row" key={f.key}>
               <span className="grow">
-                <span className="title">{f.label}</span>
-                {f.hint && (
-                  <span className="sub" style={{ display: 'block' }}>
-                    {f.hint}
-                  </span>
-                )}
+                <span className="title">{t(f.label)}</span>
+                {f.hint && <span className="sub">{t(f.hint)}</span>}
               </span>
               <input
                 className="input"
@@ -1382,25 +1421,28 @@ function ManualMeasurementSheet({
 
         {!heightCm && (
           <div className="mute-sm" style={{ color: 'var(--warn)' }}>
-            Без роста процент жира по обхватам не посчитать — укажите его выше.
+            {t('Без роста процент жира по обхватам не посчитать — укажите его выше.')}
+          </div>
+        )}
+        {heightCm && !neckCm && (
+          <div className="mute-sm" style={{ color: 'var(--warn)' }}>
+            {t('Без обхвата шеи процент жира не посчитать — укажите его в настройках профиля.')}
           </div>
         )}
         {heightCm && sex === 'ж' && !num('hip_cm') && (
           <div className="mute-sm" style={{ color: 'var(--warn)' }}>
-            Для женской формулы нужен обхват таза: без него расчёт занижает жир.
+            {t('Для женской формулы нужен обхват таза: без него расчёт занижает жир.')}
           </div>
         )}
 
         {shown.length > 0 && (
           <>
-            <div className="section-title">Расчёт по обхватам</div>
+            <div className="section-title">{t('Расчёт по обхватам')}</div>
             <div className="group">
               {shown.map(([label, value]) => (
                 <div className="group-row" key={label}>
                   <span className="grow title">{label}</span>
-                  <span className="value" style={{ fontFamily: 'var(--font-num)' }}>
-                    {value}
-                  </span>
+                  <span className="value figures">{value}</span>
                 </div>
               ))}
             </div>
@@ -1412,14 +1454,13 @@ function ManualMeasurementSheet({
         )}
 
         <div className="field">
-          <label>Свой процент жира, если знаете</label>
+          <label>{t('Свой процент жира, если знаете')}</label>
           <input
             className="input"
             inputMode="decimal"
             value={values.body_fat_pct ?? ''}
             onChange={set('body_fat_pct')}
             placeholder="—"
-            style={{ fontFamily: 'var(--font-num)' }}
           />
           {/* Опечатку в проценте видно сразу: состав считается от него, и
               значение вне диапазона просто подтянется к границе. */}
@@ -1436,10 +1477,10 @@ function ManualMeasurementSheet({
           disabled={busy || !dateOk || (!values.weight_kg && derived.bodyFatPct == null)}
           onClick={submit}
         >
-          Сохранить замер
+          {t('Сохранить замер')}
         </button>
         <div className="mute-sm" style={{ textAlign: 'center' }}>
-          Достаточно веса. Обхваты дадут состав тела без весов с биоимпедансом.
+          {t('Достаточно веса. Обхваты дадут состав тела без весов с биоимпедансом.')}
         </div>
       </div>
     </Sheet>

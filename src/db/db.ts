@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie'
+import { setLang, type Lang } from '../lib/i18n'
 
 /**
  * Локальная база — источник истины во время тренировки (Offline-First).
@@ -73,7 +74,21 @@ export interface WorkoutTemplateItem {
   exercise_id: string
   sequence_order: number
   target_sets: number
+  /**
+   * Нижняя граница диапазона повторений — она же единственное значение,
+   * когда диапазона нет. Так старые шаблоны читаются без переписывания:
+   * «10» и «10-10» это одно и то же.
+   */
   target_reps?: number
+  /**
+   * Верхняя граница. Пусто — цель ровно target_reps.
+   *
+   * Диапазон нужен потому, что им и разговаривают: «8-12 в подходе»
+   * означает работать в этом коридоре и добавлять вес, когда дотянул до
+   * верха. Одно число заставляет тренера либо врать, либо объяснять
+   * словами в комментарии, где клиент это не прочитает.
+   */
+  target_reps_max?: number
   rest_seconds: number
   /** Упражнения с одинаковым superset_group выполняются как суперсет. */
   superset_group?: string
@@ -161,6 +176,12 @@ export interface UserProfile {
   gender?: 'м' | 'ж'
   birth_year?: number
   height_cm?: number
+  /**
+   * Обхват шеи. Живёт рядом с ростом, а не в замерах: он нужен формуле
+   * процента жира, но сам почти не меняется — заставлять мерить его при
+   * каждом взвешивании значит собирать один и тот же сантиметр заново.
+   */
+  neck_cm?: number
   goal_weight_kg?: number
   experience?: 'Новичок' | 'Средний' | 'Продвинутый'
   /** Только для тренера: специализация и описание в карточке. */
@@ -212,13 +233,25 @@ export interface AppState {
   theme?: ThemePref
   /** Акцентный цвет интерфейса. */
   accent?: AccentPref
+  /** Язык интерфейса. Хранится на устройстве, а не в профиле: язык — это
+   *  про того, кто держит телефон, а не про аккаунт. */
+  lang?: Lang
   /**
    * Метки обмена по каждому аккаунту. Именно по аккаунту, а не по
    * устройству: на общем телефоне вторая учётная запись со старыми
    * данными иначе никогда бы их не выгрузила — её строки оказались бы
    * «старее» чужого курсора.
    */
-  cursors?: Record<string, { pulled?: number; pushed?: number }>
+  cursors?: Record<
+    string,
+    {
+      /** Устаревшая отметка забора по часам автора — см. pullCursor в sync.ts. */
+      pulled?: number
+      /** Отметка забора по часам сервера (поле seq). */
+      pulledSeq?: number
+      pushed?: number
+    }
+  >
 }
 
 export type ThemePref = 'auto' | 'light' | 'dark'
@@ -414,25 +447,14 @@ export interface ReportReply {
   updated_at: number
 }
 
-/**
- * Норма КБЖУ, назначенная тренером.
- *
- * По смыслу это часть карточки питания, но живёт отдельно от неё по той же
- * причине, что и ответ на отчёт: настройки питания правит клиент, норму
- * назначает тренер, и в одной строке их правки уничтожают друг друга.
- */
-export interface CoachTarget {
-  /** id клиента: действующая норма у него одна. */
-  id: string
-  client_id: string
-  trainer_id: string
-  kcal?: number
-  macros?: { protein: number; fat: number; carbs: number }
-  note?: string
-  updated_at: number
-}
-
 /** Что именно проверено. */
+/**
+ * Что именно проверено.
+ *
+ * Только тренировка и день питания. Замеры, вес, шаги и сон разбору не
+ * подлежат: это измерения, а не отчёт о сделанном. Обсуждать в них нечего
+ * — они просто складываются в статистику, по которой тренер и судит.
+ */
 export type ReviewTarget = 'workout' | 'nutrition'
 
 /**
@@ -466,6 +488,15 @@ export interface NutritionDay {
   date: string
   /** 5 — сытый, 1 — очень голодный. */
   satiety?: 1 | 2 | 3 | 4 | 5
+  /**
+   * Итог дня, введённый рукой.
+   *
+   * Пока полной базы продуктов нет, человек считает КБЖУ в стороннем
+   * приложении и переносит четыре числа сюда. Дневник по продуктам от
+   * этого не отменяется: если день собран из записей, эти поля пусты, и
+   * тренер видит посчитанное приложением.
+   */
+  manual?: { kcal?: number; protein?: number; fat?: number; carbs?: number }
   comment?: string
   status: ReportStatus
   submitted_at?: number
@@ -544,6 +575,25 @@ export interface ClientTask {
   completed_at?: number
   /** Обязательные задания нельзя отложить: они выданы при старте работы. */
   required: 0 | 1
+  created_at: number
+  updated_at: number
+}
+
+/**
+ * Заготовка задания у тренера.
+ *
+ * Задания повторяются от клиента к клиенту — анкета, эссе, замеры перед
+ * стартом. Набирать один и тот же текст заново тренер не должен, поэтому
+ * шаблон принадлежит ему и в задание только копируется: правка шаблона не
+ * должна менять формулировку у тех, кому его уже выдали.
+ */
+export interface TaskTemplate {
+  id: string
+  trainer_id: string
+  title: string
+  description?: string
+  /** Через сколько дней срок по умолчанию. Пусто — без срока. */
+  due_days?: number
   created_at: number
   updated_at: number
 }
@@ -678,9 +728,24 @@ export const threadId = (trainerId: string, clientId: string) => `${trainerId}::
 export interface Attachment {
   id: string
   user_id: string
-  session_id: string
-  exercise_id: string
-  kind: 'video' | 'photo'
+  /** К какой тренировке приложено. Пусто у скриншотов дня питания. */
+  session_id?: string
+  exercise_id?: string
+  /**
+   * День питания (YYYY-MM-DD), если это скриншот дневника из другого
+   * приложения. Своей таблицы им заводить незачем: у вложений уже есть
+   * отдельный путь выгрузки файлов, а json-синхронизация Blob не возит.
+   */
+  nutrition_date?: string
+  /**
+   * Документ тренера — оферта или согласие на обработку данных.
+   *
+   * Лежит там же, где видео и скриншоты: это файл, а у вложений есть
+   * собственный путь выгрузки. Обычная синхронизация возит json и Blob не
+   * увезёт.
+   */
+  doc_kind?: ConsentKind
+  kind: 'video' | 'photo' | 'document'
   /** Оригинал на устройстве. У приехавшего с сервера файла его нет. */
   blob?: Blob
   mime: string
@@ -741,8 +806,8 @@ class TrainerDB extends Dexie {
   nutritionTargets!: Table<NutritionTarget, string>
   dailyActivity!: Table<DailyActivity, string>
   tasks!: Table<ClientTask, string>
+  taskTemplates!: Table<TaskTemplate, string>
   reportReplies!: Table<ReportReply, string>
-  coachTargets!: Table<CoachTarget, string>
 
   constructor() {
     super('trainer_db')
@@ -830,15 +895,27 @@ class TrainerDB extends Dexie {
       tasks: 'id, client_id, status, [client_id+status]',
     })
 
-    /**
-     * v8 — то, что пишет тренер в карточку клиента, переезжает в
-     * собственные строки: ответ на отчёт и назначенная норма КБЖУ. Раньше
-     * они лежали внутри строк клиента, а обмен разбирает конфликты целой
-     * строкой — правки двух сторон стирали друг друга.
-     */
+    /** v8 — заготовки заданий у тренера. */
     this.version(8).stores({
+      taskTemplates: 'id, trainer_id, created_at',
+    })
+
+    /**
+     * v9 — скриншоты дневника питания. Пока своей базы продуктов нет,
+     * клиент считает КБЖУ в стороннем приложении и присылает картинку.
+     */
+    this.version(9).stores({
+      attachments:
+        'id, user_id, session_id, exercise_id, nutrition_date, [session_id+exercise_id]',
+    })
+
+    /**
+     * v10 — ответ тренера на отчёт переезжает в собственную строку.
+     * Раньше он лежал внутри строки отчёта клиента, а обмен разбирает
+     * конфликты целой строкой: правки двух сторон стирали друг друга.
+     */
+    this.version(10).stores({
       reportReplies: 'id, client_id, [client_id+target]',
-      coachTargets: 'id, client_id',
     })
   }
 }
@@ -907,6 +984,34 @@ export function applyAccent(pref: AccentPref) {
   else root.setAttribute('data-accent', pref)
 }
 
+export async function getLangPref(): Promise<Lang> {
+  const state = await db.appState.get(APP_STATE_ID)
+  return state?.lang ?? 'ru'
+}
+
+/**
+ * Записать настройку устройства, сохранив всё остальное.
+ *
+ * Раньше каждая настройка пересобирала запись поле за полем и роняла те,
+ * о которых её автор не знал: смена темы стирала курсоры обмена, и
+ * приложение молча перекачивало всё заново. Слияние не даёт забыть поле,
+ * появившееся позже.
+ */
+async function patchState(patch: Partial<AppState>) {
+  const state = await db.appState.get(APP_STATE_ID)
+  await db.appState.put({
+    ...state,
+    id: APP_STATE_ID,
+    active_user_id: state?.active_user_id ?? activeUserId,
+    ...patch,
+  })
+}
+
+export async function setLangPref(lang: Lang) {
+  await patchState({ lang })
+  setLang(lang)
+}
+
 export async function getAccentPref(): Promise<AccentPref> {
   const state = await db.appState.get(APP_STATE_ID)
   return state?.accent ?? 'lime'
@@ -920,13 +1025,7 @@ export async function getAccentPref(): Promise<AccentPref> {
  * которой возвращается локально удалённое.
  */
 export async function setAccentPref(accent: AccentPref) {
-  const state = await db.appState.get(APP_STATE_ID)
-  await db.appState.put({
-    ...state,
-    id: APP_STATE_ID,
-    active_user_id: state?.active_user_id ?? activeUserId,
-    accent,
-  })
+  await patchState({ accent })
   applyAccent(accent)
 }
 
@@ -936,13 +1035,7 @@ export async function getThemePref(): Promise<ThemePref> {
 }
 
 export async function setThemePref(theme: ThemePref) {
-  const state = await db.appState.get(APP_STATE_ID)
-  await db.appState.put({
-    ...state,
-    id: APP_STATE_ID,
-    active_user_id: state?.active_user_id ?? activeUserId,
-    theme,
-  })
+  await patchState({ theme })
   applyTheme(theme)
 }
 
@@ -952,13 +1045,7 @@ export async function isOnboarded(): Promise<boolean> {
 }
 
 export async function markOnboarded() {
-  const state = await db.appState.get(APP_STATE_ID)
-  await db.appState.put({
-    ...state,
-    id: APP_STATE_ID,
-    active_user_id: state?.active_user_id ?? activeUserId,
-    onboarded: 1,
-  })
+  await patchState({ onboarded: 1 })
 }
 
 export const uid = (): string =>

@@ -11,6 +11,7 @@ import { useApp } from '../store/app'
 import { adoptAccount, enterDemoMode, firstExchange } from '../db/account'
 import { startSync } from '../db/sync'
 import { IconChevronRight } from '../components/Icons'
+import { t } from '../lib/i18n'
 
 /**
  * Вход и регистрация.
@@ -60,7 +61,7 @@ export function Auth({ onReady }: { onReady: () => void }) {
       startSync()
       onReady()
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Нет связи с сервером')
+      setError(e instanceof ApiError ? t(e.message) : t('Нет связи с сервером'))
     } finally {
       setBusy(false)
     }
@@ -86,53 +87,53 @@ export function Auth({ onReady }: { onReady: () => void }) {
     <div className="screen auth">
       <div className="auth-head">
         <div className="auth-mark" aria-hidden />
-        <h1>Тренировки</h1>
+        <h1>{t('Тренировки')}</h1>
         <p className="sub">
           {mode === 'register'
-            ? 'Заведите аккаунт — данные будут доступны на всех ваших устройствах.'
+            ? t('Заведите аккаунт — данные будут доступны на всех ваших устройствах.')
             : mode === 'reset'
-              ? 'Пришлём письмо со ссылкой для нового пароля.'
-              : 'Войдите, чтобы дневник и замеры синхронизировались.'}
+              ? t('Пришлём письмо со ссылкой для нового пароля.')
+              : t('Войдите, чтобы дневник и замеры синхронизировались.')}
         </p>
       </div>
 
       {mode === 'register' && (
         <div className="field">
-          <label>Вы здесь как</label>
+          <label>{t('Вы здесь как')}</label>
           <div className="segmented">
             <button className={role === 'client' ? 'on' : ''} onClick={() => setRole('client')}>
-              Занимаюсь
+              {t('Занимаюсь')}
             </button>
             <button
               className={role === 'trainer' ? 'on' : ''}
               onClick={() => setRole('trainer')}
             >
-              Тренирую
+              {t('Тренирую')}
             </button>
           </div>
-          <div className="mute-sm" style={{ marginTop: 6 }}>
+          <div className="mute-sm mt-2">
             {role === 'client'
-              ? 'Дневник тренировок, замеры и питание.'
-              : 'Кабинет с клиентами, программами и обратной связью.'}
+              ? t('Дневник тренировок, замеры и питание.')
+              : t('Кабинет с клиентами, программами и обратной связью.')}
           </div>
         </div>
       )}
 
       {mode === 'register' && (
         <div className="field">
-          <label>Как вас зовут</label>
+          <label>{t('Как вас зовут')}</label>
           <input
             className="input"
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoComplete="name"
-            placeholder="Имя"
+            placeholder={t('Имя')}
           />
         </div>
       )}
 
       <div className="field">
-        <label>Почта</label>
+        <label>{t('Почта')}</label>
         <input
           className="input"
           type="email"
@@ -147,14 +148,14 @@ export function Auth({ onReady }: { onReady: () => void }) {
 
       {mode !== 'reset' && (
         <div className="field">
-          <label>Пароль</label>
+          <label>{t('Пароль')}</label>
           <input
             className="input"
             type="password"
             autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="не короче 8 символов"
+            placeholder={t('не короче 8 символов')}
           />
         </div>
       )}
@@ -163,29 +164,29 @@ export function Auth({ onReady }: { onReady: () => void }) {
       {error && <div className="auth-error">{error}</div>}
       {sent && (
         <div className="auth-note">
-          Письмо отправлено на {email}. Если его нет, проверьте папку со спамом.
+          {t('Письмо отправлено на')} {email}. {t('Если его нет, проверьте папку со спамом.')}
         </div>
       )}
 
       <button className="btn primary block" disabled={!canSubmit || busy} onClick={submit}>
         {busy
-          ? 'Секунду…'
+          ? t('Секунду…')
           : mode === 'register'
-            ? 'Создать аккаунт'
+            ? t('Создать аккаунт')
             : mode === 'reset'
-              ? 'Отправить письмо'
-              : 'Войти'}
+              ? t('Отправить письмо')
+              : t('Войти')}
       </button>
 
       <div className="auth-switch">
         {mode === 'login' && (
           <>
             <button className="link" onClick={() => setMode('register')}>
-              Создать аккаунт
+              {t('Создать аккаунт')}
             </button>
             {MAIL_ENABLED && (
               <button className="link" onClick={() => setMode('reset')}>
-                Забыли пароль
+                {t('Забыли пароль')}
               </button>
             )}
           </>
@@ -199,16 +200,16 @@ export function Auth({ onReady }: { onReady: () => void }) {
               setError('')
             }}
           >
-            Уже есть аккаунт — войти
+            {t('Уже есть аккаунт — войти')}
           </button>
         )}
       </div>
 
       <button className="group-row auth-demo" onClick={demo}>
         <span className="grow">
-          <span className="title">Посмотреть без регистрации</span>
-          <span className="sub" style={{ display: 'block' }}>
-            Демо-данные на этом устройстве, ничего не уходит на сервер
+          <span className="title">{t('Посмотреть без регистрации')}</span>
+          <span className="sub">
+            {t('Демо-данные на этом устройстве, ничего не уходит на сервер')}
           </span>
         </span>
         <span className="chevron">

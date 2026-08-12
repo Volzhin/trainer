@@ -4,6 +4,7 @@ import { db, type NutritionDay } from '../db/db'
 import { setSatiety, submitNutritionDay } from '../db/reports'
 import { useApp, useTrainerLink } from '../store/app'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
 
 /** 5 — сытый, 1 — очень голодный. Формулировки живут здесь одни на всех. */
 export const SATIETY_LABELS: Record<number, string> = {
@@ -44,7 +45,13 @@ export function NutritionDayReport({ date }: { date: string }) {
 
   // Без тренера сдавать некому, а пустой день — не отчёт: просить отчитаться
   // о дне, в котором ничего не записано, значит просить выдумать.
-  if (!bond || !logs) return null
+  //
+  // «Записано» — это и продукты в дневнике, и итог, перенесённый рукой из
+  // стороннего счётчика. Пока учитывались только продукты, человек с
+  // ручным отчётом не мог его сдать вовсе: блок сдачи ему не показывался.
+  const m = day?.manual
+  const hasManual = !!m && (m.kcal != null || m.protein != null || m.fat != null || m.carbs != null)
+  if (!bond || (!logs && !hasManual)) return null
 
   const satiety = draft ? draft.satiety : day?.satiety
   const comment = draft ? draft.comment : (day?.comment ?? '')
@@ -57,7 +64,7 @@ export function NutritionDayReport({ date }: { date: string }) {
       await submitNutritionDay(date, comment)
       haptics.success()
       setDraft(null)
-      toast(submitted ? 'День обновлён' : 'День сдан тренеру')
+      toast(submitted ? t('День обновлён') : t('День сдан тренеру'))
     } finally {
       setBusy(false)
     }
@@ -66,29 +73,24 @@ export function NutritionDayReport({ date }: { date: string }) {
   return (
     <>
       <div className="section-title">
-        Отчёт тренеру
+        {t('Отчёт тренеру')}
         <span style={{ float: 'right' }}>
-          <span className="badge">{submitted ? 'сдан' : 'не сдан'}</span>
+          <span className="badge">{submitted ? t('сдан') : t('не сдан')}</span>
         </span>
       </div>
 
       <div className="card">
         {day?.trainer_comment && (
           <div
-            className="mute-sm"
-            style={{
-              marginBottom: 14,
-              paddingLeft: 10,
-              borderLeft: '2px solid var(--accent)',
-            }}
+            className="mute-sm quote mb-4"
           >
-            <div>Ответ тренера</div>
+            <div>{t('Ответ тренера')}</div>
             <div style={{ color: 'var(--text)', marginTop: 4 }}>{day.trainer_comment}</div>
           </div>
         )}
 
         <div className="field">
-          <label>Насколько были сыты</label>
+          <label>{t('Насколько были сыты')}</label>
           <div className="chips">
             {([1, 2, 3, 4, 5] as const).map((v) => (
               <button
@@ -99,29 +101,28 @@ export function NutritionDayReport({ date }: { date: string }) {
                   setDraft({ satiety: v, comment })
                 }}
               >
-                {SATIETY_LABELS[v]}
+                {t(SATIETY_LABELS[v])}
               </button>
             ))}
           </div>
         </div>
 
-        <div className="field" style={{ marginTop: 12 }}>
-          <label>Комментарий</label>
+        <div className="field mt-3">
+          <label>{t('Комментарий')}</label>
           <textarea
             className="textarea"
             value={comment}
             onChange={(e) => setDraft({ satiety, comment: e.target.value })}
-            placeholder="Что мешало держаться плана, что съели сверх нормы"
+            placeholder={t('Что мешало держаться плана, что съели сверх нормы')}
           />
         </div>
 
         <button
-          className="btn primary block"
-          style={{ marginTop: 12 }}
+          className="btn primary block mt-3"
           disabled={busy}
           onClick={send}
         >
-          {submitted ? 'Обновить отчёт' : 'Сдать день тренеру'}
+          {submitted ? t('Обновить отчёт') : t('Сдать день тренеру')}
         </button>
       </div>
     </>

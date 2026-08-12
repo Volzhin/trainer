@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Sheet } from './Sheet'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
 
 /**
  * Сканер штрихкодов камерой.
@@ -19,6 +20,9 @@ type DetectorCtor = new (opts?: { formats?: string[] }) => Detector
 
 const FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128']
 
+/** QR читается тем же детектором — отличается только формат. */
+export const QR_FORMATS = ['qr_code']
+
 export function scannerSupported(): boolean {
   return typeof window !== 'undefined' && 'BarcodeDetector' in window
 }
@@ -27,10 +31,17 @@ export function BarcodeScanner({
   open,
   onClose,
   onDetected,
+  formats = FORMATS,
+  title,
+  hint,
 }: {
   open: boolean
   onClose: () => void
   onDetected: (code: string) => void
+  /** Что искать. По умолчанию штрихкоды продуктов, для приглашений — QR. */
+  formats?: string[]
+  title?: string
+  hint?: string
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -69,7 +80,7 @@ export function BarcodeScanner({
         await video.play()
 
         const Ctor = (window as unknown as { BarcodeDetector: DetectorCtor }).BarcodeDetector
-        const detector = new Ctor({ formats: FORMATS })
+        const detector = new Ctor({ formats })
 
         const tick = async () => {
           if (cancelled || !videoRef.current) return
@@ -104,7 +115,7 @@ export function BarcodeScanner({
   }, [open])
 
   return (
-    <Sheet open={open} title="Штрихкод" onClose={onClose}>
+    <Sheet open={open} title={title ?? t('Штрихкод')} onClose={onClose}>
       <div className="stack">
         {!error && (
           <div className="scanner">
@@ -118,7 +129,7 @@ export function BarcodeScanner({
         </div>
 
         <div className="field">
-          <label>Или введите цифры под кодом</label>
+          <label>{hint ?? t('Или введите цифры под кодом')}</label>
           <input
             className="input"
             inputMode="numeric"
@@ -134,7 +145,7 @@ export function BarcodeScanner({
           disabled={manual.length < 8}
           onClick={() => onDetected(manual)}
         >
-          Найти продукт
+          {t('Найти продукт')}
         </button>
       </div>
     </Sheet>

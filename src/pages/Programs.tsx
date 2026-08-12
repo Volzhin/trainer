@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, currentUserId, type Program } from '../db/db'
 import {
-  FREE_PROGRAM_LIMIT,
-  canCreateProgram,
   createProgram,
   createRoutine,
   deleteProgram,
@@ -18,6 +16,7 @@ import { activeAssignmentFor } from '../db/coach'
 import { useApp, useProfile } from '../store/app'
 import { haptics } from '../lib/native'
 import { plural } from '../lib/calc'
+import { t } from '../lib/i18n'
 
 const GOALS = ['Все', 'Гипертрофия', 'Сила', 'Дом', 'Похудение', 'Кроссфит']
 
@@ -74,11 +73,7 @@ export function Programs() {
   const myCount = (programs ?? []).filter(isMine).length
 
   const onCreate = async () => {
-    if (!(await canCreateProgram())) {
-      toast(`Бесплатный тариф: до ${FREE_PROGRAM_LIMIT} своих программ`)
-      return
-    }
-    const id = await createProgram(name.trim() || 'Моя программа')
+    const id = await createProgram(name.trim() || t('Моя программа'))
     await createRoutine(id, 'День 1')
     setName('')
     setCreateOpen(false)
@@ -90,18 +85,18 @@ export function Programs() {
     <div className={`screen${active ? ' with-banner' : ''}`}>
       <div className="header">
         <div>
-          <h1>{assigned ? 'Моя программа' : 'Программы'}</h1>
+          <h1>{assigned ? t('Моя программа') : t('Программы')}</h1>
           <div className="sub">
             {assigned
               ? `От тренера${assigned.trainer ? ` · ${assigned.trainer.name}` : ''}`
-              : 'Готовые сплиты и свои шаблоны'}
+              : t('Готовые сплиты и свои шаблоны')}
           </div>
         </div>
         {!assigned && (
           <button
             className="icon-btn"
             onClick={() => setCreateOpen(true)}
-            aria-label="Создать программу"
+            aria-label={t('Создать программу')}
           >
             <IconPlus size={18} />
           </button>
@@ -114,32 +109,32 @@ export function Programs() {
             className={`chip${tab === 'catalog' ? ' active' : ''}`}
             onClick={() => setTab('catalog')}
           >
-            Каталог
+            {t('Каталог')}
           </button>
           <button
             className={`chip${tab === 'mine' ? ' active' : ''}`}
             onClick={() => setTab('mine')}
           >
-            Мои программы ({myCount})
+            {t('Мои программы')} ({myCount})
           </button>
         </div>
       )}
 
       {!assigned && tab === 'catalog' && (
-        <div className="chips" style={{ marginTop: 6 }}>
+        <div className="chips mt-2">
           {GOALS.map((g) => (
             <button
               key={g}
               className={`chip${goal === g ? ' active' : ''}`}
               onClick={() => setGoal(g)}
             >
-              {g}
+              {t(g)}
             </button>
           ))}
         </div>
       )}
 
-      <div style={{ marginTop: 14 }} className="stack">
+      <div className="stack mt-4">
         {loading ? (
           <div className="stack">
             <div className="card skeleton" style={{ height: 76 }} />
@@ -152,10 +147,12 @@ export function Programs() {
                 <IconClipboard size={34} />
               </div>
               {assigned
-                ? 'Программа от тренера скоро появится'
+                ? t('Программа от тренера скоро появится')
                 : tab === 'mine'
-                  ? 'Здесь появятся программы от тренера и отмеченные звёздочкой в каталоге. Свою можно собрать кнопкой «+».'
-                  : 'В этой категории пусто'}
+                  ? t(
+                      t('Здесь появятся программы от тренера и отмеченные звёздочкой в каталоге. Свою можно собрать кнопкой «+».'),
+                    )
+                  : t('В этой категории пусто')}
             </div>
           )
         )}
@@ -169,7 +166,7 @@ export function Programs() {
             <div className="card tap" key={p.id} onClick={() => nav(`/programs/${p.id}`)}>
               <div className="row between">
                 <div className="grow">
-                  <div style={{ fontWeight: 600, fontSize: 17 }}>{p.name}</div>
+                  <div className="strong" style={{ fontSize: 17 }}>{t(p.name)}</div>
                   <div className="mute-sm" style={{ marginTop: 3 }}>
                     {fromTrainer
                       ? 'От тренера · '
@@ -188,9 +185,9 @@ export function Programs() {
                     onClick={(e) => {
                       e.stopPropagation()
                       void deleteProgram(p.id)
-                      toast('Программа удалена')
+                      toast(t('Программа удалена'))
                     }}
-                    aria-label="Удалить"
+                    aria-label={t('Удалить')}
                   >
                     <IconTrash size={17} />
                   </button>
@@ -202,9 +199,9 @@ export function Programs() {
                         e.stopPropagation()
                         haptics.selection()
                         const added = await toggleFavoriteProgram(p.id)
-                        toast(added ? 'Добавлено в мои программы' : 'Убрано из моих программ')
+                        toast(added ? t('Добавлено в мои программы') : t('Убрано из моих программ'))
                       }}
-                      aria-label={starred ? 'Убрать из моих' : 'Добавить в мои'}
+                      aria-label={starred ? t('Убрать из моих') : t('Добавить в мои')}
                       aria-pressed={starred}
                     >
                       <IconStar size={17} filled={starred} />
@@ -213,17 +210,17 @@ export function Programs() {
                 )}
               </div>
               {p.description && (
-                <div className="muted" style={{ marginTop: 8 }}>
+                <div className="muted mt-2">
                   {p.description}
                 </div>
               )}
               {days.length > 0 && (
-                <div className="stack" style={{ marginTop: 12 }}>
+                <div className="stack mt-3">
                   {days
                     .sort((a, b) => a.day_order - b.day_order)
                     .map((d) => (
                       <div className="row between" key={d.id}>
-                        <span className="truncate">{d.name}</span>
+                        <span className="truncate">{t(d.name)}</span>
                         <button
                           className="btn sm"
                           onClick={async (e) => {
@@ -231,13 +228,13 @@ export function Programs() {
                             haptics.impact()
                             const sid = await startSessionFromRoutine(d.id)
                             if (!sid) {
-                              toast('В этом дне пока нет упражнений')
+                              toast(t('В этом дне пока нет упражнений'))
                               return
                             }
                             nav(`/session/${sid}`)
                           }}
                         >
-                          <IconPlay size={13} /> Начать
+                          <IconPlay size={13} /> {t('Начать')}
                         </button>
                       </div>
                     ))}
@@ -248,43 +245,21 @@ export function Programs() {
         })}
       </div>
 
-      {!assigned && profile?.plan === 'FREE' && tab === 'mine' && (
-        <div className="card" style={{ marginTop: 16 }}>
-          <div className="row between">
-            <div className="grow">
-              <div style={{ fontWeight: 600 }}>
-                PRO <span className="badge pro">безлимит</span>
-              </div>
-              <div className="mute-sm" style={{ marginTop: 3 }}>
-                Бесплатно доступно {FREE_PROGRAM_LIMIT} своих программы. В PRO — без
-                ограничений, расширенная аналитика и графики 1ПМ.
-              </div>
-            </div>
-          </div>
-          <button
-            className="btn primary block"
-            style={{ marginTop: 12 }}
-            onClick={() => nav('/profile')}
-          >
-            Подробнее о PRO
-          </button>
-        </div>
-      )}
 
-      <Sheet open={createOpen} title="Новая программа" onClose={() => setCreateOpen(false)}>
+      <Sheet open={createOpen} title={t('Новая программа')} onClose={() => setCreateOpen(false)}>
         <div className="stack">
           <div className="field">
-            <label>Название</label>
+            <label>{t('Название')}</label>
             <input
               className="input"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Например: Верх / Низ"
+              placeholder={t('Например: Верх / Низ')}
               autoFocus
             />
           </div>
           <button className="btn primary block" onClick={onCreate}>
-            Создать
+            {t('Создать')}
           </button>
         </div>
       </Sheet>

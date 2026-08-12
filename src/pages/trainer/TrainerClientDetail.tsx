@@ -1,47 +1,59 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, modeOf, type Program, type WorkoutSession } from '../../db/db'
+import { db, modeOf, type Program, type TrainerLink } from '../../db/db'
 import {
-  addTrainerNote,
   assignProgram,
-  cancelAssignment,
-  deleteTrainerNote,
-  listTrainerNotes,
   createPersonalProgram,
-  deletePersonalProgram,
   loadClientDetail,
-  personalProgramsFor,
   removeLink,
   setLinkMode,
+  setLinkPayment,
 } from '../../db/coach'
-import { BarChart, LineChart } from '../../components/LineChart'
 import { ContactLinks } from '../../components/ContactLinks'
-import { BodyCompositionCard } from '../../components/BodyCompositionCard'
 import { BodyCompositionView } from '../../components/BodyCompositionView'
 import { Sheet } from '../../components/Sheet'
-import { Group, Row } from '../../components/Group'
-import { SessionReview } from '../../components/SessionReview'
-// import { ClientNutrition } from '../../components/ClientNutrition'
-import { ClientReports } from '../../components/ClientReports'
+import { ClientNutritionReview } from '../../components/ClientNutritionReview'
+import { ClientReports, isOverdue } from '../../components/ClientReports'
+import { pendingByTarget, tasksOf, weekProgress } from '../../db/reports'
 import { ChatThread } from '../../components/ChatThread'
-import { ProgressView } from '../../components/ProgressView'
-import { IconBack, IconCheck, IconPlus, IconTrash } from '../../components/Icons'
-import { formatDate, formatDuration, plural, totalVolume } from '../../lib/calc'
+import { ClientWorkouts } from '../../components/ClientWorkouts'
+import { IconBack, IconCheck, IconChevronRight } from '../../components/Icons'
+import { formatDate, plural, startOfDay } from '../../lib/calc'
 import { useApp } from '../../store/app'
+import { t } from '../../lib/i18n'
+
+/**
+ * Разделы карточки клиента. Порядок из пункта 5.1 спецификации: профиль,
+ * прогресс, питание, тренировки, чат. Дальше — то, чего в спецификации нет,
+ * но что тренеру нужно: разбор отчётов, состав тела и приватные заметки.
+ *
+ * Список вынесен из разметки, потому что по нему же проверяется параметр
+ * ?tab= из адреса: две копии перечня разошлись бы при первой же правке, и
+ * ссылка на несуществующий раздел молча открывала бы «Профиль».
+ */
+const TABS = [
+  ['overview', 'Профиль'],
+  ['history', 'Тренировки'],
+  ['nutrition', 'Питание'],
+  ['reports', 'Отчёты'],
+  ['body', 'Тело'],
+  ['chat', 'Чат'],
+] as const
+
+type Tab = (typeof TABS)[number][0]
 
 export function TrainerClientDetail() {
   const { id = '' } = useParams()
   const nav = useNavigate()
   const { toast, userId } = useApp()
-  const [tab, setTab] = useState<
-    'overview' | 'chat' | 'reports' | 'progress' | 'body' | 'history' | 'nutrition' | 'notes'
-  >('overview')
-  // Из списка клиентов можно попасть сразу к назначению программы.
+  // Из списка клиентов можно попасть сразу к назначению программы или в чат.
   const [params, setParams] = useSearchParams()
+  const [tab, setTab] = useState<Tab>(() => {
+    const asked = params.get('tab')
+    return TABS.some(([key]) => key === asked) ? (asked as Tab) : 'overview'
+  })
   const [assignOpen, setAssignOpen] = useState(params.get('assign') === '1')
-  const [noteOpen, setNoteOpen] = useState(false)
-  const [reviewing, setReviewing] = useState<WorkoutSession | null>(null)
 
   const version = useLiveQuery(
     async () => [
@@ -57,104 +69,59 @@ export function TrainerClientDetail() {
     () => db.links.where('[trainer_id+client_id]').equals([userId, id]).first(),
     [userId, id],
   )
-  const assignment = useLiveQuery(
-    () =>
-      db.assignments
-        .where('client_id')
-        .equals(id)
-        .and((a) => a.trainer_id === userId && a.status === 'ACTIVE')
-        .first(),
-    [userId, id, version?.join('-')],
-  )
-  const assignedProgram = useLiveQuery(
-    async () => (assignment ? await db.programs.get(assignment.program_id) : undefined),
-    [assignment?.program_id],
-  )
-  const notes = useLiveQuery(
-    () => listTrainerNotes(id, userId),
-    [id, userId, version?.join('-')],
-    [],
-  )
-  const personal = useLiveQuery(
-    () => personalProgramsFor(id, userId),
-    [id, userId, version?.join('-')],
-    [] as Program[],
-  )
-  const allSets = useLiveQuery(() => db.sets.toArray(), [], [])
 
-  if (!detail) return <div className="screen">Загрузка…</div>
+  if (!detail) return <div className="screen">{t('Загрузка…')}</div>
 
-  const { client, sessions, volumeByWeek, records, weightPoints } = detail
-  const lastSession = sessions[0]
+  const { client } = detail
 
   const unlink = async () => {
     if (!link) return
     await removeLink(link.id)
-    toast('Работа с клиентом завершена')
+    toast(t('Работа с клиентом завершена'))
     nav('/trainer', { replace: true })
   }
 
   return (
     <div className="screen">
       <div className="header">
-        <button className="icon-btn" onClick={() => nav(-1)} aria-label="Назад">
+        <button className="icon-btn" onClick={() => nav(-1)} aria-label={t('Назад')}>
           <IconBack size={18} />
         </button>
         <div className="grow">
-          <h1 style={{ fontSize: 22 }}>{client.name}</h1>
+          <h1 className="detail">{client.name}</h1>
           <div className="sub">
-            {client.experience ?? 'опыт не указан'}
-            {client.height_cm ? ` · ${client.height_cm} см` : ''}
+            {client.experience ?? t('опыт не указан')}
+            {client.height_cm ? ` · ${client.height_cm} ${t('см')}` : ''}
           </div>
         </div>
       </div>
 
       <div className="chips">
-        {(
-          [
-            ['overview', 'Сводка'],
-            ['chat', 'Чат'],
-            ['reports', 'Отчёты'],
-            ['progress', 'Прогресс'],
-            ['body', 'Тело'],
-            // Питание снято с интерфейса вместе с разделом у клиента — см. TabBar.
-            // ['nutrition', 'Питание'],
-            ['history', 'Тренировки'],
-            ['notes', 'Заметки'],
-          ] as const
-        ).map(([key, label]) => (
+        {TABS.map(([key, label]) => (
           <button
             key={key}
             className={`chip${tab === key ? ' active' : ''}`}
-            onClick={() => setTab(key)}
+            onClick={() => {
+              setTab(key)
+              // Адрес не должен спорить с тем, что открыто: иначе возврат на
+              // эту страницу снова выкидывал бы в чат, из которого ушли.
+              if (params.get('tab')) setParams({}, { replace: true })
+            }}
           >
-            {label}
+            {t(label)}
           </button>
         ))}
       </div>
 
       {tab === 'overview' && (
         <>
-          <div className="stat-grid" style={{ marginTop: 14 }}>
-            <div className="stat">
-              <div className="value">{sessions.length}</div>
-              <div className="label">тренировок</div>
-            </div>
-            <div className="stat">
-              <div className="value">
-                {lastSession ? formatDate(lastSession.start_time) : '—'}
-              </div>
-              <div className="label">последняя</div>
-            </div>
-          </div>
-
-          <div className="section-title">Режим работы</div>
+          <div className="section-title">{t('Режим работы')}</div>
           <div className="card">
             <div className="chips">
               {(
                 [
-                  ['online', 'Онлайн'],
-                  ['offline', 'Очно'],
+                  ['online', t('Онлайн')],
+                  ['offline', t('Очно')],
                 ] as const
               ).map(([value, label]) => (
                 <button
@@ -164,212 +131,68 @@ export function TrainerClientDetail() {
                   onClick={async () => {
                     if (!link || modeOf(link) === value) return
                     await setLinkMode(link.id, value)
-                    toast(value === 'online' ? 'Режим: онлайн' : 'Режим: очно')
+                    toast(value === 'online' ? t('Режим: онлайн') : t('Режим: очно'))
                   }}
                 >
                   {label}
                 </button>
               ))}
             </div>
-            <div className="mute-sm" style={{ marginTop: 10 }}>
+            <div className="mute-sm mt-3">
               {modeOf(link) === 'online'
-                ? 'Клиент сдаёт видео-отчёты, вы разбираете технику по записи.'
-                : 'Видео-отчёт не запрашивается — технику вы видите на занятии.'}
+                ? t('Клиент сдаёт видео-отчёты, вы разбираете технику по записи.')
+                : t('Видео-отчёт не запрашивается — технику вы видите на занятии.')}
             </div>
           </div>
 
-          <div className="section-title">Связь с клиентом</div>
+          <div className="section-title">{t('Оплата')}</div>
+          <PaymentCard link={link ?? null} onToast={toast} />
+
+          {/* Что выдано, но не сделано или не разобрано — единственное на
+              экране, что требует действия прямо сейчас. */}
+          <div className="section-title">{t('Требует внимания')}</div>
+          <OutstandingCard
+            clientId={id}
+            onOpenTasks={() => setTab('reports')}
+            onOpenWorkouts={() => setTab('history')}
+            onOpenNutrition={() => setTab('nutrition')}
+          />
+
+          <div className="section-title">{t('Неделя')}</div>
+          <WeekCard clientId={id} />
+
+          <div className="section-title">{t('Связь с клиентом')}</div>
           <div className="card">
             <ContactLinks
               profile={client}
-              title="Написать"
-              emptyHint="Клиент не указал, где с ним связаться. Попросите заполнить это в профиле."
+              title={t('Написать')}
+              emptyHint={t('Клиент не указал, где с ним связаться. Попросите заполнить это в профиле.')}
             />
           </div>
 
-          <div className="section-title">Тело</div>
-          <BodyCompositionCard userId={id} subject="client" onOpen={() => setTab('body')} />
-
-          <div className="section-title">Программа от вас</div>
-          <div className="card">
-            {assignment && assignedProgram ? (
-              <>
-                <div className="row between">
-                  <div className="grow">
-                    <div style={{ fontWeight: 600 }}>{assignedProgram.name}</div>
-                    <div className="mute-sm">
-                      {assignment.schedule?.length
-                        ? assignment.schedule
-                            .slice()
-                            .sort((a, b) => a.weekday - b.weekday)
-                            .map((sl) => WEEKDAYS[sl.weekday])
-                            .join(', ')
-                        : `${assignment.weekly_target} в неделю`}
-                      {assignment.end_at
-                        ? ` · до ${formatDate(assignment.end_at - 86400_000)}`
-                        : ` · с ${formatDate(assignment.start_at)}`}
-                    </div>
-                  </div>
-                </div>
-                {assignment.note && (
-                  <div className="muted" style={{ marginTop: 8 }}>
-                    {assignment.note}
-                  </div>
-                )}
-                <div className="row" style={{ marginTop: 12, gap: 8 }}>
-                  <button className="btn sm grow" onClick={() => setAssignOpen(true)}>
-                    Заменить программу
-                  </button>
-                  <button
-                    className="btn sm ghost danger"
-                    onClick={async () => {
-                      await cancelAssignment(assignment.id)
-                      toast('Программа снята с клиента')
-                    }}
-                  >
-                    Снять
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={{ fontWeight: 600 }}>Программа не назначена</div>
-                <div className="muted" style={{ marginTop: 4 }}>
-                  Клиент не увидит план тренировок, пока вы не назначите программу.
-                </div>
-                <button
-                  className="btn primary block"
-                  style={{ marginTop: 14 }}
-                  onClick={() => setAssignOpen(true)}
-                >
-                  <IconPlus size={17} /> Назначить программу
-                </button>
-              </>
-            )}
-          </div>
-
-          <div className="stat-grid" style={{ marginTop: 16 }}>
-            <div className="stat">
-              <div className="value">{sessions.length}</div>
-              <div className="label">тренировок</div>
-            </div>
-            <div className="stat">
-              <div className="value">
-                {lastSession ? formatDate(lastSession.start_time) : '—'}
-              </div>
-              <div className="label">последняя</div>
-            </div>
-          </div>
-
-          {(personal ?? []).length > 0 && (
-            <Group title="Персональные программы">
-              {(personal ?? []).map((p) => (
-                <Row
-                  key={p.id}
-                  title={p.name}
-                  sub={p.id === assignment?.program_id ? 'назначена сейчас' : 'не назначена'}
-                  onClick={() => nav(`/programs/${p.id}`)}
-                >
-                  <button
-                    className="icon-btn"
-                    aria-label="Удалить программу"
-                    onClick={async (e) => {
-                      e.stopPropagation()
-                      await deletePersonalProgram(p.id)
-                      toast('Программа удалена')
-                    }}
-                  >
-                    <IconTrash size={16} />
-                  </button>
-                </Row>
-              ))}
-            </Group>
-          )}
-
-          <div className="section-title">Тоннаж по неделям</div>
-          <div className="card">
-            <BarChart
-              data={volumeByWeek.map((v) => v.value)}
-              labels={volumeByWeek.map((v) => v.label)}
-            />
-          </div>
-
-          <div className="section-title">Рекорды · расчётный 1ПМ</div>
-          {records.length === 0 ? (
-            <div className="empty" style={{ padding: 20 }}>
-              Данных пока нет
-            </div>
-          ) : (
-            records.map((r) => (
-              <div className="list-item" key={r.name}>
-                <div className="grow truncate">{r.name}</div>
-                <strong>{Math.round(r.score)} кг</strong>
-              </div>
-            ))
-          )}
-
-          <div className="section-title">Вес</div>
-          <div className="card">
-            <LineChart data={weightPoints} unit=" кг" color="var(--ok)" />
-          </div>
-
-          <button className="btn ghost danger block" style={{ marginTop: 20 }} onClick={unlink}>
-            Прекратить работу с клиентом
+          <button className="btn ghost danger block mt-5" onClick={unlink}>
+            {t('Прекратить работу с клиентом')}
           </button>
-          <div className="mute-sm" style={{ textAlign: 'center', marginTop: 8 }}>
-            История тренировок останется у клиента, вы потеряете к ней доступ.
+          <div className="mute-sm text-center mt-2">
+            {t('История останется у клиента, вы потеряете к ней доступ. Он сможет подключить другого тренера.')}
           </div>
         </>
       )}
 
       {tab === 'body' && (
-        <div style={{ marginTop: 4 }}>
+        <div className="mt-1">
+          {/* Отдельного графика веса здесь нет: он уже внутри разбора, в
+              блоке «Динамика», и там его можно переключить на любую другую
+              метрику или сравнить две. Второй график показывал бы то же
+              самое, но хуже. */}
           <BodyCompositionView userId={id} subject="client" />
         </div>
       )}
 
-      {tab === 'history' && (
-        <div style={{ marginTop: 14 }}>
-          {sessions.length === 0 && <div className="empty">Тренировок пока нет</div>}
-          {sessions.map((s) => {
-            const sets = (allSets ?? []).filter((x) => x.workout_session_id === s.id)
-            return (
-              <div className="card" key={s.id} style={{ marginBottom: 8 }}>
-                <div className="row between">
-                  <div className="grow">
-                    <div className="truncate" style={{ fontWeight: 600 }}>
-                      {s.title}
-                    </div>
-                    <div className="mute-sm">
-                      {formatDate(s.start_time)} · {sets.length}{' '}
-                      {plural(sets.length, ['подход', 'подхода', 'подходов'])} ·{' '}
-                      {Math.round(totalVolume(sets))} кг ·{' '}
-                      {formatDuration((s.end_time ?? s.start_time) - s.start_time)}
-                    </div>
-                  </div>
-                  <button className="btn sm" onClick={() => setReviewing(s)}>
-                    Разобрать
-                  </button>
-                </div>
-                {s.notes && (
-                  <div className="mute-sm" style={{ marginTop: 8 }}>
-                    Заметка клиента: {s.notes}
-                  </div>
-                )}
-                <SessionFeedback sessionId={s.id} />
-              </div>
-            )
-          })}
-        </div>
-      )}
+      {tab === 'history' && <ClientWorkouts clientId={id} onAssign={() => setAssignOpen(true)} />}
 
       {/* Тот же разбор, что видит клиент: тренер должен смотреть на те же
           цифры, иначе они спорят о разных отчётах. */}
-      {tab === 'progress' && (
-        <div style={{ marginTop: 14 }}>
-          <ProgressView userId={id} readOnly />
-        </div>
-      )}
 
       {tab === 'chat' && (
         <ChatThread
@@ -377,40 +200,14 @@ export function TrainerClientDetail() {
           clientId={id}
           meId={userId}
           meRole="TRAINER"
-          emptyHint="Напишите клиенту — сообщение появится у него в разделе «Чат»."
+          emptyHint={t('Напишите клиенту — сообщение появится у него в разделе «Чат».')}
         />
       )}
 
       {tab === 'reports' && <ClientReports clientId={id} />}
 
-      {/* {tab === 'nutrition' && <ClientNutrition clientId={id} />} */}
+      {tab === 'nutrition' && <ClientNutritionReview clientId={id} />}
 
-      {tab === 'notes' && (
-        <div style={{ marginTop: 14 }}>
-          <button className="btn block" onClick={() => setNoteOpen(true)}>
-            <IconPlus size={16} /> Добавить заметку
-          </button>
-          <div className="mute-sm" style={{ textAlign: 'center', margin: '8px 0 14px' }}>
-            Заметки видны только вам.
-          </div>
-          {(notes ?? []).length === 0 && <div className="empty">Заметок пока нет</div>}
-          {(notes ?? []).map((n) => (
-            <div className="card" key={n.id} style={{ marginBottom: 8 }}>
-              <div className="row between">
-                <div className="mute-sm">{formatDate(n.created_at)}</div>
-                <button
-                  className="icon-btn"
-                  onClick={() => deleteTrainerNote(n.id)}
-                  aria-label="Удалить"
-                >
-                  <IconTrash size={15} />
-                </button>
-              </div>
-              <div style={{ marginTop: 6 }}>{n.text}</div>
-            </div>
-          ))}
-        </div>
-      )}
 
       <AssignSheet
         open={assignOpen}
@@ -420,56 +217,213 @@ export function TrainerClientDetail() {
           setAssignOpen(false)
           if (params.get('assign')) setParams({}, { replace: true })
         }}
-        onDone={() => toast('Программа назначена')}
+        onDone={() => toast(t('Программа назначена'))}
       />
 
-      <TextSheet
-        open={noteOpen}
-        title="Заметка о клиенте"
-        placeholder="Травмы, ограничения, договорённости"
-        onClose={() => setNoteOpen(false)}
-        onSubmit={async (text) => {
-          await addTrainerNote(id, text, userId)
-          toast('Заметка сохранена')
-        }}
-      />
 
-      <SessionReview session={reviewing} clientId={id} onClose={() => setReviewing(null)} />
     </div>
   )
 }
 
-function SessionFeedback({ sessionId }: { sessionId: string }) {
-  const rows = useLiveQuery(
-    () => db.feedback.where('session_id').equals(sessionId).toArray(),
-    [sessionId],
-    [],
-  )
-  if (!rows?.length) return null
+/**
+ * Насколько клиент держится недели: тренировки и дни дневника питания.
+ *
+ * Обе цифры — «сделано из плана», а не проценты: тренер разговаривает с
+ * человеком числами, которые тот сам может пересчитать. План тренировок
+ * берётся из назначения; если программы нет, показываем только факт —
+ * делить на несуществующий план нечестно.
+ */
+function WeekCard({ clientId }: { clientId: string }) {
+  const week = useLiveQuery(() => weekProgress(clientId), [clientId])
+  if (!week) return <div className="card skeleton" style={{ height: 92 }} />
+
+  const done = week.sessionsTarget != null && week.sessionsDone >= week.sessionsTarget
+
   return (
-    <div style={{ marginTop: 10 }}>
-      {rows.map((f) => (
-        <div
-          key={f.id}
-          className="mute-sm"
-          style={{
-            borderLeft: '2px solid var(--accent)',
-            paddingLeft: 10,
-            marginTop: 6,
-            color: 'var(--text-2)',
-          }}
-        >
-          {f.text}
-          {f.is_read === 0 && (
-            <span className="badge" style={{ marginLeft: 8 }}>
-              не прочитано
-            </span>
-          )}
-        </div>
-      ))}
+    <div className="card">
+      <div className="row between">
+        <span className="muted">{t('Тренировки')}</span>
+        <span className="figures strong" style={{ color: done ? 'var(--ok)' : undefined }}>
+          {week.sessionsTarget == null
+            ? `${week.sessionsDone}`
+            : `${week.sessionsDone} / ${week.sessionsTarget}`}
+        </span>
+      </div>
+      {week.sessionsTarget == null && (
+        <div className="mute-sm mt-1">{t('Программа не назначена — плана на неделю нет.')}</div>
+      )}
+
+      <div className="row between mt-3">
+        <span className="muted">{t('дней по питанию сдано')}</span>
+        <span className="figures strong">{week.nutritionDays} / 7</span>
+      </div>
+      <div className="mute-sm mt-1">{t('Считается с понедельника.')}</div>
     </div>
   )
 }
+
+/**
+ * Что у клиента не закрыто: выданные и невыполненные задания плюс отчёты,
+ * до которых у тренера не дошли руки.
+ *
+ * Считается здесь, а не берётся из общей сводки, потому что это две разные
+ * очереди: задание ждёт клиента, отчёт ждёт тренера. Слитые в одно число,
+ * они превращаются в «что-то не так» без ответа, кто следующий ходит.
+ */
+function OutstandingCard({
+  clientId,
+  onOpenTasks,
+  onOpenWorkouts,
+  onOpenNutrition,
+}: {
+  clientId: string
+  onOpenTasks: () => void
+  onOpenWorkouts: () => void
+  onOpenNutrition: () => void
+}) {
+  const tasks = useLiveQuery(() => tasksOf(clientId), [clientId])
+  const pending = useLiveQuery(() => pendingByTarget(clientId), [clientId])
+
+  if (tasks === undefined || pending === undefined) {
+    return <div className="card skeleton" style={{ height: 84 }} />
+  }
+
+  const open = tasks.filter((x) => x.status === 'open')
+  const overdue = open.filter(isOverdue).length
+  const total = pending.workouts + pending.nutrition
+  if (open.length === 0 && total === 0) {
+    return <div className="card mute-sm">{t('Всё закрыто: заданий не висит, отчёты разобраны.')}</div>
+  }
+
+  const rows: { label: string; count: number; open: () => void; warn?: boolean }[] = [
+    // Порядок по тому, чей ход: сначала то, что ждёт тренера, потом то,
+    // что ждёт клиента. Иначе карточка «требует внимания» первым делом
+    // показывает работу, которую тренер сделать не может.
+    {
+      label: t('Тренировки без разбора'),
+      count: pending.workouts,
+      open: onOpenWorkouts,
+      warn: true,
+    },
+    {
+      label: t('Дни питания без разбора'),
+      count: pending.nutrition,
+      open: onOpenNutrition,
+      warn: true,
+    },
+    { label: t('Задания не выполнены'), count: open.length, open: onOpenTasks },
+  ].filter((r) => r.count > 0)
+
+  return (
+    <div className="card">
+      <div className="stack tight">
+        {rows.map((r) => (
+          <button className="row between" key={r.label} onClick={r.open}>
+            <span className="muted" style={r.warn ? { color: 'var(--warn)' } : undefined}>
+              {r.label}
+            </span>
+            <span className="row" style={{ gap: 6, flex: '0 0 auto' }}>
+              <span className="figures strong" style={r.warn ? { color: 'var(--warn)' } : undefined}>
+                {r.count}
+              </span>
+              <IconChevronRight size={15} />
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {overdue > 0 && (
+        <div className="mute-sm mt-3" style={{ color: 'var(--danger)' }}>
+          {overdue} {plural(overdue, ['задание', 'задания', 'заданий'])} {t('просрочено')}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Дата в формате поля <input type="date">, в местном времени. */
+const dateInputValue = (ts?: number) => {
+  if (!ts) return ''
+  const d = new Date(ts)
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000)
+  return local.toISOString().slice(0, 10)
+}
+
+/** Полдень местного времени: дата оплаты — это день, а не момент. */
+const parseDateInput = (value: string): number | undefined =>
+  value ? new Date(`${value}T12:00:00`).getTime() : undefined
+
+/**
+ * Даты оплат. Приложение денег не принимает, поэтому обе даты — просто
+ * отметки тренера, и обе необязательны: связь заводят и без разговора о
+ * деньгах, а требовать дату ради заполненного поля незачем.
+ */
+function PaymentCard({
+  link,
+  onToast,
+}: {
+  link: TrainerLink | null
+  onToast: (text: string) => void
+}) {
+  const [busy, setBusy] = useState(false)
+
+  if (!link) return <div className="card mute-sm">{t('Связь с клиентом не найдена.')}</div>
+
+  const save = async (input: { paidAt?: number; nextPaymentAt?: number }) => {
+    setBusy(true)
+    try {
+      await setLinkPayment(link.id, {
+        paidAt: link.paid_at,
+        nextPaymentAt: link.next_payment_at,
+        ...input,
+      })
+      onToast(t('Даты оплаты сохранены'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Просрочку считаем по началу дня: платёж «сегодня» ещё не опоздал.
+  const due = link.next_payment_at
+  const overdue = due != null && due < startOfDay(Date.now())
+
+  return (
+    <div className="card">
+      <div className="row" style={{ gap: 8 }}>
+        <div className="field grow">
+          <label htmlFor="paid-at">{t('Оплачено')}</label>
+          <input
+            id="paid-at"
+            className="input"
+            type="date"
+            disabled={busy}
+            value={dateInputValue(link.paid_at)}
+            onChange={(e) => void save({ paidAt: parseDateInput(e.target.value) })}
+          />
+        </div>
+        <div className="field grow">
+          <label htmlFor="next-payment">{t('Следующая оплата')}</label>
+          <input
+            id="next-payment"
+            className="input"
+            type="date"
+            disabled={busy}
+            value={dateInputValue(link.next_payment_at)}
+            onChange={(e) => void save({ nextPaymentAt: parseDateInput(e.target.value) })}
+          />
+        </div>
+      </div>
+      <div className="mute-sm mt-2" style={{ color: overdue ? 'var(--danger)' : undefined }}>
+        {due == null
+          ? t('Дата следующей оплаты не задана — напоминание клиенту не придёт.')
+          : overdue
+            ? `${t('Оплата просрочена с')} ${formatDate(due)}.`
+            : `${t('Клиенту напомним за 3 дня —')} ${formatDate(due - 3 * 86400_000)}.`}
+      </div>
+    </div>
+  )
+}
+
 
 const WEEKDAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
 
@@ -574,6 +528,10 @@ function AssignSheet({
       setNote('')
       onDone()
       onClose()
+    } catch (e) {
+      // Без подписки назначение не проходит — тренер должен увидеть почему,
+      // а не форму, которая ничего не сделала и осталась открытой.
+      toast(e instanceof Error ? t(e.message) : t('Не удалось назначить программу'))
     } finally {
       setBusy(false)
     }
@@ -588,22 +546,24 @@ function AssignSheet({
         weeklyTarget: 3,
         trainerId: userId,
       })
-      toast('Программа создана — добавьте упражнения')
+      toast(t('Программа создана — добавьте упражнения'))
       onClose()
       nav(`/programs/${id}`)
+    } catch (e) {
+      toast(e instanceof Error ? t(e.message) : t('Не удалось создать программу'))
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <Sheet open={open} title={`Программа для ${clientName}`} onClose={onClose}>
-      <div className="segmented" style={{ marginBottom: 14 }}>
+    <Sheet open={open} title={`${t('Программа для')} ${clientName}`} onClose={onClose}>
+      <div className="segmented mb-4">
         <button className={mode === 'ready' ? 'on' : ''} onClick={() => setMode('ready')}>
-          Готовая
+          {t('Готовая')}
         </button>
         <button className={mode === 'new' ? 'on' : ''} onClick={() => setMode('new')}>
-          Своя с нуля
+          {t('Своя с нуля')}
         </button>
       </div>
 
@@ -620,10 +580,10 @@ function AssignSheet({
                   style={p.id === chosen ? { background: 'var(--accent-soft)' } : undefined}
                 >
                   <span className="grow">
-                    <span className="title">{p.name}</span>
-                    <span className="sub" style={{ display: 'block' }}>
+                    <span className="title">{t(p.name)}</span>
+                    <span className="sub">
                       {p.goal} · {count} {plural(count, ['день', 'дня', 'дней'])}
-                      {p.author_id === userId ? ' · моя' : ''}
+                      {p.author_id === userId ? ` · ${t('моя')}` : ''}
                     </span>
                   </span>
                   {p.id === chosen && (
@@ -637,11 +597,12 @@ function AssignSheet({
           </div>
 
           <div className="field">
-            <label>Дни недели</label>
+            <label>{t('Дни недели')}</label>
             {/* Нажатие перебирает дни программы: так расписание собирается
                 одним пальцем, без выпадающих списков на каждый день. */}
             <div className="weekday-row">
-              {WEEKDAYS.map((label, wd) => {
+              {WEEKDAYS.map((rawLabel, wd) => {
+                const label = t(rawLabel)
                 const mark = shortName(slots[wd])
                 return (
                   <button
@@ -655,10 +616,10 @@ function AssignSheet({
                 )
               })}
             </div>
-            <div className="mute-sm" style={{ marginTop: 8 }}>
+            <div className="mute-sm mt-2">
               {schedule.length
-                ? `${schedule.length} ${plural(schedule.length, ['тренировка', 'тренировки', 'тренировок'])} в неделю`
-                : 'Выберите хотя бы один день'}
+                ? `${schedule.length} ${plural(schedule.length, ['тренировка', 'тренировки', 'тренировок'])} ${t('в неделю')}`
+                : t('Выберите хотя бы один день')}
             </div>
           </div>
 
@@ -671,7 +632,7 @@ function AssignSheet({
                   </span>
                   <span className="grow title">{r.name}</span>
                   <span className="value">
-                    {WEEKDAYS.filter((_, wd) => slots[wd] === r.id).join(', ') || 'не назначен'}
+                    {WEEKDAYS.filter((_, wd) => slots[wd] === r.id).map(t).join(', ') || t('не назначен')}
                   </span>
                 </div>
               ))}
@@ -679,7 +640,7 @@ function AssignSheet({
           )}
 
           <div className="field">
-            <label>Сколько недель</label>
+            <label>{t('Сколько недель')}</label>
             <div className="segmented">
               {[4, 6, 8, 12].map((v) => (
                 <button key={v} className={weeks === v ? 'on' : ''} onClick={() => setWeeks(v)}>
@@ -690,12 +651,12 @@ function AssignSheet({
           </div>
 
           <div className="field">
-            <label>Комментарий клиенту</label>
+            <label>{t('Комментарий клиенту')}</label>
             <textarea
               className="textarea"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Например: первые две недели работаем в лёгком темпе"
+              placeholder={t('Например: первые две недели работаем в лёгком темпе')}
             />
           </div>
 
@@ -704,26 +665,25 @@ function AssignSheet({
             disabled={busy || !chosen || !schedule.length}
             onClick={assignReady}
           >
-            Назначить на {weeks} {plural(weeks, ['неделю', 'недели', 'недель'])}
+            {t('Назначить на')} {weeks} {plural(weeks, ['неделю', 'недели', 'недель'])}
           </button>
         </div>
       ) : (
         <div className="stack">
           <div className="muted">
-            Создадим пустую программу под этого клиента. Наполните её днями и упражнениями,
-            потом назначьте на дни недели.
+            {t('Создадим пустую программу под этого клиента. Наполните её днями и упражнениями, потом назначьте на дни недели.')}
           </div>
           <div className="field">
-            <label>Название</label>
+            <label>{t('Название')}</label>
             <input
               className="input"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder={`Программа · ${clientName}`}
+              placeholder={`${t('Программа')} · ${clientName}`}
             />
           </div>
           <button className="btn primary block" disabled={busy} onClick={createAndOpen}>
-            Создать и наполнить
+            {t('Создать и наполнить')}
           </button>
         </div>
       )}
@@ -731,42 +691,3 @@ function AssignSheet({
   )
 }
 
-function TextSheet({
-  open,
-  title,
-  placeholder,
-  onClose,
-  onSubmit,
-}: {
-  open: boolean
-  title: string
-  placeholder: string
-  onClose: () => void
-  onSubmit: (text: string) => Promise<void>
-}) {
-  const [text, setText] = useState('')
-
-  const submit = async () => {
-    if (!text.trim()) return
-    await onSubmit(text)
-    setText('')
-    onClose()
-  }
-
-  return (
-    <Sheet open={open} title={title} onClose={onClose}>
-      <div className="stack">
-        <textarea
-          className="textarea"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={placeholder}
-          autoFocus
-        />
-        <button className="btn primary block" disabled={!text.trim()} onClick={submit}>
-          Сохранить
-        </button>
-      </div>
-    </Sheet>
-  )
-}

@@ -8,11 +8,13 @@ import {
   startSessionFromRoutine,
   startEmptySession,
 } from '../db/repo'
-import { activeAssignmentFor, plannedDates, plannedForDate } from '../db/coach'
-import { IconBack, IconChevronRight, IconPlay, IconRepeat } from '../components/Icons'
+import { activeAssignmentFor, planQueue, plannedDates, plannedForDate } from '../db/coach'
+import { IconBack, IconChevronRight, IconDumbbell, IconPlay, IconRepeat } from '../components/Icons'
+import { Sheet } from './Sheet'
 import { formatDuration, plural, startOfDay, totalVolume } from '../lib/calc'
 import { haptics } from '../lib/native'
 import { useApp } from '../store/app'
+import { t } from '../lib/i18n'
 
 const WEEK_DAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
 const MONTHS = [
@@ -119,32 +121,51 @@ export function WorkoutCalendar() {
     const to = new Date(days[days.length - 1])
     const label = (d: Date) => MONTHS[d.getMonth()]
     return from.getMonth() === to.getMonth()
-      ? `${label(from)} ${from.getFullYear()}`
-      : `${label(from)} — ${label(to)}`
+      ? `${t(label(from))} ${from.getFullYear()}`
+      : `${t(label(from))} — ${t(label(to))}`
   }, [days])
 
-  const startToday = async () => {
+  const [startOpen, setStartOpen] = useState(false)
+
+  /**
+   * Весь план по порядку исполнения, начиная с той тренировки, что стоит
+   * следующей. Список грузим только с открытой шторкой: до неё он не виден,
+   * а запрос ходит в четыре таблицы.
+   */
+  const queue = useLiveQuery(
+    () => (startOpen ? planQueue(selected) : Promise.resolve(null)),
+    [startOpen, selected, plan?.assignment.id],
+  )
+
+  const startProgram = async (routineId: string) => {
     haptics.impact()
-    // Если на выбранный день есть план — запускаем именно его день программы.
-    const routineId = plannedToday?.routine.id ?? plan?.routines?.[0]?.id
-    const id = routineId ? await startSessionFromRoutine(routineId) : await startEmptySession()
+    const id = await startSessionFromRoutine(routineId)
     if (!id) {
-      toast('В этом дне программы пока нет упражнений')
+      toast(t('В этом дне программы пока нет упражнений'))
       return
     }
+    setStartOpen(false)
+    nav(`/session/${id}`)
+  }
+
+  /** Свободная тренировка: упражнения добавляются внутри неё из библиотеки. */
+  const startFree = async () => {
+    haptics.impact()
+    const id = await startEmptySession()
+    setStartOpen(false)
     nav(`/session/${id}`)
   }
 
   const repeat = async (sessionId: string) => {
     haptics.impact()
     const id = await repeatSession(sessionId)
-    toast('Тренировка создана по образцу')
+    toast(t('Тренировка создана по образцу'))
     nav(`/session/${id}`)
   }
 
   return (
     <div>
-      <div className="row between" style={{ marginBottom: 12 }}>
+      <div className="row between mb-3">
         <div>
           <div style={{ fontWeight: 700, textTransform: 'capitalize' }}>{monthLabel}</div>
           <button
@@ -155,29 +176,29 @@ export function WorkoutCalendar() {
               setSelected(today)
             }}
           >
-            сегодня
+            {t('сегодня')}
           </button>
         </div>
         <div className="segmented" style={{ flex: '0 0 auto' }}>
           <button className={mode === 'week' ? 'on' : ''} onClick={() => setMode('week')}>
-            Неделя
+            {t('Неделя')}
           </button>
           <button className={mode === 'month' ? 'on' : ''} onClick={() => setMode('month')}>
-            Месяц
+            {t('Месяц')}
           </button>
         </div>
       </div>
 
       <div className="cal-nav">
-        <button className="icon-btn" onClick={() => shift(-1)} aria-label="Назад">
+        <button className="icon-btn" onClick={() => shift(-1)} aria-label={t('Назад')}>
           <IconBack size={16} />
         </button>
         <div className="cal-weekdays">
           {WEEK_DAYS.map((d) => (
-            <span key={d}>{d}</span>
+            <span key={d}>{t(d)}</span>
           ))}
         </div>
-        <button className="icon-btn" onClick={() => shift(1)} aria-label="Вперёд">
+        <button className="icon-btn" onClick={() => shift(1)} aria-label={t('Вперёд')}>
           <IconChevronRight size={16} />
         </button>
       </div>
@@ -203,7 +224,7 @@ export function WorkoutCalendar() {
             >
               <span className="d-num">{new Date(ts).getDate()}</span>
               {mode === 'week' && (
-                <span className="d-wd">{WEEK_DAYS[(new Date(ts).getDay() + 6) % 7]}</span>
+                <span className="d-wd">{t(WEEK_DAYS[(new Date(ts).getDay() + 6) % 7])}</span>
               )}
               {list.length > 0 ? (
                 <span className="d-dot" />
@@ -227,22 +248,20 @@ export function WorkoutCalendar() {
         <div className="cal-empty">
           {plannedToday ? (
             <>
-              <div className="mute-sm">По плану</div>
-              <div style={{ fontWeight: 600, fontSize: 17, marginTop: 2 }}>
-                {plannedToday.routine.name}
+              <div className="mute-sm">{t('По плану')}</div>
+              <div className="strong" style={{ fontSize: 17, marginTop: 2 }}>
+                {t(plannedToday.routine.name)}
               </div>
             </>
           ) : (
-            <div className="muted">Нет тренировок в этот день</div>
+            <div className="muted">{t('Нет тренировок в этот день')}</div>
           )}
           {selected >= today && (
             <button
-              className="btn primary block"
-              style={{ marginTop: 14 }}
-              onClick={startToday}
+              className="btn primary block mt-4"
+              onClick={() => setStartOpen(true)}
             >
-              <IconPlay size={17} />{' '}
-              {plannedToday ? `Начать: ${plannedToday.routine.name}` : 'Начать тренировку'}
+              <IconPlay size={17} /> {t('Начать тренировку')}
             </button>
           )}
         </div>
@@ -258,7 +277,7 @@ export function WorkoutCalendar() {
                   {
                     width: '100%',
                     textAlign: 'left',
-                    marginBottom: 10,
+                    marginBottom: 12,
                     '--i': i,
                   } as React.CSSProperties
                 }
@@ -266,12 +285,12 @@ export function WorkoutCalendar() {
               >
                 <div className="row between">
                   <div className="grow">
-                    <div style={{ fontWeight: 600 }} className="truncate">
+                    <div className="truncate strong">
                       {s.title}
                     </div>
                     <div className="mute-sm" style={{ marginTop: 3 }}>
                       {sets.length} {plural(sets.length, ['подход', 'подхода', 'подходов'])} ·{' '}
-                      {Math.round(totalVolume(sets))} кг ·{' '}
+                      {Math.round(totalVolume(sets))} {t('кг')} ·{' '}
                       {formatDuration((s.end_time ?? s.start_time) - s.start_time)}
                     </div>
                   </div>
@@ -280,19 +299,18 @@ export function WorkoutCalendar() {
                   </span>
                 </div>
                 {s.notes && (
-                  <div className="mute-sm" style={{ marginTop: 8 }}>
+                  <div className="mute-sm mt-2">
                     {s.notes}
                   </div>
                 )}
                 <span
-                  className="btn sm block"
-                  style={{ marginTop: 12 }}
+                  className="btn sm block mt-3"
                   onClick={(e) => {
                     e.stopPropagation()
                     void repeat(s.id)
                   }}
                 >
-                  <IconRepeat size={15} /> Повторить эту тренировку
+                  <IconRepeat size={15} /> {t('Повторить эту тренировку')}
                 </span>
               </button>
             )
@@ -302,15 +320,15 @@ export function WorkoutCalendar() {
 
       {plan && (
         <>
-          <div className="section-title">План</div>
+          <div className="section-title">{t('План')}</div>
           <div className="card">
             <div className="row between">
               <div className="grow">
-                <div style={{ fontWeight: 600 }}>{plan.program.name}</div>
+                <div className="strong">{t(plan.program.name)}</div>
                 <div className="mute-sm" style={{ marginTop: 2 }}>
                   {plan.weeksLeft != null
-                    ? `Осталось ${plan.weeksLeft} ${plural(plan.weeksLeft, ['неделя', 'недели', 'недель'])}`
-                    : 'План на неделю'}
+                    ? `${t('Осталось')} ${plan.weeksLeft} ${plural(plan.weeksLeft, ['неделя', 'недели', 'недель'])}`
+                    : t('План на неделю')}
                 </div>
               </div>
               <span className="badge pro">
@@ -320,6 +338,50 @@ export function WorkoutCalendar() {
           </div>
         </>
       )}
+
+      {/*
+        Показываем весь план, а не одну «следующую».
+
+        План — не конвейер: заболело плечо, зал занят, уехал в командировку.
+        Раньше выбор был между строго следующим днём и пустой тренировкой,
+        и человек, которому сегодня не подходит план, оставался ни с чем.
+        Порядок при этом сохраняет подсказку: сверху то, что по плану.
+      */}
+      <Sheet open={startOpen} title={t('Начать тренировку')} onClose={() => setStartOpen(false)}>
+        <div className="stack">
+          {/* Пока список едет из базы, queue === undefined. Отличать это от
+              «плана нет» обязательно: иначе при каждом открытии мелькает
+              «программа не назначена» у человека, у которого она есть. */}
+          {queue === undefined ? (
+            <div className="mute-sm">{t('Загружаю план…')}</div>
+          ) : queue?.queue.length ? (
+            <div className="group">
+              {queue.queue.map((r, i) => (
+                <button className="group-row tap" key={r.id} onClick={() => startProgram(r.id)}>
+                  <span className="metric-icon" style={i === 0 ? { color: 'var(--accent-ink)' } : undefined}>
+                    {i === 0 ? <IconPlay size={18} /> : <IconDumbbell size={18} />}
+                  </span>
+                  <span className="grow">
+                    <span className="title">{t(r.name)}</span>
+                    {i === 0 && <span className="sub">{t('следующая по плану')}</span>}
+                  </span>
+                  <IconChevronRight size={16} />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="mute-sm">
+              {t('Программа не назначена — тренировку из плана запускать пока не из чего.')}
+            </div>
+          )}
+
+          {/* Своя тренировка — внизу и кнопкой: это выход из плана, а не ещё
+              один его день, и стоять в одном списке с ними он не должен. */}
+          <button className="btn block" onClick={startFree}>
+            <IconDumbbell size={16} /> {t('Создать свою тренировку')}
+          </button>
+        </div>
+      </Sheet>
     </div>
   )
 }

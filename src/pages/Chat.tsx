@@ -1,5 +1,6 @@
 import { ChatThread } from '../components/ChatThread'
 import { useApp, useTrainerLink } from '../store/app'
+import { t } from '../lib/i18n'
 
 /**
  * Переписка с тренером.
@@ -14,7 +15,7 @@ export function Chat() {
   if (bond === undefined) {
     return (
       <div className="screen">
-        <div className="empty">Загрузка…</div>
+        <div className="empty">{t('Загрузка…')}</div>
       </div>
     )
   }
@@ -25,7 +26,7 @@ export function Chat() {
     return (
       <div className="screen">
         <div className="header">
-          <h1>Чат</h1>
+          <h1>{t('Чат')}</h1>
         </div>
         <div className="empty">
           Чат появится, когда вы начнёте работать с тренером. Код приглашения вводится в
@@ -39,7 +40,7 @@ export function Chat() {
     <div className="screen">
       <div className="header">
         <div>
-          <h1>Чат</h1>
+          <h1>{t('Чат')}</h1>
           <div className="sub">{bond.trainer.name}</div>
         </div>
       </div>

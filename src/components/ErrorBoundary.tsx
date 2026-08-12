@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react'
+import { t } from '../lib/i18n'
 
 /**
  * Перехватчик ошибок отрисовки. Без него любая исключительная ситуация
@@ -19,32 +20,30 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
     return (
       <div className="screen">
         <div className="header">
-          <h1 style={{ fontSize: 22 }}>Что-то сломалось</h1>
+          <h1 className="detail">{t('Что-то сломалось')}</h1>
         </div>
         <div className="card">
           <div className="muted">
-            Экран не удалось построить. Данные на устройстве не пострадали.
+            {t('Экран не удалось построить. Данные на устройстве не пострадали.')}
           </div>
           <div
             className="mute-sm"
-            style={{ marginTop: 10, wordBreak: 'break-word', fontFamily: 'var(--font-num)' }}
+            style={{ marginTop: 12, wordBreak: 'break-word', fontFamily: 'var(--font-num)' }}
           >
             {error.message}
           </div>
         </div>
         <button
-          className="btn primary block"
-          style={{ marginTop: 14 }}
+          className="btn primary block mt-4"
           onClick={() => this.setState({ error: null })}
         >
-          Попробовать снова
+          {t('Попробовать снова')}
         </button>
         <button
-          className="btn block"
-          style={{ marginTop: 8 }}
+          className="btn block mt-2"
           onClick={() => location.reload()}
         >
-          Перезагрузить приложение
+          {t('Перезагрузить приложение')}
         </button>
       </div>
     )

@@ -7,6 +7,7 @@ import {
 } from '../lib/contacts'
 import type { Contact, ContactKind, UserProfile } from '../db/db'
 import { IconChat, IconChevronRight } from './Icons'
+import { t } from '../lib/i18n'
 
 /**
  * Способы связи. Предпочтительный вынесен отдельной кнопкой: у человека
@@ -42,7 +43,7 @@ export function ContactLinks({
       </a>
 
       {rest.length > 0 && (
-        <div className="group" style={{ marginTop: 10 }}>
+        <div className="group mt-3">
           {rest.map((c) => (
             <a
               className="group-row"
@@ -53,7 +54,7 @@ export function ContactLinks({
             >
               <span className="grow">
                 <span className="title">{contactLabel(c.kind)}</span>
-                <span className="sub" style={{ display: 'block' }}>
+                <span className="sub">
                   {contactDisplay(c)}
                 </span>
               </span>
@@ -114,7 +115,7 @@ export function ContactEditor({
 
       {filled.length > 1 && (
         <div className="field">
-          <label>Предпочтительный способ</label>
+          <label>{t('Предпочтительный способ')}</label>
           <div className="segmented">
             {filled.map((k) => (
               <button

@@ -276,7 +276,14 @@ export type RemoteRecord = {
   owner: string
   tbl: string
   rid: string
+  /** Часы автора: по ним решается, чья версия новее. */
   updated: number
+  /**
+   * Часы сервера: по ним строится очередь доставки. Пусто у записей,
+   * лежавших до появления поля, — деплой проставляет им seq отдельным
+   * проходом, см. backfillSeq в server/schema.mjs.
+   */
+  seq?: number
   deleted?: boolean
   payload: unknown
 }
@@ -295,10 +302,17 @@ type Page<T> = {
 const quote = (v: string) => `"${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
 
 /** Страница изменений начиная с метки. Тренеру приезжают и записи клиентов. */
+/**
+ * Забирает всё, что появилось на сервере после отметки.
+ *
+ * Отметка идёт по seq — часам сервера. По updated её строить нельзя: там
+ * часы того, кто записал, и достаточно минуты расхождения между
+ * устройствами, чтобы чужие записи навсегда провалились мимо условия.
+ */
 export async function pullRecords(since: number, page = 1, perPage = 200) {
-  const filter = encodeURIComponent(`updated > ${since}`)
+  const filter = encodeURIComponent(`seq > ${since}`)
   return request<Page<RemoteRecord>>(
-    `/api/collections/records/records?filter=${filter}&sort=updated&page=${page}&perPage=${perPage}`,
+    `/api/collections/records/records?filter=${filter}&sort=seq,id&page=${page}&perPage=${perPage}`,
   )
 }
 
@@ -417,6 +431,41 @@ export type RedeemedTrainer = {
  * Гасит код приглашения. Поиск по коду делает сервер: список приглашений
  * закрыт, иначе чужие коды мог бы выгрузить любой вошедший.
  */
+/** Документ тренера, который клиент подписывает при подключении. */
+export type TrainerDoc = { kind: string; id: string; file: string }
+
+/**
+ * Посмотреть, к кому ведёт код и что придётся подписать, не гася его.
+ *
+ * Права на чужие записи появляются только после привязки, поэтому
+ * документы тренера отдаёт сервер вместе с карточкой. Гасить код на этом
+ * шаге нельзя: передумавший остался бы без кода и без тренера.
+ */
+export async function peekInvite(
+  code: string,
+): Promise<{ trainer: RedeemedTrainer; documents: TrainerDoc[] }> {
+  return request('/api/redeem', {
+    method: 'POST',
+    body: JSON.stringify({ code, peek: true }),
+  })
+}
+
+/**
+ * Разорвать связь на сервере.
+ *
+ * Зовут обе стороны: клиент — за себя, тренер — за своего клиента. Кто
+ * кому кем приходится, проверяет сервер: поле лежит в записи клиента, и
+ * открывать её на запись всем подряд ради этого нельзя.
+ */
+export async function unlinkClient(clientId?: string): Promise<void> {
+  await request('/api/unlink', {
+    method: 'POST',
+    body: JSON.stringify({ client: clientId ?? '' }),
+  })
+  // Отвязал себя — своя же сессия устарела.
+  if (!clientId) await refresh()
+}
+
 export async function redeemInvite(code: string): Promise<RedeemedTrainer> {
   const res = await request<{ trainer: RedeemedTrainer }>('/api/redeem', {
     method: 'POST',
@@ -570,4 +619,18 @@ export async function attachmentUrl(
   const url = `${API_BASE}/api/files/attachments/${recordId}/${file}`
   const token = await fileToken(fresh).catch(() => '')
   return token ? `${url}?token=${encodeURIComponent(token)}` : url
+}
+
+/**
+ * Открывает вложение в новой вкладке.
+ *
+ * Вкладку заводим сразу по нажатию и только потом подставляем адрес: ссылка
+ * требует токена, а за ним нужно сходить на сервер — открытая после ожидания
+ * вкладка считалась бы всплывающей и была бы заблокирована.
+ */
+export function openAttachment(recordId: string, file: string) {
+  const tab = window.open('', '_blank', 'noreferrer')
+  void attachmentUrl(recordId, file, true).then((url) => {
+    if (tab) tab.location.href = url
+  })
 }

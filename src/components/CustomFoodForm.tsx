@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FoodItem } from '../db/db'
 import type { CustomFoodInput } from '../db/nutrition'
+import { t } from '../lib/i18n'
 
 /**
  * Форма своего продукта. Пользовательские продукты — не запасной выход,
@@ -20,10 +21,10 @@ export function CustomFoodForm({
   initial,
   initialName,
   barcode,
-  submitLabel = 'Сохранить продукт',
+  submitLabel = t('Сохранить продукт'),
   onSubmit,
   onCancel,
-  cancelLabel = 'Назад',
+  cancelLabel = t('Назад'),
 }: {
   /** Заполненный продукт — режим правки. */
   initial?: FoodItem
@@ -92,59 +93,59 @@ export function CustomFoodForm({
   return (
     <div className="stack">
       <div className="field">
-        <label>Название</label>
+        <label>{t('Название')}</label>
         <input
           className="input"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Борщ домашний"
+          placeholder={t('Борщ домашний')}
           autoFocus
         />
       </div>
 
       <div className="field">
-        <label>Бренд или уточнение</label>
+        <label>{t('Бренд или уточнение')}</label>
         <input
           className="input"
           value={brand}
           onChange={(e) => setBrand(e.target.value)}
-          placeholder="необязательно"
+          placeholder={t('необязательно')}
         />
       </div>
 
       <div className="field">
-        <label>Считаем на 100</label>
+        <label>{t('Считаем на 100')}</label>
         <div className="segmented">
           <button className={unit === 'г' ? 'on' : ''} onClick={() => setUnit('г')}>
-            граммов
+            {t('граммов')}
           </button>
           <button className={unit === 'мл' ? 'on' : ''} onClick={() => setUnit('мл')}>
-            миллилитров
+            {t('миллилитров')}
           </button>
         </div>
       </div>
 
       <div className="row" style={{ gap: 8 }}>
-        <Num label="Белки, г" value={protein} onChange={setProtein} />
-        <Num label="Жиры, г" value={fat} onChange={setFat} />
-        <Num label="Углеводы, г" value={carbs} onChange={setCarbs} />
+        <Num label={t('Белки, г')} value={protein} onChange={setProtein} />
+        <Num label={t('Жиры, г')} value={fat} onChange={setFat} />
+        <Num label={t('Углеводы, г')} value={carbs} onChange={setCarbs} />
       </div>
 
       <div className="field">
-        <label>Калории на 100 {unit}</label>
+        <label>{t('Калории на 100')} {t(unit)}</label>
         <input
           className="input"
           inputMode="numeric"
           value={kcal}
           onChange={(e) => setKcal(e.target.value)}
-          placeholder={computedKcal ? `${computedKcal} — посчитаем сами` : '0'}
+          placeholder={computedKcal ? `${computedKcal} — ${t('посчитаем сами')}` : '0'}
         />
         {mismatch ? (
-          <div className="mute-sm" style={{ marginTop: 6, color: 'var(--warn)' }}>
+          <div className="mute-sm" style={{ marginTop: 8, color: 'var(--warn)' }}>
             По белкам, жирам и углеводам выходит {computedKcal} ккал. Проверьте упаковку.
           </div>
         ) : !kcal.trim() && computedKcal > 0 ? (
-          <div className="mute-sm" style={{ marginTop: 6 }}>
+          <div className="mute-sm mt-2">
             Оставьте пустым — запишем {computedKcal} ккал по макронутриентам.
           </div>
         ) : null}
@@ -159,42 +160,42 @@ export function CustomFoodForm({
 
       <div className="row" style={{ gap: 8 }}>
         <div className="field grow">
-          <label>Порция, {unit}</label>
+          <label>{t('Порция')}, {t(unit)}</label>
           <input
             className="input"
             inputMode="decimal"
             value={serving}
             onChange={(e) => setServing(e.target.value)}
-            placeholder="необязательно"
+            placeholder={t('необязательно')}
           />
         </div>
         <div className="field grow">
-          <label>Название порции</label>
+          <label>{t('Название порции')}</label>
           <input
             className="input"
             value={servingLabel}
             onChange={(e) => setServingLabel(e.target.value)}
-            placeholder="тарелка"
+            placeholder={t('тарелка')}
           />
         </div>
       </div>
 
       {more ? (
         <div className="row" style={{ gap: 8 }}>
-          <Num label="Клетчатка" value={fiber} onChange={setFiber} />
-          <Num label="Сахар" value={sugar} onChange={setSugar} />
-          <Num label="Натрий, мг" value={sodium} onChange={setSodium} />
+          <Num label={t('Клетчатка')} value={fiber} onChange={setFiber} />
+          <Num label={t('Сахар')} value={sugar} onChange={setSugar} />
+          <Num label={t('Натрий, мг')} value={sodium} onChange={setSodium} />
         </div>
       ) : (
         <button className="btn ghost sm block" onClick={() => setMore(true)}>
-          Клетчатка, сахар, натрий
+          {t('Клетчатка, сахар, натрий')}
         </button>
       )}
 
-      {barcode && <div className="mute-sm">Штрихкод: {barcode}</div>}
+      {barcode && <div className="mute-sm">{t('Штрихкод')}: {barcode}</div>}
 
       <button className="btn primary block" disabled={!valid || busy} onClick={submit}>
-        {busy ? 'Сохраняю…' : submitLabel}
+        {busy ? t('Сохраняю…') : submitLabel}
       </button>
       <button className="btn ghost block" onClick={onCancel}>
         {cancelLabel}

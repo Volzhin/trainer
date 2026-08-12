@@ -55,7 +55,6 @@ const SYNCED = [
   'dailyActivity',
   'tasks',
   'reportReplies',
-  'coachTargets',
 ] as const
 
 type SyncedTable = (typeof SYNCED)[number]
@@ -91,7 +90,6 @@ async function ownerOf(
     case 'nutritionTargets':
     case 'tasks':
     case 'reportReplies':
-    case 'coachTargets':
       return str(row.client_id)
 
     // Сообщение принадлежит клиенту независимо от того, кто его написал:
@@ -160,14 +158,25 @@ const stampOf = (row: Record<string, unknown>): number =>
 
 // --- Курсоры ---
 
-const cursorsOf = async (): Promise<Record<string, { pulled?: number; pushed?: number }>> =>
-  (await db.appState.get(APP_STATE_ID))?.cursors ?? {}
+const cursorsOf = async (): Promise<
+  Record<string, { pulled?: number; pulledSeq?: number; pushed?: number }>
+> => (await db.appState.get(APP_STATE_ID))?.cursors ?? {}
 
 /** Метка последнего принятого изменения с сервера для текущего аккаунта. */
+/**
+ * Докуда уже забрали чужие изменения — по часам сервера (поле seq).
+ *
+ * Имя нарочно новое. Прежний курсор pulled считался по часам того, кто
+ * записал, и у него мог оказаться момент из будущего — тогда всё, что
+ * приходило потом с других устройств, молча не проходило условие. Сменив
+ * имя, мы начинаем с нуля: один раз выкачивается всё заново, зато без
+ * унаследованной кривой отметки. Повторная выкачка безвредна — apply
+ * пропускает записи, которые старше местных.
+ */
 async function pullCursor(): Promise<number> {
   const me = authUser()
   if (!me) return 0
-  return (await cursorsOf())[me.id]?.pulled ?? 0
+  return (await cursorsOf())[me.id]?.pulledSeq ?? 0
 }
 
 /** Метка, до которой локальные правки уже уехали наверх. */
@@ -177,7 +186,7 @@ async function pushCursor(): Promise<number> {
   return (await cursorsOf())[me.id]?.pushed ?? 0
 }
 
-async function setCursors(patch: { pulled?: number; pushed?: number }) {
+async function setCursors(patch: { pulled?: number; pulledSeq?: number; pushed?: number }) {
   const me = authUser()
   const state = await db.appState.get(APP_STATE_ID)
   if (!me || !state) return
@@ -288,9 +297,12 @@ const TRAINER_AUTHORED: readonly string[] = [
   // Переписку ведут оба, а принадлежит она клиенту: без этой строки
   // сообщения тренера не уезжали бы дальше его собственного телефона.
   'chat',
-  // Ответ на отчёт и назначенную норму пишет тренер, адресованы они клиенту.
+  // Ответ на отчёт пишет тренер, а адресован он клиенту.
+  // Самих отчётов здесь нет: тренер в них больше ничего не дописывает —
+  // его слова лежат в reportReplies. Пока ответ жил внутри строки отчёта,
+  // обмен, разбирающий конфликты строкой целиком, стирал им правку клиента.
+  // Замеров нет намеренно: их тренер не комментирует.
   'reportReplies',
-  'coachTargets',
 ]
 
 /** Кого этот тренер ведёт — список приезжает вместе с данными клиентов. */
@@ -365,14 +377,16 @@ export async function pull(): Promise<number> {
     if (!res.items.length) break
 
     for (const rec of res.items) {
-      newest = Math.max(newest, rec.updated)
+      // Курсор двигаем по серверной метке, а не по авторской: иначе он
+      // снова начнёт зависеть от чужих часов.
+      if (typeof rec.seq === 'number') newest = Math.max(newest, rec.seq)
       try {
         if (await apply(rec)) applied++
       } catch {
-        // Одна негодная запись не должна останавливать обмен. Раньше
-        // исключение обрывало проход, курсор замирал на ней, и каждый
-        // следующий заход спотыкался о неё же — приложение переставало
-        // получать вообще что-либо. Пропускаем её и идём дальше.
+        // Одна негодная запись не должна останавливать обмен. Исключение
+        // обрывало проход, курсор замирал на ней, и каждый следующий заход
+        // спотыкался о неё же — приложение переставало получать вообще
+        // что-либо. Пропускаем её и идём дальше.
       }
     }
 
@@ -380,7 +394,7 @@ export async function pull(): Promise<number> {
     page++
   }
 
-  if (newest > since) await setCursors({ pulled: newest })
+  if (newest > since) await setCursors({ pulledSeq: newest })
   return applied
 }
 
@@ -460,7 +474,9 @@ async function pushAttachments(): Promise<number> {
         owner: a.user_id,
         rid: a.id,
         kind: a.kind,
-        note: a.exercise_id,
+        // Пометка объясняет, к чему файл: упражнение у видео техники,
+        // день у скриншота дневника. Без неё запись на сервере безымянна.
+        note: a.doc_kind ?? a.exercise_id ?? a.nutrition_date ?? '',
         file: a.blob,
         filename: `${a.id}.${ext}`,
       })
@@ -574,9 +590,28 @@ export async function syncClients(): Promise<number> {
  */
 export async function syncMyTrainer(): Promise<boolean> {
   const me = authUser()
-  if (!me || me.role === 'trainer' || !me.trainer) return false
+  if (!me || me.role === 'trainer') return false
 
-  const trainer = await getUser(me.trainer)
+  /*
+   * Тренера спрашиваем у сервера, а не у сохранённой сессии.
+   *
+   * Тренер может отвязать клиента со своей стороны — тогда поле на сервере
+   * пустеет, а в сессии на устройстве остаётся прежнее значение до
+   * следующего входа. Клиент продолжал бы видеть раздел «Чат», сдавать
+   * отчёты в пустоту и не смог бы подключить нового тренера.
+   */
+  const fresh = await getUser(me.id).catch(() => null)
+  const trainerId = fresh ? ((fresh as { trainer?: string }).trainer ?? '') : me.trainer
+
+  if (!trainerId) {
+    // Связи больше нет — убираем и местную, иначе экраны продолжат
+    // показывать тренера, которого уже нет.
+    const stale = await db.links.where('client_id').equals(me.id).toArray()
+    for (const l of stale) await db.links.delete(l.id)
+    return stale.length > 0
+  }
+
+  const trainer = await getUser(trainerId)
   if (!trainer) return false
 
   const local = await db.profile.get(trainer.id)
@@ -600,6 +635,34 @@ export async function syncMyTrainer(): Promise<boolean> {
       ...patch,
     })
   }
+
+  /*
+   * Заводим связь, если на сервере она есть, а здесь её нет.
+   *
+   * Так бывает после переустановки, очистки хранилища или входа с другого
+   * телефона: сервер помнит тренера, а устройство — нет. Без этой строки
+   * человек попадал в тупик. Тренера он не видел — экраны читают связь, а
+   * не поле в аккаунте. Отключить его не мог — кнопки без связи нет. И
+   * ввести код нового тренера тоже не мог: проверка «тренер у клиента
+   * один» смотрит на сервер и отказывает.
+   *
+   * Идентификатор выводится из пары, поэтому повторный проход ничего не
+   * задваивает.
+   */
+  const id = linkId(trainer.id, me.id)
+  if (!(await db.links.get(id))) {
+    const ts = Date.now()
+    await db.links.add({
+      id,
+      trainer_id: trainer.id,
+      client_id: me.id,
+      status: 'ACTIVE',
+      initiated_by: 'TRAINER',
+      created_at: ts,
+      updated_at: ts,
+    })
+  }
+
   return true
 }
 
@@ -686,10 +749,11 @@ async function onRealtime(e: {
     /* битое событие не должно ломать поток */
   }
 
-  // Курсор по событию не двигаем. Поток рвётся незаметно — при обрыве часть
-  // событий теряется, и метка, ушедшая вперёд по единственному дошедшему,
-  // навсегда закрывает от страховочного опроса всё, что он должен был
-  // добрать. Лишний повтор дешевле пропущенной записи.
+  // Курсор по событию не двигаем, хотя серверная метка для этого и годится.
+  // Поток рвётся незаметно, и при обрыве часть событий теряется: метка,
+  // ушедшая вперёд по единственному дошедшему, навсегда закрывает от
+  // страховочного опроса всё, что он должен был добрать. Лишний повтор
+  // дешевле пропущенной записи, а повторное применение ничего не портит.
 }
 
 export function stopSync() {
@@ -707,6 +771,6 @@ export function stopSync() {
 export async function initialPull(): Promise<void> {
   const user = authUser()
   if (!user) return
-  await setCursors({ pulled: 0 })
+  await setCursors({ pulledSeq: 0 })
   await pull()
 }

@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { BodyCompositionView } from '../components/BodyCompositionView'
 import { IconBack } from '../components/Icons'
 import { useApp } from '../store/app'
+import { t } from '../lib/i18n'
 
 /** Экран клиента: свой состав тела. Разбор общий с карточкой клиента у тренера. */
 export function BodyComposition() {
@@ -11,12 +12,12 @@ export function BodyComposition() {
   return (
     <div className="screen">
       <div className="header">
-        <button className="icon-btn" onClick={() => nav(-1)} aria-label="Назад">
+        <button className="icon-btn" onClick={() => nav(-1)} aria-label={t('Назад')}>
           <IconBack size={18} />
         </button>
         <div className="grow">
-          <h1 style={{ fontSize: 22 }}>Анализ тела</h1>
-          <div className="sub">Отчёты InBody и динамика</div>
+          <h1 className="detail">{t('Анализ тела')}</h1>
+          <div className="sub">{t('Замеры и отчёты InBody')}</div>
         </div>
       </div>
 

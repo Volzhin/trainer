@@ -19,20 +19,20 @@ import { SessionDetail } from './pages/SessionDetail'
 import { History } from './pages/History'
 import { Progress } from './pages/Progress'
 import { BodyComposition } from './pages/BodyComposition'
-// Раздел питания снят с интерфейса — см. TabBar. Импорты и маршруты
-// закомментированы вместе с ним, страницы остались в репозитории.
-// import { Nutrition } from './pages/Nutrition'
-// import { MyFoods } from './pages/MyFoods'
-// import { NutritionSettings } from './pages/NutritionSettings'
+import { Nutrition } from './pages/Nutrition'
+import { MyFoods } from './pages/MyFoods'
+import { NutritionSettings } from './pages/NutritionSettings'
 import { Chat } from './pages/Chat'
 import { Reports } from './pages/Reports'
 import { Profile } from './pages/Profile'
+import { Settings } from './pages/Settings'
 import { TrainerClients } from './pages/trainer/TrainerClients'
 import { TrainerClientDetail } from './pages/trainer/TrainerClientDetail'
 import { TrainerProfile } from './pages/trainer/TrainerProfile'
 import { useApp, useProfile } from './store/app'
 import { getActiveSession } from './db/repo'
 import { IconPlay, IconRecord } from './components/Icons'
+import { t } from './lib/i18n'
 
 export default function App() {
   const { toasts, userId } = useApp()
@@ -68,6 +68,7 @@ export default function App() {
               <Route path="/trainer" element={<TrainerClients />} />
               <Route path="/trainer/clients/:id" element={<TrainerClientDetail />} />
               <Route path="/trainer/profile" element={<TrainerProfile />} />
+              <Route path="/settings" element={<Settings />} />
               <Route path="/programs" element={<Programs />} />
               <Route path="/programs/:id" element={<ProgramDetail />} />
               <Route path="/exercises" element={<Exercises />} />
@@ -86,12 +87,13 @@ export default function App() {
               <Route path="/history/:id" element={<SessionDetail />} />
               <Route path="/progress" element={<Progress />} />
               <Route path="/body" element={<BodyComposition />} />
-              {/* <Route path="/nutrition" element={<Nutrition />} /> */}
-              {/* <Route path="/nutrition/settings" element={<NutritionSettings />} /> */}
-              {/* <Route path="/nutrition/foods" element={<MyFoods />} /> */}
+              <Route path="/nutrition" element={<Nutrition />} />
+              <Route path="/nutrition/settings" element={<NutritionSettings />} />
+              <Route path="/nutrition/foods" element={<MyFoods />} />
               <Route path="/chat" element={<Chat />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </>
           )}
@@ -128,11 +130,11 @@ function ActiveSessionBanner() {
       <div className="inner" onClick={() => nav(`/session/${active.id}`)}>
         <IconPlay size={16} />
         <div className="grow">
-          <div style={{ fontWeight: 600, fontSize: 14 }} className="truncate">
+          <div className="truncate strong" style={{ fontSize: 14 }}>
             {active.title}
           </div>
           <div style={{ fontSize: 12, opacity: 0.85 }}>
-            Тренировка идёт — нажмите, чтобы вернуться
+            {t('Тренировка идёт — нажмите, чтобы вернуться')}
           </div>
         </div>
       </div>

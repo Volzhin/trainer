@@ -5,6 +5,8 @@ import { useExercises } from '../db/catalog'
 import { Sheet } from './Sheet'
 import { IconSearch } from './Icons'
 import { loadFacets, matchesQuery } from '../lib/facets'
+import { t } from '../lib/i18n'
+import { exName } from '../lib/exerciseNames'
 
 type Props = {
   open: boolean
@@ -48,23 +50,23 @@ export function ExercisePicker({
     return (exercises ?? [])
       .filter((e) => (muscle === 'Все' ? true : e.muscle_group === muscle))
       .filter((e) => matchesQuery(e, term))
-      .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+      .sort((a, b) => exName(a.name).localeCompare(exName(b.name)))
   }, [exercises, q, muscle])
 
   return (
     <Sheet open={open} title={title} onClose={onClose}>
-      <div className="search" style={{ marginBottom: 10 }}>
+      <div className="search mb-3">
         <IconSearch />
         <input
           className="input"
-          placeholder="Поиск по названию"
+          placeholder={t('Поиск по названию')}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           autoFocus
         />
       </div>
 
-      <div className="chips" style={{ marginBottom: 12 }}>
+      <div className="chips mb-3">
         {['Все', ...facets.muscles].map((m) => (
           <button
             key={m}
@@ -76,7 +78,7 @@ export function ExercisePicker({
         ))}
       </div>
 
-      {list.length === 0 && <div className="empty">Ничего не нашлось</div>}
+      {list.length === 0 && <div className="empty">{t('Ничего не нашлось')}</div>}
 
       {list.map((ex) => (
         <button
@@ -88,11 +90,11 @@ export function ExercisePicker({
             onClose()
           }}
         >
-          <div className="avatar">{ex.name.slice(0, 1)}</div>
+          <div className="avatar">{exName(ex.name).slice(0, 1)}</div>
           <div className="grow">
-            <div className="truncate">{ex.name}</div>
+            <div className="truncate">{exName(ex.name)}</div>
             <div className="mute-sm">
-              {ex.muscle_group} · {ex.equipment}
+              {t(ex.muscle_group)} · {t(ex.equipment)}
               {ex.is_custom === 1 ? ' · своё' : ''}
             </div>
           </div>

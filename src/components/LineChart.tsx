@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { t } from '../lib/i18n'
 
 /**
  * cells — показания точки по столбцам. Столбцы у всех рядов одинаковые по
@@ -52,7 +53,7 @@ export function LineChart({
   }, [data, height])
 
   if (data.length === 0) {
-    return <div className="empty">Недостаточно данных</div>
+    return <div className="empty">{t('Недостаточно данных')}</div>
   }
 
   const w = 320
@@ -359,11 +360,11 @@ export function LineChart({
         <div className="chart-legend">
           <span className="chart-legend-item">
             <i className="chart-swatch" style={{ background: color }} />
-            {label} <span className="mute-sm">слева</span>
+            {label} <span className="mute-sm">{t('слева')}</span>
           </span>
           <span className="chart-legend-item">
             <i className="chart-swatch" style={{ background: secondColor }} data-dashed />
-            {second.label} <span className="mute-sm">справа</span>
+            {second.label} <span className="mute-sm">{t('справа')}</span>
           </span>
         </div>
       )}
@@ -375,7 +376,7 @@ export function LineChart({
 export function BarChart({ data, labels }: { data: number[]; labels: string[] }) {
   const max = Math.max(1, ...data)
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 130, marginTop: 6 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 130, marginTop: 8 }}>
       {data.map((v, i) => (
         <div key={i} style={{ flex: 1, textAlign: 'center' }}>
           <div

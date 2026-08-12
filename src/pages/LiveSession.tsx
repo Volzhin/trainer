@@ -16,10 +16,19 @@ import {
   uncompleteSet,
   updateSet,
 } from '../db/repo'
-import { estimate1RM, formatDuration, formatWeight, plural, totalVolume } from '../lib/calc'
+import {
+  estimate1RM,
+  formatDuration,
+  formatReps,
+  formatWeight,
+  plural,
+  totalVolume,
+} from '../lib/calc'
 import {
   IconBack,
+  IconChart,
   IconCheck,
+  IconInfo,
   IconPlus,
   IconRecord,
   IconSwap,
@@ -28,9 +37,16 @@ import {
 import { ExercisePicker } from '../components/ExercisePicker'
 import { ExerciseTechniqueSheet } from '../components/ExerciseTechnique'
 import { VideoUploader } from '../components/ExerciseVideo'
+import { CoachHint } from '../components/CoachHint'
+import { ExerciseBrief } from '../components/ExerciseBrief'
+import { ExerciseStatsSheet } from '../components/ExerciseStatsSheet'
+import { submitWorkoutReport } from '../db/reports'
+import { trainerOfClient } from '../db/coach'
 import { Sheet } from '../components/Sheet'
 import { useApp, useClientMode, useProfile } from '../store/app'
 import { ensureNotificationPermission, haptics } from '../lib/native'
+import { t } from '../lib/i18n'
+import { exName } from '../lib/exerciseNames'
 
 type Block = {
   sequence_order: number
@@ -48,6 +64,7 @@ export function LiveSession() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [swapFor, setSwapFor] = useState<Block | null>(null)
   const [techniqueFor, setTechniqueFor] = useState<string | null>(null)
+  const [statsFor, setStatsFor] = useState<Exercise | null>(null)
   const [finishOpen, setFinishOpen] = useState(false)
   const [notes, setNotes] = useState('')
   /**
@@ -57,18 +74,40 @@ export function LiveSession() {
    */
   const [frozenElapsed, setFrozenElapsed] = useState<number | null>(null)
   const [askedNotify, setAskedNotify] = useState(false)
+  const [reportComment, setReportComment] = useState('')
+  const [reportBusy, setReportBusy] = useState(false)
 
   const session = useLiveQuery(() => db.sessions.get(id), [id])
   // Кнопку съёмки показываем только на онлайн-сопровождении: без тренера
   // видео некому смотреть, а на очной работе технику он видит сам —
   // просить запись значит просить лишнее.
   const videoReport = useClientMode() === 'online'
+  const hasTrainer = !!useLiveQuery(() => trainerOfClient(), [])
   const sets = useLiveQuery(
     () => db.sets.where('workout_session_id').equals(id).toArray(),
     [id],
     [] as ExerciseSet[],
   )
   const exercises = useExercises()
+
+  /*
+   * Цель по подходам и повторам из программы. Клиент её раньше не видел
+   * вовсе: тренер задавал «3 по 8-12», а у снаряда стояли пустые поля, и
+   * коридор оставался в голове у одного из двоих.
+   */
+  const targets = useLiveQuery(async () => {
+    if (!session?.routine_id) return new Map<string, string>()
+    const items = await db.templateItems
+      .where('routine_id')
+      .equals(session.routine_id)
+      .toArray()
+    return new Map(
+      items.map((i) => {
+        const reps = formatReps(i.target_reps, i.target_reps_max)
+        return [i.exercise_id, reps ? `${i.target_sets} × ${reps}` : `${i.target_sets} ${t('подх.')}`]
+      }),
+    )
+  }, [session?.routine_id])
 
   // История предыдущей тренировки по каждому упражнению — для подсказок.
   const prevByExercise = useLiveQuery(async () => {
@@ -108,6 +147,8 @@ export function LiveSession() {
 
   const doneCount = (sets ?? []).filter((s) => s.is_done).length
   const volume = totalVolume(sets ?? [])
+  // «Всё выполнено» — когда подходы есть и неотмеченных не осталось.
+  const allDone = (sets ?? []).length > 0 && doneCount === (sets ?? []).length
 
   /**
    * Упражнения, которые человек действительно сделал. В окне завершения
@@ -125,9 +166,9 @@ export function LiveSession() {
   if (!session) {
     return (
       <div className="screen">
-        <div className="empty">Тренировка не найдена</div>
+        <div className="empty">{t('Тренировка не найдена')}</div>
         <button className="btn block" onClick={() => nav('/')}>
-          На главную
+          {t('На главную')}
         </button>
       </div>
     )
@@ -141,14 +182,14 @@ export function LiveSession() {
     }
     // Введённое в строке главнее того, что успело доехать до пропсы.
     if (!(entered.weightKg ?? set.weight_kg) && !(entered.reps ?? set.reps_completed)) {
-      toast('Укажите вес или повторения')
+      toast(t('Укажите вес или повторения'))
       return
     }
 
     const { isPR } = await completeSet(set.id)
     if (isPR) {
       haptics.success()
-      toast(`Личный рекорд: ${block.exercise.name}!`, 'pr')
+      toast(`${t('Личный рекорд')}: ${exName(block.exercise.name)}!`, 'pr')
     } else {
       haptics.impact()
     }
@@ -163,15 +204,75 @@ export function LiveSession() {
     const next = block.sets.find((s) => s.id !== set.id && !s.is_done)
     startRest(
       restSeconds ?? profile?.default_rest_seconds ?? 90,
-      next ? block.exercise.name : undefined,
+      next ? exName(block.exercise.name) : undefined,
     )
+  }
+
+  /**
+   * Сдать отчёт прямо из тренировки. Тренировка при этом завершается: сдать
+   * отчёт по незаконченной нельзя, а заставлять человека нажать две кнопки
+   * подряд ради одного намерения — лишний шаг.
+   */
+  const onSubmitReport = async () => {
+    setReportBusy(true)
+    try {
+      await finishSession(id, notes.trim() || undefined)
+      await submitWorkoutReport(id, reportComment.trim() || undefined)
+      stopRest()
+      haptics.success()
+      toast(t('Отчёт отправлен тренеру'))
+      nav('/', { replace: true })
+    } finally {
+      setReportBusy(false)
+    }
+  }
+
+  /**
+   * Отметить всё упражнение разом.
+   *
+   * Если хоть один подход не отмечен — отмечаем оставшиеся; если отмечены
+   * все — снимаем. Так одна кнопка делает то, чего от неё ждут в обоих
+   * состояниях, и не требует догадываться, что она сделает.
+   *
+   * Пустые подходы пропускаем: «сделано» там, где не введено ни веса, ни
+   * повторов, — запись о том, чего не было. Отдых после общей отметки не
+   * запускаем: её жмут, когда упражнение уже закончено.
+   */
+  const onToggleBlock = async (block: Block) => {
+    const allDone = block.sets.every((x) => x.is_done)
+    if (allDone) {
+      for (const set of block.sets) await uncompleteSet(set.id)
+      haptics.selection()
+      return
+    }
+
+    let marked = 0
+    let prs = 0
+    for (const set of block.sets) {
+      if (set.is_done) continue
+      if (!set.weight_kg && !set.reps_completed) continue
+      const { isPR } = await completeSet(set.id)
+      if (isPR) prs++
+      marked++
+    }
+
+    if (!marked) {
+      toast(t('Нечего отмечать: подходы пустые'))
+      return
+    }
+    if (prs) {
+      haptics.success()
+      toast(`${t('Личный рекорд')}: ${exName(block.exercise.name)}!`, 'pr')
+    } else {
+      haptics.impact()
+    }
   }
 
   const onFinish = async () => {
     const saved = await finishSession(id, notes.trim() || undefined)
     stopRest()
     haptics.success()
-    toast(saved ? 'Тренировка завершена' : 'Тренировка отменена — ни одного подхода')
+    toast(saved ? t('Тренировка завершена') : t('Тренировка отменена — ни одного подхода'))
     nav('/', { replace: true })
   }
 
@@ -185,16 +286,16 @@ export function LiveSession() {
     <div className="screen">
       <div className="live-head">
         <div className="row between">
-          <button className="icon-btn" onClick={() => nav(-1)} aria-label="Назад">
+          <button className="icon-btn" onClick={() => nav(-1)} aria-label={t('Назад')}>
             <IconBack size={18} />
           </button>
           <div style={{ textAlign: 'center' }} className="grow">
-            <div style={{ fontWeight: 600 }} className="truncate">
+            <div className="truncate strong">
               {session.title}
             </div>
             <div className="mute-sm">
               <Stopwatch from={session.start_time} stopped={frozenElapsed} /> · {doneCount}{' '}
-              {plural(doneCount, ['подход', 'подхода', 'подходов'])} · {Math.round(volume)} кг
+              {plural(doneCount, ['подход', 'подхода', 'подходов'])} · {Math.round(volume)} {t('кг')}
             </div>
           </div>
           <button
@@ -204,18 +305,18 @@ export function LiveSession() {
               setFinishOpen(true)
             }}
           >
-            Завершить
+            {t('Завершить')}
           </button>
         </div>
       </div>
 
-      <div style={{ marginTop: 14 }}>
+      <div className="mt-4">
         {blocks.length === 0 && (
           <div className="empty">
             <div className="big">
               <IconPlus size={34} />
             </div>
-            Добавьте первое упражнение
+            {t('Добавьте первое упражнение')}
           </div>
         )}
 
@@ -240,40 +341,82 @@ export function LiveSession() {
                   <span className="ex-thumb placeholder" />
                 )}
                 <span className="grow">
-                  <span className="truncate" style={{ display: 'block', fontWeight: 600 }}>
-                    {block.exercise.name}
+                  <span className="truncate strong" style={{ display: 'block' }}>
+                    {exName(block.exercise.name)}
                   </span>
                   <span className="mute-sm">
+                    {/* Цель важнее истории: по ней человек решает, сколько
+                        делать сейчас. Прошлый раз подсказывает вес и потому
+                        идёт следом, а не вместо. */}
+                    {targets?.get(block.exercise.id) && (
+                      <span style={{ color: 'var(--accent-ink)' }}>
+                        {t('цель')} {targets.get(block.exercise.id)}
+                      </span>
+                    )}
+                    {targets?.get(block.exercise.id) && block.prev.length > 0 && ' · '}
                     {block.prev.length > 0
-                      ? `прошлый раз ${formatWeight(block.prev[0].weight_kg)} кг × ${
+                      ? `${t('прошлый раз')} ${formatWeight(block.prev[0].weight_kg)} кг × ${
                           block.prev[0].reps_completed ?? '—'
                         }`
-                      : 'как делать'}
+                      : !targets?.get(block.exercise.id) && t('как делать')}
                   </span>
                 </span>
               </button>
               <button
                 className="icon-btn"
+                onClick={() => setTechniqueFor(block.exercise.id)}
+                aria-label={`${t('Техника')}: ${exName(block.exercise.name)}`}
+                title={t('Как делать')}
+              >
+                <IconInfo size={17} />
+              </button>
+              <button
+                className="icon-btn"
+                onClick={() => setStatsFor(block.exercise)}
+                aria-label={`${t('Статистика')}: ${exName(block.exercise.name)}`}
+                title={t('Статистика по подходам')}
+              >
+                <IconChart size={17} />
+              </button>
+              <button
+                className="icon-btn"
                 onClick={() => setSwapFor(block)}
-                aria-label="Заменить упражнение"
-                title="Заменить (тренажёр занят)"
+                aria-label={t('Заменить упражнение')}
+                title={t('Заменить')}
               >
                 <IconSwap size={17} />
               </button>
               <button
                 className="icon-btn"
                 onClick={() => removeExerciseFromSession(id, block.sequence_order)}
-                aria-label="Убрать упражнение"
+                aria-label={t('Убрать упражнение')}
               >
                 <IconTrash size={17} />
               </button>
             </div>
 
+            {/* Слово тренера стоит выше таблицы подходов: оно должно попасть
+                на глаза до того, как человек наберёт вес, а не после. */}
+            <CoachHint exerciseId={block.exercise.id} />
+
+            <ExerciseBrief exerciseId={block.exercise.id} />
+
             <div className="set-grid head">
               <div className="num">#</div>
-              <div style={{ textAlign: 'center' }}>кг</div>
-              <div style={{ textAlign: 'center' }}>повт.</div>
-              <div />
+              <div style={{ textAlign: 'center' }}>{t('кг')}</div>
+              <div style={{ textAlign: 'center' }}>{t('повт.')}</div>
+              {/* Общая галочка: отметить всё упражнение разом. Подходы часто
+                  делают по плану и отмечают в конце — тыкать в каждую
+                  строку по очереди значит повторять одно действие пять раз.
+                  Пустые подходы она не трогает: отметить «сделано» там, где
+                  не введено ни веса, ни повторов, нечего. */}
+              <button
+                className={`check sm${block.sets.every((x) => x.is_done) ? ' on' : ''}`}
+                aria-label={`${t('Отметить всё')}: ${exName(block.exercise.name)}`}
+                onClick={() => void onToggleBlock(block)}
+              >
+                <IconCheck size={15} />
+              </button>
             </div>
 
             {block.sets.map((s, i) => (
@@ -292,7 +435,7 @@ export function LiveSession() {
                 className="btn sm block"
                 onClick={() => addSetRow(id, block.exercise.id, block.sequence_order)}
               >
-                <IconPlus size={15} /> Добавить подход
+                <IconPlus size={15} /> {t('Добавить подход')}
               </button>
             </div>
             {videoReport && <VideoUploader sessionId={id} exerciseId={block.exercise.id} />}
@@ -300,15 +443,47 @@ export function LiveSession() {
         ))}
 
         <button
-          className="btn block"
-          style={{ marginTop: 12 }}
+          className="btn block mt-3"
           onClick={() => setPickerOpen(true)}
         >
-          <IconPlus size={17} /> Добавить упражнение
+          <IconPlus size={17} /> {t('Добавить упражнение')}
         </button>
+
+        {/* Пункт 4.2: когда всё отмечено, сдать отчёт можно не уходя с
+            тренировки. Блок появляется сам — искать его в другом разделе
+            через час после зала человек не станет. Только с тренером:
+            без него отчёт некому читать. */}
+        {hasTrainer && allDone && (
+          <div className="card mt-4" style={{ borderColor: 'var(--accent)' }}>
+            <div className="strong">{t('Все подходы отмечены')}</div>
+            <div className="mute-sm mt-1">
+              {t('Можно сдать отчёт тренеру. Комментарий необязателен.')}
+            </div>
+            <textarea
+              className="textarea mt-3"
+              style={{ minHeight: 64 }}
+              value={reportComment}
+              onChange={(e) => setReportComment(e.target.value)}
+              placeholder={t('Как прошло: самочувствие, что было тяжело')}
+            />
+            <button
+              className="btn primary block mt-3"
+              disabled={reportBusy}
+              onClick={onSubmitReport}
+            >
+              {reportBusy ? t('Отправляю…') : t('Сдать отчёт')}
+            </button>
+          </div>
+        )}
       </div>
 
       <ExerciseTechniqueSheet exerciseId={techniqueFor} onClose={() => setTechniqueFor(null)} />
+
+      <ExerciseStatsSheet
+        exerciseId={statsFor?.id ?? null}
+        name={statsFor?.name}
+        onClose={() => setStatsFor(null)}
+      />
 
       <ExercisePicker
         open={pickerOpen}
@@ -318,31 +493,31 @@ export function LiveSession() {
 
       <ExercisePicker
         open={!!swapFor}
-        title="Заменить упражнение"
+        title={t('Заменить упражнение')}
         preferMuscle={swapFor?.exercise.muscle_group}
         onClose={() => setSwapFor(null)}
         onPick={(ex) => {
           if (swapFor) void swapExercise(id, swapFor.sequence_order, ex.id)
-          toast('Упражнение заменено')
+          toast(t('Упражнение заменено'))
         }}
       />
 
       <Sheet
         open={finishOpen}
-        title="Завершить тренировку"
+        title={t('Завершить тренировку')}
         onClose={() => {
           setFinishOpen(false)
           setFrozenElapsed(null)
         }}
       >
-        <div className="stat-grid" style={{ marginBottom: 14 }}>
+        <div className="stat-grid mb-4">
           <div className="stat">
             <div className="value">{formatDuration(frozenElapsed ?? 0)}</div>
-            <div className="label">длительность</div>
+            <div className="label">{t('длительность')}</div>
           </div>
           <div className="stat">
-            <div className="value">{Math.round(volume)} кг</div>
-            <div className="label">тоннаж</div>
+            <div className="value">{Math.round(volume)} {t('кг')}</div>
+            <div className="label">{t('тоннаж')}</div>
           </div>
         </div>
         {/* Видеоотчёт собирается здесь, а не по ходу тренировки: снимать и
@@ -350,16 +525,15 @@ export function LiveSession() {
             галерее — остаётся разложить их по упражнениям. */}
         {videoReport && doneBlocks.length > 0 && (
           <>
-            <div className="field-group-title">Видеоотчёт тренеру</div>
-            <div className="mute-sm" style={{ marginBottom: 10 }}>
-              Необязательно. Можно пропустить и прикрепить позже — тренировка останется в
-              истории.
+            <div className="field-group-title">{t('Видеоотчёт тренеру')}</div>
+            <div className="mute-sm mb-3">
+              {t('Необязательно. Можно пропустить и прикрепить позже — тренировка останется в истории.')}
             </div>
             <div className="finish-videos">
               {doneBlocks.map((block) => (
                 <div className="finish-video" key={block.exercise.id}>
                   <div className="row between">
-                    <span className="title truncate">{block.exercise.name}</span>
+                    <span className="title truncate">{exName(block.exercise.name)}</span>
                     <span className="mute-sm">
                       {block.done} {plural(block.done, ['подход', 'подхода', 'подходов'])}
                     </span>
@@ -371,11 +545,11 @@ export function LiveSession() {
           </>
         )}
 
-        <div className="field" style={{ marginTop: 14, marginBottom: 14 }}>
-          <label>Заметка к тренировке</label>
+        <div className="field" style={{ marginTop: 16, marginBottom: 16 }}>
+          <label>{t('Заметка к тренировке')}</label>
           <textarea
             className="textarea"
-            placeholder="Самочувствие, техника, что поменять в следующий раз"
+            placeholder={t('Самочувствие, техника, что поменять в следующий раз')}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
@@ -393,21 +567,20 @@ export function LiveSession() {
               borderLeft: '2px solid var(--danger)',
             }}
           >
-            Ни один подход не отмечен галочкой — сохранять нечего, и в календаре тренировка не
-            появится. Отметьте выполненные подходы и завершите снова.
+            {t('Ни один подход не отмечен галочкой — сохранять нечего, и в календаре тренировка не появится. Отметьте выполненные подходы и завершите снова.')}
           </div>
         )}
         <div className="stack">
           <button className="btn success block" onClick={onFinish}>
-            {doneCount === 0 ? 'Выйти без сохранения' : 'Завершить тренировку'}
+            {doneCount === 0 ? t('Выйти без сохранения') : t('Завершить тренировку')}
           </button>
           <button className="btn ghost danger block" onClick={onDiscard}>
-            Отменить тренировку
+            {t('Отменить тренировку')}
           </button>
         </div>
         {doneCount > 0 && (
-          <div className="mute-sm" style={{ marginTop: 10, textAlign: 'center' }}>
-            Неотмеченные подходы не попадут в статистику.
+          <div className="mute-sm" style={{ marginTop: 12, textAlign: 'center' }}>
+            {t('Неотмеченные подходы не попадут в статистику.')}
           </div>
         )}
       </Sheet>
@@ -479,7 +652,7 @@ function SetRow({
         <button
           className="num"
           onDoubleClick={onDelete}
-          title="Двойной клик — удалить подход"
+          title={t('Двойной клик — удалить подход')}
           style={{ background: 'none' }}
         >
           {index + 1}
@@ -516,7 +689,7 @@ function SetRow({
             await commitReps(reps)
             onToggle({ weightKg: asWeight(weight), reps: asReps(reps) })
           }}
-          aria-label="Подход выполнен"
+          aria-label={t('Подход выполнен')}
         >
           <IconCheck size={18} />
         </button>
@@ -525,11 +698,11 @@ function SetRow({
             {set.is_pr === 1 && (
               <span className="badge pr">
                 <IconRecord size={11} />
-                Личный рекорд
+                {t('Личный рекорд')}
               </span>
             )}
             {oneRm > 0 && (
-              <span style={{ marginLeft: set.is_pr ? 8 : 0 }}>1ПМ ≈ {oneRm} кг</span>
+              <span style={{ marginLeft: set.is_pr ? 8 : 0 }}>{t('1ПМ')} ≈ {oneRm} {t('кг')}</span>
             )}
           </div>
         )}

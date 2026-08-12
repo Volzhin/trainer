@@ -1,8 +1,9 @@
 import { NavLink } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
+import { db } from '../db/db'
 import { unreadCount } from '../db/chat'
 import {
-  // IconApple — вернётся вместе с разделом питания
+  IconApple,
   IconChat,
   IconClipboard,
   IconDumbbell,
@@ -11,6 +12,7 @@ import {
   IconUsers,
 } from './Icons'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
 import { useApp, useRole, useTrainerLink } from '../store/app'
 
 type Tab = { to: string; label: string; Icon: typeof IconHome; end: boolean }
@@ -22,10 +24,7 @@ type Tab = { to: string; label: string; Icon: typeof IconHome; end: boolean }
  */
 const CLIENT_TABS: Tab[] = [
   { to: '/', label: 'Тренировки', Icon: IconHome, end: true },
-  // Раздел питания снят с интерфейса: он работает плохо, и показывать его
-  // людям рано. Код страниц и расчётов оставлен на месте — вернуть раздел
-  // значит снять комментарий здесь и в App.tsx, ничего не восстанавливая.
-  // { to: '/nutrition', label: 'Питание', Icon: IconApple, end: false },
+  { to: '/nutrition', label: 'Питание', Icon: IconApple, end: false },
 ]
 
 /** Появляются только с тренером: без него писать и отчитываться некому. */
@@ -54,6 +53,24 @@ export function TabBar() {
     [bond?.trainer.id, userId],
   )
 
+  /*
+   * Непрочитанное у тренера — сумма по всем клиентам.
+   *
+   * У него нет отдельного раздела переписки: чат живёт в карточке клиента,
+   * и это правильно — разговор ведут с человеком, а не с разделом. Но без
+   * этой точки тренер, стоящий в «Программах», о новом вопросе не узнает
+   * вовсе, пока сам не вернётся в список. Сообщение, которое не заметили,
+   * ничем не отличается от неотправленного.
+   */
+  const trainerUnread = useLiveQuery(async () => {
+    if (role !== 'TRAINER') return 0
+    const links = await db.links.where('trainer_id').equals(userId).toArray()
+    const counts = await Promise.all(
+      links.map((l) => unreadCount(userId, l.client_id, userId)),
+    )
+    return counts.reduce((a, b) => a + b, 0)
+  }, [role, userId])
+
   // Пока связка не прочитана, лишних разделов не показываем: появиться им
   // безболезненно, а исчезнуть под уже занесённым пальцем — нет.
   const tabs =
@@ -74,7 +91,8 @@ export function TabBar() {
           >
             <Icon />
             {to === '/chat' && (unread ?? 0) > 0 && <i className="unread" />}
-            <span>{label}</span>
+            {to === '/trainer' && (trainerUnread ?? 0) > 0 && <i className="unread" />}
+            <span>{t(label)}</span>
           </NavLink>
         ))}
       </div>

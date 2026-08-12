@@ -5,10 +5,12 @@ import {
   type Attachment,
   type ExerciseSet,
   type Feedback,
+  type Progression,
   type WorkoutSession,
 } from '../db/db'
 import { useExercises } from '../db/catalog'
 import { addFeedback, attachmentsForSession, feedbackForSession } from '../db/coach'
+import { progressionFor, setExerciseProgression } from '../db/reports'
 import { AttachmentPlayer } from './ExerciseVideo'
 import { Sheet } from './Sheet'
 import { IconChat, IconRecord } from './Icons'
@@ -16,6 +18,8 @@ import { formatDateTime, formatDuration, formatWeight, plural, totalVolume } fro
 import { estimate1RM } from '../lib/calc'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
+import { exName } from '../lib/exerciseNames'
 
 /**
  * Разбор тренировки глазами тренера: что реально было сделано по подходам,
@@ -70,7 +74,7 @@ export function SessionReview({
     try {
       await addFeedback({ clientId, sessionId: session.id, text, trainerId: userId })
       haptics.success()
-      toast('Комментарий отправлен клиенту')
+      toast(t('Комментарий отправлен клиенту'))
       setText('')
       onClose()
     } finally {
@@ -80,16 +84,16 @@ export function SessionReview({
 
   return (
     <Sheet open={!!session} title={session.title} onClose={onClose}>
-      <div className="mute-sm" style={{ marginBottom: 12 }}>
+      <div className="mute-sm mb-3">
         {formatDateTime(session.start_time)} ·{' '}
         {formatDuration((session.end_time ?? session.start_time) - session.start_time)} ·{' '}
-        {Math.round(totalVolume(sets ?? []))} кг
+        {Math.round(totalVolume(sets ?? []))} {t('кг')}
       </div>
 
       {session.notes && (
-        <div className="card" style={{ marginBottom: 12 }}>
-          <div className="mute-sm">Заметка клиента</div>
-          <div style={{ marginTop: 4 }}>{session.notes}</div>
+        <div className="card mb-3">
+          <div className="mute-sm">{t('Заметка клиента')}</div>
+          <div className="mt-1">{session.notes}</div>
         </div>
       )}
 
@@ -104,15 +108,15 @@ export function SessionReview({
           0,
         )
         return (
-          <div className="ex-block" key={seq} style={{ marginBottom: 10 }}>
+          <div className="ex-block" key={seq} style={{ marginBottom: 12 }}>
             <div className="ex-head">
               <div className="grow">
-                <div className="truncate" style={{ fontWeight: 600 }}>
-                  {ex?.name ?? 'Упражнение'}
+                <div className="truncate strong">
+                  {exName(ex?.name) || t('Упражнение')}
                 </div>
                 <div className="mute-sm">
                   {sorted.length} {plural(sorted.length, ['подход', 'подхода', 'подходов'])}
-                  {top > 0 && ` · лучший 1ПМ ≈ ${Math.round(top)} кг`}
+                  {top > 0 && ` · ${t('лучший 1ПМ')} ≈ ${Math.round(top)} ${t('кг')}`}
                 </div>
               </div>
             </div>
@@ -123,8 +127,8 @@ export function SessionReview({
                 style={{ gridTemplateColumns: '30px 1fr 1fr 52px' }}
               >
                 <div className="num">{s.set_number}</div>
-                <div style={{ textAlign: 'center' }}>{formatWeight(s.weight_kg)} кг</div>
-                <div style={{ textAlign: 'center' }}>{s.reps_completed ?? '—'} повт.</div>
+                <div style={{ textAlign: 'center' }}>{formatWeight(s.weight_kg)} {t('кг')}</div>
+                <div style={{ textAlign: 'center' }}>{s.reps_completed ?? '—'} {t('повт.')}</div>
                 <div style={{ textAlign: 'right' }}>
                   {s.is_pr === 1 && (
                     <span className="badge pr">
@@ -149,43 +153,37 @@ export function SessionReview({
 
       {(comments ?? []).filter((c) => !c.exercise_id).length > 0 && (
         <>
-          <div className="section-title">Общие комментарии</div>
+          <div className="section-title">{t('Общие комментарии')}</div>
           {(comments ?? [])
             .filter((c) => !c.exercise_id)
             .map((c) => (
               <div
                 key={c.id}
-                className="muted"
-                style={{
-                  borderLeft: '2px solid var(--accent)',
-                  paddingLeft: 10,
-                  marginBottom: 8,
-                }}
+                className="muted quote mb-2"
               >
                 {c.text}
                 <div className="mute-sm">
                   {formatDateTime(c.created_at)}
-                  {c.is_read === 1 ? ' · прочитано' : ' · не прочитано'}
+                  {c.is_read === 1 ? ` · ${t('прочитано')}` : ` · ${t('не прочитано')}`}
                 </div>
               </div>
             ))}
         </>
       )}
 
-      <div className="section-title">Итог по тренировке</div>
+      <div className="section-title">{t('Итог по тренировке')}</div>
       <textarea
         className="textarea"
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="Общий комментарий: самочувствие, нагрузка, что меняем"
+        placeholder={t('Общий комментарий: самочувствие, нагрузка, что меняем')}
       />
       <button
-        className="btn primary block"
-        style={{ marginTop: 10 }}
+        className="btn primary block mt-3"
         disabled={busy || !text.trim()}
         onClick={send}
       >
-        Отправить клиенту
+        {t('Отправить клиенту')}
       </button>
     </Sheet>
   )
@@ -208,12 +206,38 @@ function ExerciseReview({
   const { toast, userId } = useApp()
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
+  const [progression, setProgression] = useState<Progression | null>(null)
+
+  // Что тренер уже говорил про вес по этому упражнению — чтобы не выставлять
+  // вслепую и видеть, что рекомендация дошла.
+  const current = useLiveQuery(
+    () => progressionFor(exerciseId, clientId),
+    [exerciseId, clientId],
+  )
+
+  /**
+   * Рекомендация по весу отправляется сразу по нажатию, без кнопки
+   * «сохранить»: это выбор из трёх, и подтверждать его нечем — промах
+   * исправляется тем же нажатием на соседний вариант.
+   */
+  const setWeightAdvice = async (value: Progression) => {
+    setProgression(value)
+    await setExerciseProgression({
+      clientId,
+      sessionId,
+      exerciseId,
+      progression: value,
+      trainerId: userId,
+    })
+    haptics.selection()
+    toast(t('Рекомендация по весу отправлена'))
+  }
 
   const send = async () => {
     if (!text.trim()) return
     await addFeedback({ clientId, sessionId, exerciseId, text, trainerId: userId })
     haptics.success()
-    toast('Разбор отправлен')
+    toast(t('Разбор отправлен'))
     setText('')
     setOpen(false)
   }
@@ -224,49 +248,72 @@ function ExerciseReview({
         <AttachmentPlayer key={a.id} attachment={a} />
       ))}
 
-      {comments.map((c) => (
+      {comments
+        .filter((c) => c.text.trim())
+        .map((c) => (
         <div
           key={c.id}
-          className="mute-sm"
-          style={{
-            borderLeft: '2px solid var(--accent)',
-            paddingLeft: 10,
-            marginTop: 8,
-            color: 'var(--text-2)',
-          }}
+          className="muted quote mt-2"
         >
           {c.text}
           {c.is_read === 0 && (
             <span className="badge" style={{ marginLeft: 8 }}>
-              не прочитано
+              {t('не прочитано')}
             </span>
           )}
         </div>
       ))}
 
+      {/* Пункт 5.5: переключатель прогрессии веса. Стоит рядом с разбором
+          техники, потому что решение о весе тренер принимает, глядя на то
+          же видео и те же подходы. */}
+      <div className="mt-3">
+        <div className="mute-sm mb-1">{t('Вес в следующий раз')}</div>
+        <div className="segmented">
+          {(
+            [
+              ['decrease', 'Снизить'],
+              ['keep', 'Оставить'],
+              ['increase', 'Прибавить'],
+            ] as const
+          ).map(([value, label]) => {
+            const active = (progression ?? current?.progression) === value
+            return (
+              <button
+                key={value}
+                className={active ? 'on' : ''}
+                onClick={() => void setWeightAdvice(value)}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
       {open ? (
-        <div className="stack" style={{ marginTop: 8 }}>
+        <div className="stack mt-2">
           <textarea
             className="textarea"
             style={{ minHeight: 64 }}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Что поправить в технике"
+            placeholder={t('Что поправить в технике')}
             autoFocus
           />
           <div className="row" style={{ gap: 8 }}>
             <button className="btn sm grow" onClick={() => setOpen(false)}>
-              Отмена
+              {t('Отмена')}
             </button>
             <button className="btn sm primary grow" disabled={!text.trim()} onClick={send}>
-              Отправить
+              {t('Отправить')}
             </button>
           </div>
         </div>
       ) : (
-        <button className="btn sm block" style={{ marginTop: 8 }} onClick={() => setOpen(true)}>
+        <button className="btn sm block mt-2" onClick={() => setOpen(true)}>
           <IconChat size={15} />
-          {videos.length ? 'Разобрать технику' : 'Комментарий к упражнению'}
+          {videos.length ? t('Разобрать технику') : t('Комментарий к упражнению')}
         </button>
       )}
     </div>

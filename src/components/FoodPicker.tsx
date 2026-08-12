@@ -8,6 +8,7 @@ import { Sheet } from './Sheet'
 import { IconSearch } from './Icons'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
 
 /**
  * Выбор продукта.
@@ -86,14 +87,14 @@ export function FoodPicker({
       const found = await findByBarcode(code.trim())
       if (!found) {
         // База штрихкодов неполная по России — сразу предлагаем завести свой.
-        toast('Такого штрихкода нет в базе — заполните сами')
+        toast(t('Такого штрихкода нет в базе — заполните сами'))
         setCreating({ barcode: code.trim() })
         return
       }
       haptics.impact()
       pick(found)
     } catch {
-      toast('Нет связи с базой продуктов')
+      toast(t('Нет связи с базой продуктов'))
     } finally {
       setLoading(false)
     }
@@ -108,7 +109,7 @@ export function FoodPicker({
   const confirm = async () => {
     if (!chosen || !slot) return
     const value = parseFloat(amount.replace(',', '.'))
-    if (!Number.isFinite(value) || value <= 0) return toast('Укажите количество')
+    if (!Number.isFinite(value) || value <= 0) return toast(t('Укажите количество'))
 
     await logFood({ food: chosen, amount: value, slot, date, userId })
     haptics.success()
@@ -128,13 +129,13 @@ export function FoodPicker({
   const preview = chosen ? scaleNutrients(chosen.per100, parseFloat(amount) || 0) : null
 
   return (
-    <Sheet open={!!slot} title={chosen ? chosen.name : 'Что вы съели'} onClose={onClose}>
+    <Sheet open={!!slot} title={chosen ? chosen.name : t('Что вы съели')} onClose={onClose}>
       {chosen ? (
         <div className="stack">
           {chosen.brand && <div className="mute-sm">{chosen.brand}</div>}
 
           <div className="field">
-            <label>Количество, {chosen.unit}</label>
+            <label>{t('Количество')}, {t(chosen.unit)}</label>
             <input
               className="input"
               inputMode="decimal"
@@ -161,38 +162,38 @@ export function FoodPicker({
           {preview && (
             <div className="group">
               <div className="group-row">
-                <span className="grow title">Калории</span>
-                <span className="value" style={{ fontFamily: 'var(--font-num)' }}>
-                  {preview.kcal} ккал
+                <span className="grow title">{t('Калории')}</span>
+                <span className="value figures">
+                  {preview.kcal} {t('ккал')}
                 </span>
               </div>
               <div className="group-row">
-                <span className="grow title">Белки · Жиры · Углеводы</span>
-                <span className="value" style={{ fontFamily: 'var(--font-num)' }}>
-                  {preview.protein} · {preview.fat} · {preview.carbs} г
+                <span className="grow title">{t('Белки · Жиры · Углеводы')}</span>
+                <span className="value figures">
+                  {preview.protein} · {preview.fat} · {preview.carbs} {t('г')}
                 </span>
               </div>
             </div>
           )}
 
           <button className="btn primary block" onClick={confirm}>
-            Записать
+            {t('Записать')}
           </button>
           <button className="btn ghost block" onClick={() => setChosen(null)}>
-            Выбрать другое
+            {t('Выбрать другое')}
           </button>
         </div>
       ) : creating ? (
         <CustomFoodForm
           initialName={query.trim()}
           barcode={creating.barcode}
-          submitLabel="Сохранить и добавить"
-          cancelLabel="Назад к поиску"
+          submitLabel={t('Сохранить и добавить')}
+          cancelLabel={t('Назад к поиску')}
           onCancel={() => setCreating(null)}
           onSubmit={async (input) => {
             const food = await saveCustomFood(input, userId)
             haptics.success()
-            toast('Продукт сохранён — теперь он в ваших')
+            toast(t('Продукт сохранён — теперь он в ваших'))
             setCreating(null)
             pick(food)
           }}
@@ -203,7 +204,7 @@ export function FoodPicker({
             <IconSearch />
             <input
               className="input"
-              placeholder="Название продукта"
+              placeholder={t('Название продукта')}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               autoFocus
@@ -212,16 +213,16 @@ export function FoodPicker({
 
           <div className="row" style={{ gap: 8 }}>
             <button className="btn sm grow" onClick={() => setScanning(true)}>
-              По штрихкоду
+              {t('По штрихкоду')}
             </button>
             <button className="btn sm grow" onClick={() => setCreating({})}>
-              Создать продукт
+              {t('Создать продукт')}
             </button>
           </div>
 
           {mine.length > 0 && (
             <>
-              <div className="section-title">Мои продукты</div>
+              <div className="section-title">{t('Мои продукты')}</div>
               <div className="group">
                 {mine.map((f) => (
                   <FoodRow key={f.id} food={f} onPick={pick} />
@@ -233,7 +234,7 @@ export function FoodPicker({
           {cached.length > 0 && (
             <>
               <div className="section-title">
-                {query.trim() ? 'Уже записывали' : 'Недавние'}
+                {query.trim() ? t('Уже записывали') : t('Недавние')}
               </div>
               <div className="group">
                 {cached.map((f) => (
@@ -245,7 +246,7 @@ export function FoodPicker({
 
           {(extra.length > 0 || loading) && (
             <>
-              <div className="section-title">База продуктов{loading ? ' · ищу…' : ''}</div>
+              <div className="section-title">{t('База продуктов')}{loading ? ` · ${t('ищу…')}` : ''}</div>
               <div className="group">
                 {extra.map((f) => (
                   <FoodRow key={f.id} food={f} onPick={pick} />
@@ -256,13 +257,12 @@ export function FoodPicker({
 
           {!loading && !local.length && !extra.length && query.trim().length >= 3 && (
             <div className="empty" style={{ padding: 20 }}>
-              Ничего не нашлось.
+              {t('Ничего не нашлось.')}
               <button
-                className="btn block"
-                style={{ marginTop: 12 }}
+                className="btn block mt-3"
                 onClick={() => setCreating({})}
               >
-                Создать «{query.trim()}»
+                {t('Создать')} «{query.trim()}»
               </button>
             </div>
           )}
@@ -293,13 +293,13 @@ function FoodRow({ food, onPick }: { food: FoodItem; onPick: (f: FoodItem) => vo
           {food.name}
           {food.source === 'manual' && (
             <span className="tag" style={{ marginLeft: 6 }}>
-              своё
+              {t('своё')}
             </span>
           )}
         </span>
-        <span className="sub" style={{ display: 'block' }}>
+        <span className="sub">
           {food.brand ? `${food.brand} · ` : ''}
-          {food.per100.kcal} ккал на 100 {food.unit}
+          {food.per100.kcal} {t('ккал')} {t('на 100')} {t(food.unit)}
         </span>
       </span>
     </button>

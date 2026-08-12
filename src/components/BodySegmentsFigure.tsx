@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { BodyFigure, type SegmentKey } from './BodyFigure'
+import { t } from '../lib/i18n'
 
 /**
  * Сегментарный анализ. Значения стоят у своих частей тела — слева от левой
@@ -90,7 +91,7 @@ export function BodySegmentsFigure({
         <div className="kg">{s ? `${s.kg} ${unit}` : '—'}</div>
         {s?.pct != null && <div className="pct">{s.pct} %</div>}
         {s?.status && (
-          <span className={`status ${chipClass(kind, s)}`}>{STATUS_TEXT[s.status]}</span>
+          <span className={`status ${chipClass(kind, s)}`}>{t(STATUS_TEXT[s.status])}</span>
         )}
       </div>
     )
@@ -101,9 +102,9 @@ export function BodySegmentsFigure({
   return (
     <div className="body-panel">
       {total != null && (
-        <div className="row between" style={{ marginBottom: 4 }}>
+        <div className="row between mb-1">
           <span className="mute-sm">
-            {kind === 'muscle' ? 'Содержание мышц' : 'Содержание жира'}
+            {kind === 'muscle' ? t('Содержание мышц') : t('Содержание жира')}
           </span>
           <span style={{ fontFamily: 'var(--font-num)', fontWeight: 700 }}>
             {total} {unit}
@@ -112,14 +113,14 @@ export function BodySegmentsFigure({
       )}
 
       <div className="body-grid">
-        <Value k="left_arm" align="right" label="левая рука" />
+        <Value k="left_arm" align="right" label={t('левая рука')} />
         <div className="body-figure-wrap">
           <BodyFigure tone={tone} fill={fill} worst={worst} />
         </div>
-        <Value k="right_arm" align="left" label="правая рука" />
+        <Value k="right_arm" align="left" label={t('правая рука')} />
 
-        <Value k="left_leg" align="right" label="левая нога" />
-        <Value k="right_leg" align="left" label="правая нога" />
+        <Value k="left_leg" align="right" label={t('левая нога')} />
+        <Value k="right_leg" align="left" label={t('правая нога')} />
       </div>
 
       {/* Туловище — отдельной строкой, а не надписью поверх фигуры: цифра
@@ -130,10 +131,10 @@ export function BodySegmentsFigure({
             <span className="trunk-mark" style={{ background: tone('trunk') }} />
           </span>
           <span className="grow">
-            <span className="part">туловище</span>
+            <span className="part">{t('туловище')}</span>
             {trunk.status && (
               <span className={`status ${chipClass(kind, trunk)}`} style={{ marginLeft: 8 }}>
-                {STATUS_TEXT[trunk.status]}
+                {t(STATUS_TEXT[trunk.status])}
               </span>
             )}
           </span>

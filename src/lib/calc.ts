@@ -1,4 +1,5 @@
 import type { ExerciseSet } from '../db/db'
+import { getLang, pluralEn } from './i18n'
 
 /** Оценка одноповторного максимума по формуле Эпли. */
 export function estimate1RM(weight: number, reps: number): number {
@@ -71,6 +72,14 @@ export function formatDateTime(ts: number): string {
 }
 
 export function plural(n: number, forms: [string, string, string]): string {
+  // Английский считает по-другому: одна форма для единицы, вторая для
+  // всего остального. Нет пары в словаре — оставляем русскую: лучше
+  // «2 подхода» посреди английского, чем пустое место.
+  if (getLang() === 'en') {
+    const en = pluralEn(n, forms[0])
+    if (en) return en
+  }
+
   const abs = Math.abs(n) % 100
   const last = abs % 10
   if (abs > 10 && abs < 20) return forms[2]
@@ -89,4 +98,16 @@ export function startOfDay(ts: number): number {
 export function weekStart(ts: number): number {
   const day = startOfDay(ts)
   return day - ((new Date(day).getDay() + 6) % 7) * 86400_000
+}
+
+/**
+ * Цель по повторам: одно число или диапазон.
+ *
+ * Формат один на все экраны — тренер задаёт «8-12», и ровно это должен
+ * увидеть клиент у снаряда. Верхняя граница, равная нижней, диапазоном не
+ * считается: «10-10» читается как ошибка ввода.
+ */
+export function formatReps(min?: number, max?: number): string | null {
+  if (!min) return null
+  return max && max > min ? `${min}–${max}` : String(min)
 }

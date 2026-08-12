@@ -6,6 +6,7 @@ import { Sheet } from './Sheet'
 import { IconPlus } from './Icons'
 import { formatDate, formatWeight } from '../lib/calc'
 import { useApp } from '../store/app'
+import { t } from '../lib/i18n'
 
 const round1 = (v: number) => Math.round(v * 10) / 10
 
@@ -43,7 +44,7 @@ export function WeightCard({ userId }: { userId: string }) {
                 <div className="t-num" style={{ fontSize: 28 }}>
                   {formatWeight(latest.y)}{' '}
                   <span className="mute-sm" style={{ fontSize: 14 }}>
-                    кг
+                    {t('кг')}
                   </span>
                 </div>
                 <div className="mute-sm mt-1">{formatDate(latest.x)}</div>
@@ -64,7 +65,7 @@ export function WeightCard({ userId }: { userId: string }) {
             )}
           </>
         ) : (
-          <div className="muted">Ещё не взвешивались — запишите первый вес.</div>
+          <div className="muted">{t('Ещё не взвешивались — запишите первый вес.')}</div>
         )}
         <button className="btn block mt-3" onClick={() => setOpen(true)}>
           <IconPlus size={16} /> Записать вес
@@ -80,7 +81,7 @@ export function WeightCard({ userId }: { userId: string }) {
   )
 }
 
-function WeightSheet({
+export function WeightSheet({
   open,
   onClose,
   onSaved,
@@ -107,10 +108,10 @@ function WeightSheet({
   }
 
   return (
-    <Sheet open={open} title="Записать вес" onClose={onClose}>
+    <Sheet open={open} title={t('Записать вес')} onClose={onClose}>
       <div className="stack">
         <div className="field">
-          <label>Вес, кг</label>
+          <label>{t('Вес, кг')}</label>
           <input
             className="input"
             inputMode="decimal"
@@ -118,7 +119,6 @@ function WeightSheet({
             value={weight}
             onChange={(e) => setWeight(e.target.value)}
             placeholder="78,5"
-            style={{ fontFamily: 'var(--font-num)' }}
           />
         </div>
         <button className="btn primary block" disabled={busy || !weight} onClick={submit}>
