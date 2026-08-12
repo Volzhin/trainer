@@ -8,7 +8,7 @@ import {
   startSessionFromRoutine,
   startEmptySession,
 } from '../db/repo'
-import { activeAssignmentFor, plannedDates, plannedForDate } from '../db/coach'
+import { activeAssignmentFor, planQueue, plannedDates, plannedForDate } from '../db/coach'
 import { IconBack, IconChevronRight, IconDumbbell, IconPlay, IconRepeat } from '../components/Icons'
 import { Sheet } from './Sheet'
 import { formatDuration, plural, startOfDay, totalVolume } from '../lib/calc'
@@ -124,15 +124,18 @@ export function WorkoutCalendar() {
   const [startOpen, setStartOpen] = useState(false)
 
   /**
-   * Следующая тренировка из программы: день, стоящий на выбранной дате, а
-   * если на неё плана нет — первый день программы.
+   * Весь план по порядку исполнения, начиная с той тренировки, что стоит
+   * следующей. Список грузим только с открытой шторкой: до неё он не виден,
+   * а запрос ходит в четыре таблицы.
    */
-  const nextRoutine = plannedToday?.routine ?? plan?.routines?.[0]
+  const queue = useLiveQuery(
+    () => (startOpen ? planQueue(selected) : Promise.resolve(null)),
+    [startOpen, selected, plan?.assignment.id],
+  )
 
-  const startProgram = async () => {
-    if (!nextRoutine) return
+  const startProgram = async (routineId: string) => {
     haptics.impact()
-    const id = await startSessionFromRoutine(nextRoutine.id)
+    const id = await startSessionFromRoutine(routineId)
     if (!id) {
       toast(t('В этом дне программы пока нет упражнений'))
       return
@@ -332,42 +335,46 @@ export function WorkoutCalendar() {
         </>
       )}
 
-      {/* Выбор из двух, а не одна «умная» кнопка: раньше она сама решала,
-          что запустить, и человек не знал заранее, получит он свой план или
-          пустую тренировку. Пункт из программы появляется только с
-          назначенной программой — предлагать несуществующее нечестно. */}
+      {/*
+        Показываем весь план, а не одну «следующую».
+
+        План — не конвейер: заболело плечо, зал занят, уехал в командировку.
+        Раньше выбор был между строго следующим днём и пустой тренировкой,
+        и человек, которому сегодня не подходит план, оставался ни с чем.
+        Порядок при этом сохраняет подсказку: сверху то, что по плану.
+      */}
       <Sheet open={startOpen} title={t('Начать тренировку')} onClose={() => setStartOpen(false)}>
         <div className="stack">
-          {nextRoutine ? (
-            <button className="list-item" onClick={startProgram}>
-              <span className="metric-icon" style={{ color: 'var(--accent-ink)' }}>
-                <IconPlay size={18} />
-              </span>
-              <span className="grow">
-                <span className="title">{t('Следующая из программы')}</span>
-                <span className="sub">
-                  {nextRoutine.name}
-                </span>
-              </span>
-              <IconChevronRight size={16} />
-            </button>
+          {/* Пока список едет из базы, queue === undefined. Отличать это от
+              «плана нет» обязательно: иначе при каждом открытии мелькает
+              «программа не назначена» у человека, у которого она есть. */}
+          {queue === undefined ? (
+            <div className="mute-sm">{t('Загружаю план…')}</div>
+          ) : queue?.queue.length ? (
+            <div className="group">
+              {queue.queue.map((r, i) => (
+                <button className="group-row tap" key={r.id} onClick={() => startProgram(r.id)}>
+                  <span className="metric-icon" style={i === 0 ? { color: 'var(--accent-ink)' } : undefined}>
+                    {i === 0 ? <IconPlay size={18} /> : <IconDumbbell size={18} />}
+                  </span>
+                  <span className="grow">
+                    <span className="title">{r.name}</span>
+                    {i === 0 && <span className="sub">{t('следующая по плану')}</span>}
+                  </span>
+                  <IconChevronRight size={16} />
+                </button>
+              ))}
+            </div>
           ) : (
             <div className="mute-sm">
               {t('Программа не назначена — тренировку из плана запускать пока не из чего.')}
             </div>
           )}
 
-          <button className="list-item" onClick={startFree}>
-            <span className="metric-icon">
-              <IconDumbbell size={18} />
-            </span>
-            <span className="grow">
-              <span className="title">{t('Свободная тренировка')}</span>
-              <span className="sub">
-                {t('Упражнения добавите по ходу')}
-              </span>
-            </span>
-            <IconChevronRight size={16} />
+          {/* Своя тренировка — внизу и кнопкой: это выход из плана, а не ещё
+              один его день, и стоять в одном списке с ними он не должен. */}
+          <button className="btn block" onClick={startFree}>
+            <IconDumbbell size={16} /> {t('Создать свою тренировку')}
           </button>
         </div>
       </Sheet>

@@ -17,6 +17,7 @@ import {
   type ScheduleSlot,
   type TrainerLink,
   type UserProfile,
+  type WorkoutRoutine,
   type WorkoutSession,
 } from './db'
 import { issueRequiredTasks } from './reports'
@@ -765,6 +766,86 @@ export async function activeAssignmentFor(clientId = currentUserId()) {
     // выборе, который он сделал сам и вправе поменять.
     isSelfPlan: assignment.trainer_id === clientId,
   }
+}
+
+/**
+ * Очередь тренировок плана: что делать следующим и что идёт за этим.
+ *
+ * Показывать одну «следующую» кнопку оказалось мало. План — это не
+ * конвейер: заболело плечо, зал занят, уехал в командировку, — и человек
+ * хочет взять другой день, а не выбирать между «строго по плану» и пустой
+ * тренировкой. Поэтому отдаём весь список, но начинаем с той, что по
+ * плану, — порядок и есть подсказка.
+ *
+ * Порядок исполнения задаёт расписание, а не нумерация дней в программе:
+ * тренер вправе поставить второй день на понедельник, и тогда именно он
+ * идёт первым. Дни программы, которых в расписании нет, добавляем следом —
+ * они не выпадают из списка, просто не привязаны к дню недели.
+ */
+export async function planQueue(date: number, clientId = currentUserId()) {
+  const plan = await activeAssignmentFor(clientId)
+  if (!plan || !plan.routines.length) return null
+
+  const byId = new Map(plan.routines.map((r) => [r.id, r]))
+  const schedule = [...(plan.assignment.schedule ?? [])].sort((a, b) => a.weekday - b.weekday)
+
+  const ordered: WorkoutRoutine[] = []
+  const seen = new Set<string>()
+  for (const slot of schedule) {
+    const r = byId.get(slot.routine_id)
+    if (r && !seen.has(r.id)) {
+      seen.add(r.id)
+      ordered.push(r)
+    }
+  }
+  for (const r of plan.routines) {
+    if (!seen.has(r.id)) {
+      seen.add(r.id)
+      ordered.push(r)
+    }
+  }
+
+  const nextId = await nextRoutineId(date, clientId, ordered, schedule)
+  const at = ordered.findIndex((r) => r.id === nextId)
+  // Разворачиваем список от следующей тренировки, а не просто помечаем её:
+  // «дальше по порядку» должно читаться сверху вниз, иначе продолжение
+  // плана оказывается выше его начала.
+  const queue = at > 0 ? [...ordered.slice(at), ...ordered.slice(0, at)] : ordered
+
+  return { plan, queue, nextId: queue[0]?.id }
+}
+
+/**
+ * Какую тренировку человек должен сделать следующей.
+ *
+ * Сначала спрашиваем расписание: выбранный день, а если он пустой — ближайший
+ * плановый в пределах недели. Без расписания идём от сделанного: следующая
+ * после последней завершённой. Оба пути могут не дать ответа — тогда начало
+ * плана, с него и начинают.
+ */
+async function nextRoutineId(
+  date: number,
+  clientId: string,
+  ordered: WorkoutRoutine[],
+  schedule: ScheduleSlot[],
+): Promise<string | undefined> {
+  if (schedule.length) {
+    for (let i = 0; i < 7; i++) {
+      const planned = await plannedForDate(date + i * 86400_000, clientId)
+      if (planned) return planned.routine.id
+    }
+  }
+
+  const last = await db.sessions
+    .where('user_id')
+    .equals(clientId)
+    .and((s) => s.is_completed === 1 && !!s.routine_id)
+    .sortBy('start_time')
+  const lastId = last[last.length - 1]?.routine_id
+  const at = lastId ? ordered.findIndex((r) => r.id === lastId) : -1
+  if (at >= 0) return ordered[(at + 1) % ordered.length].id
+
+  return ordered[0]?.id
 }
 
 export async function addFeedback(input: {
