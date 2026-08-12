@@ -10,6 +10,8 @@ import {
   tasksOf,
   workoutReportsOf,
 } from '../db/reports'
+import type { ClientTask } from '../db/db'
+import { formatDate } from '../lib/calc'
 import { Sheet } from './Sheet'
 import { ReviewSheet, type ReviewSubject } from './ReviewSheet'
 import { Group, Row } from './Group'
@@ -91,16 +93,9 @@ export function ClientReports({ clientId }: { clientId: string }) {
             <Row
               key={task.id}
               title={task.title}
-              sub={
-                task.status === 'done'
-                  ? task.answer
-                    ? `${t('Выполнено')} · ${task.answer}`
-                    : t('Выполнено')
-                  : task.required === 1
-                    ? t('Обязательное · не выполнено')
-                    : t('Не выполнено')
-              }
+              sub={taskSub(task)}
               value={task.status === 'done' ? <IconCheck size={16} /> : undefined}
+              danger={isOverdue(task)}
             />
           ))}
         </Group>
@@ -129,6 +124,31 @@ export function ClientReports({ clientId }: { clientId: string }) {
 
 /* ------------------------- отчёт как предмет разбора ------------------- */
 
+/**
+ * Просрочено ли задание.
+ *
+ * Сравниваем с началом сегодняшнего дня: срок — это день целиком, и
+ * задание со сроком «сегодня» не просрочено до завтра. Выполненное не
+ * просрочивается никогда, даже если сдано поздно: ругать за сделанное
+ * бессмысленно.
+ */
+export function isOverdue(task: ClientTask): boolean {
+  if (task.status === 'done' || task.due_at == null) return false
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  return task.due_at < start.getTime()
+}
+
+/** Подпись задания: что с ним и к какому сроку. */
+function taskSub(task: ClientTask): string {
+  if (task.status === 'done') {
+    return task.answer ? `${t('Выполнено')} · ${task.answer}` : t('Выполнено')
+  }
+  const base = task.required === 1 ? t('Обязательное · не выполнено') : t('Не выполнено')
+  if (task.due_at == null) return base
+  return `${base} · ${isOverdue(task) ? t('просрочено') : t('до')} ${formatDate(task.due_at)}`
+}
+
 /* ------------------------------- задание ------------------------------- */
 
 function TaskSheet({
@@ -149,6 +169,7 @@ function TaskSheet({
   const [busy, setBusy] = useState(false)
   /** Сохранить набранное как заготовку — галочка рядом с выдачей. */
   const [asTemplate, setAsTemplate] = useState(false)
+  const [due, setDue] = useState('')
 
   const templates = useLiveQuery(() => listTaskTemplates(trainerId), [trainerId, open])
 
@@ -157,12 +178,22 @@ function TaskSheet({
     setTitle('')
     setDescription('')
     setAsTemplate(false)
+    setDue('')
   }, [open])
 
   const save = async () => {
     setBusy(true)
     try {
-      await addTask({ clientId, trainerId, title, description })
+      await addTask({
+        clientId,
+        trainerId,
+        title,
+        description,
+        // Полдень местного времени: срок — это день, а не момент. С
+        // полуночью задание, выданное «на завтра», просрочивается в ту же
+        // секунду, как наступает завтра.
+        dueAt: due ? new Date(`${due}T12:00:00`).getTime() : undefined,
+      })
       if (asTemplate) await saveTaskTemplate({ title, description, trainerId })
       haptics.success()
       onDone()
@@ -226,6 +257,20 @@ function TaskSheet({
             onChange={(e) => setDescription(e.target.value)}
             placeholder={t('Зачем это нужно и как сделать')}
           />
+        </div>
+
+        <div className="field">
+          <label htmlFor="task-due">{t('Срок')}</label>
+          <input
+            id="task-due"
+            className="input"
+            type="date"
+            value={due}
+            onChange={(e) => setDue(e.target.value)}
+          />
+          <div className="mute-sm mt-1">
+            {t('Необязательно. С сроком просроченное задание видно обоим.')}
+          </div>
         </div>
 
         <div className="row between">

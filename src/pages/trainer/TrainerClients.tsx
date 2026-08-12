@@ -13,7 +13,7 @@ import { pendingReviewCount, weekStatus, type ReviewStage } from '../../db/repor
 import { unreadCount } from '../../db/chat'
 import { Sheet } from '../../components/Sheet'
 import { QrCode } from '../../components/QrCode'
-import { IconChat, IconPlus, IconRecord, IconTrash, IconUsers } from '../../components/Icons'
+import { IconChat, IconPlus, IconTrash, IconUsers } from '../../components/Icons'
 import { plural } from '../../lib/calc'
 import { useApp, useProfile } from '../../store/app'
 import { haptics } from '../../lib/native'
@@ -95,7 +95,6 @@ export function TrainerClients() {
       total: list.length,
       stale: list.filter((c) => (c.daysSinceLast ?? 999) > STALE_DAYS).length,
       onTrack: list.filter((c) => c.sessionsThisWeek >= c.weeklyTarget).length,
-      prs: list.reduce((a, c) => a + c.recentPRs, 0),
     }
   }, [clients])
 
@@ -150,17 +149,6 @@ export function TrainerClients() {
           <div className="value">{stats.onTrack}</div>
           <div className="label">{t('выполнили план недели')}</div>
         </div>
-        <div className="stat">
-          <div className="value">
-            {stats.prs}
-            {stats.prs > 0 && (
-              <span style={{ color: 'var(--copper)', marginLeft: 6 }}>
-                <IconRecord size={14} />
-              </span>
-            )}
-          </div>
-          <div className="label">{t('рекордов за 2 недели')}</div>
-        </div>
       </div>
 
       <div className="section-title">{t('Список')}</div>
@@ -209,12 +197,6 @@ export function TrainerClients() {
                     <span className="row" style={{ gap: 6 }}>
                       {(pending?.get(c.client.id) ?? 0) > 0 && (
                         <span className="badge pro">{pending?.get(c.client.id)} на разбор</span>
-                      )}
-                      {c.recentPRs > 0 && (
-                        <span className="badge pr">
-                          <IconRecord size={11} />
-                          {c.recentPRs} PR
-                        </span>
                       )}
                     </span>
                   </div>

@@ -184,6 +184,10 @@ const EN: Record<string, string> = {
   /* --- отчёты клиента --- */
   'Задания от тренера': 'Tasks from your trainer',
   обязательно: 'required',
+  Срок: 'Due date',
+  'Необязательно. С сроком просроченное задание видно обоим.':
+    'Optional. With a due date, an overdue task is visible to both of you.',
+  просрочено: 'overdue',
   'Шаги и сон за сегодня': 'Steps and sleep today',
   'Видео-отчёты по тренировкам': 'Workout video reports',
   'Сданные отчёты': 'Submitted reports',
@@ -276,6 +280,9 @@ const EN: Record<string, string> = {
   Оплачено: 'Paid on',
   'Следующая оплата': 'Next payment',
   'Требует внимания': 'Needs attention',
+  'Тренировки без разбора': 'Workouts to review',
+  'Дни питания без разбора': 'Nutrition days to review',
+  'Задания не выполнены': 'Tasks not done',
   'Всё закрыто: заданий не висит, отчёты разобраны.':
     'All clear: no open tasks, all reports reviewed.',
   'Связь с клиентом': 'Contacting the client',

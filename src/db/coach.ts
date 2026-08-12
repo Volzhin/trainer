@@ -319,7 +319,6 @@ export type ClientSummary = {
   assignment?: Assignment
   assignedProgramName?: string
   /** Рекорды за последние 14 дней. */
-  recentPRs: number
   unreadFeedback: number
 }
 
@@ -336,7 +335,6 @@ export async function loadClientSummaries(
   const programMap = new Map(programs.map((p) => [p.id, p]))
 
   const thisWeek = weekStart(Date.now())
-  const prCutoff = Date.now() - 14 * 86400_000
 
   const out: ClientSummary[] = []
   for (const [i, link] of links.entries()) {
@@ -354,14 +352,6 @@ export async function loadClientSummaries(
     const assignment = assignments.find(
       (a) => a.client_id === client.id && a.status === 'ACTIVE',
     )
-
-    // Рекорды считаем только по свежим сессиям — тренеру важно недавнее.
-    let recentPRs = 0
-    for (const s of sessions) {
-      if (s.start_time < prCutoff) break
-      const rows = await db.sets.where('workout_session_id').equals(s.id).toArray()
-      recentPRs += rows.filter((r) => r.is_pr === 1).length
-    }
 
     const unread = await db.feedback
       .where('[trainer_id+client_id]')
@@ -381,7 +371,6 @@ export async function loadClientSummaries(
       weeklyTarget: assignment?.weekly_target ?? 3,
       assignment,
       assignedProgramName: assignment ? programMap.get(assignment.program_id)?.name : undefined,
-      recentPRs,
       unreadFeedback: unread,
     })
   }

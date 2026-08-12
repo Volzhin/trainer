@@ -14,11 +14,11 @@ import { ContactLinks } from '../../components/ContactLinks'
 import { BodyCompositionView } from '../../components/BodyCompositionView'
 import { Sheet } from '../../components/Sheet'
 import { ClientNutritionReview } from '../../components/ClientNutritionReview'
-import { ClientReports } from '../../components/ClientReports'
+import { ClientReports, isOverdue } from '../../components/ClientReports'
 import { pendingByTarget, tasksOf, weekProgress } from '../../db/reports'
 import { ChatThread } from '../../components/ChatThread'
 import { ClientWorkouts } from '../../components/ClientWorkouts'
-import { IconBack, IconCheck } from '../../components/Icons'
+import { IconBack, IconCheck, IconChevronRight } from '../../components/Icons'
 import { formatDate, plural, startOfDay } from '../../lib/calc'
 import { useApp } from '../../store/app'
 import { t } from '../../lib/i18n'
@@ -289,54 +289,52 @@ function OutstandingCard({
   }
 
   const open = tasks.filter((x) => x.status === 'open')
+  const overdue = open.filter(isOverdue).length
   const total = pending.workouts + pending.nutrition
   if (open.length === 0 && total === 0) {
     return <div className="card mute-sm">{t('Всё закрыто: заданий не висит, отчёты разобраны.')}</div>
   }
 
+  const rows: { label: string; count: number; open: () => void; warn?: boolean }[] = [
+    // Порядок по тому, чей ход: сначала то, что ждёт тренера, потом то,
+    // что ждёт клиента. Иначе карточка «требует внимания» первым делом
+    // показывает работу, которую тренер сделать не может.
+    {
+      label: t('Тренировки без разбора'),
+      count: pending.workouts,
+      open: onOpenWorkouts,
+      warn: true,
+    },
+    {
+      label: t('Дни питания без разбора'),
+      count: pending.nutrition,
+      open: onOpenNutrition,
+      warn: true,
+    },
+    { label: t('Задания не выполнены'), count: open.length, open: onOpenTasks },
+  ].filter((r) => r.count > 0)
+
   return (
     <div className="card">
-      {open.length > 0 && (
-        <>
-          <div className="strong">
-            {open.length} {plural(open.length, ['задание', 'задания', 'заданий'])} не выполнено
-          </div>
-          <div className="mute-sm mt-1">
-            {open
-              .slice(0, 3)
-              .map((x) => x.title)
-              .join(' · ')}
-            {open.length > 3 ? ` и ещё ${open.length - 3}` : ''}
-          </div>
-        </>
-      )}
+      <div className="stack tight">
+        {rows.map((r) => (
+          <button className="row between" key={r.label} onClick={r.open}>
+            <span className="muted" style={r.warn ? { color: 'var(--warn)' } : undefined}>
+              {r.label}
+            </span>
+            <span className="row" style={{ gap: 6, flex: '0 0 auto' }}>
+              <span className="figures strong" style={r.warn ? { color: 'var(--warn)' } : undefined}>
+                {r.count}
+              </span>
+              <IconChevronRight size={15} />
+            </span>
+          </button>
+        ))}
+      </div>
 
-      {open.length > 0 && (
-        <button className="btn sm block mt-3" onClick={onOpenTasks}>
-          {t('Задания')}
-        </button>
-      )}
-
-      {/* Разбор ведут там, где сдавали, поэтому и кнопок две: одна вкладка
-          на оба вида отчётов означала бы третий список тех же записей. */}
-      {total > 0 && (
-        <div className={open.length > 0 ? 'mt-4' : undefined}>
-          <div className="strong" style={{ color: 'var(--warn)' }}>
-            {total} {plural(total, ['отчёт', 'отчёта', 'отчётов'])} ждёт разбора
-          </div>
-          <div className="mute-sm mt-1">{t('Это ваш ход — клиент уже сдал.')}</div>
-          <div className="row mt-3" style={{ gap: 8 }}>
-            {pending.workouts > 0 && (
-              <button className="btn sm grow" onClick={onOpenWorkouts}>
-                {t('Тренировки')} · {pending.workouts}
-              </button>
-            )}
-            {pending.nutrition > 0 && (
-              <button className="btn sm grow" onClick={onOpenNutrition}>
-                {t('Питание')} · {pending.nutrition}
-              </button>
-            )}
-          </div>
+      {overdue > 0 && (
+        <div className="mute-sm mt-3" style={{ color: 'var(--danger)' }}>
+          {overdue} {plural(overdue, ['задание', 'задания', 'заданий'])} {t('просрочено')}
         </div>
       )}
     </div>

@@ -20,6 +20,7 @@ import { localDate } from '../lib/tdee'
 import { canImportHealthData, healthProvider } from '../lib/health'
 import { Sheet } from '../components/Sheet'
 import { WeightSheet } from '../components/WeightCard'
+import { isOverdue } from '../components/ClientReports'
 import { MeasurementEntry } from '../components/MeasurementEntry'
 import { IconCheck, IconChevronRight, IconTrash } from '../components/Icons'
 import { useApp, useTrainerLink } from '../store/app'
@@ -132,7 +133,23 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
                     onClick={() => setOpenTask(task)}
                   >
                     <div className="grow">
-                      <div className="strong">{task.title}</div>
+                      {/* Просроченное красным — и у клиента, и у тренера
+                          одинаково: это одно и то же событие, и выглядеть
+                          оно должно одинаково с обеих сторон. */}
+                      <div
+                        className="strong"
+                        style={isOverdue(task) ? { color: 'var(--danger)' } : undefined}
+                      >
+                        {task.title}
+                      </div>
+                      {task.due_at != null && (
+                        <div
+                          className="mute-sm"
+                          style={isOverdue(task) ? { color: 'var(--danger)' } : undefined}
+                        >
+                          {isOverdue(task) ? t('просрочено') : t('до')} {formatDate(task.due_at)}
+                        </div>
+                      )}
                       {task.description && (
                         <div className="mute-sm truncate">{task.description}</div>
                       )}
