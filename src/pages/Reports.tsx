@@ -24,6 +24,7 @@ import { MeasurementEntry } from '../components/MeasurementEntry'
 import { IconCheck, IconChevronRight, IconTrash } from '../components/Icons'
 import { useApp, useTrainerLink } from '../store/app'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
 
 /** Сколько дней назад ещё имеет смысл сдавать отчёт. */
 const WINDOW_DAYS = 14
@@ -58,9 +59,11 @@ export function Reports() {
     return (
       <div className="screen">
         <div className="header">
-          <h1>Отчёты</h1>
+          <h1>{t('Отчёты')}</h1>
         </div>
-        <div className="empty">Отчёты сдаются тренеру. Код приглашения вводится в профиле.</div>
+        <div className="empty">
+          {t('Отчёты сдаются тренеру. Код приглашения вводится в профиле.')}
+        </div>
       </div>
     )
   }
@@ -103,7 +106,7 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
     <div className="screen">
       <div className="header">
         <div>
-          <h1>Отчёты</h1>
+          <h1>{t('Отчёты')}</h1>
           <div className="sub">Тренер: {trainerName}</div>
         </div>
         {!loading && pending > 0 && (
@@ -119,15 +122,21 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
         <>
           {tasks.length > 0 && (
             <>
-              <div className="section-title">Задания от тренера</div>
+              <div className="section-title">{t('Задания от тренера')}</div>
               <div>
-                {tasks.map((t) => (
-                  <button key={t.id} className="list-item" onClick={() => setOpenTask(t)}>
+                {tasks.map((task) => (
+                  <button
+                    key={task.id}
+                    className="list-item"
+                    onClick={() => setOpenTask(task)}
+                  >
                     <div className="grow">
-                      <div className="strong">{t.title}</div>
-                      {t.description && <div className="mute-sm truncate">{t.description}</div>}
+                      <div className="strong">{task.title}</div>
+                      {task.description && (
+                        <div className="mute-sm truncate">{task.description}</div>
+                      )}
                     </div>
-                    {t.required === 1 && <span className="badge">обязательно</span>}
+                    {task.required === 1 && <span className="badge">{t('обязательно')}</span>}
                     <IconChevronRight size={16} />
                   </button>
                 ))}
@@ -140,15 +149,15 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
           {/* Всё про тело сдаётся здесь, а не на экране «Анализ тела»:
               туда приходят смотреть динамику, и предложение что-то
               загрузить в начале мешает этому. */}
-          <div className="section-title">Тело</div>
+          <div className="section-title">{t('Тело')}</div>
           <div className="group">
             <button className="group-row" onClick={() => setWeightOpen(true)}>
               <span className="grow">
-                <span className="title">Сдать вес</span>
+                <span className="title">{t('Сдать вес')}</span>
                 <span className="sub">
                   {lastWeight == null
-                    ? 'ещё не вносили'
-                    : `последний — ${formatWeight(lastWeight.weight_kg)} кг, ${formatDate(lastWeight.logged_at)}`}
+                    ? t('ещё не вносили')
+                    : `${t('последний')} — ${formatWeight(lastWeight.weight_kg)} кг, ${formatDate(lastWeight.logged_at)}`}
                 </span>
               </span>
               <span className="chevron">
@@ -158,10 +167,10 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
           </div>
           <MeasurementEntry userId={userId} />
 
-          <div className="section-title">Шаги и сон за сегодня</div>
+          <div className="section-title">{t('Шаги и сон за сегодня')}</div>
           <ActivityCard date={today} userId={userId} />
 
-          <div className="section-title">Видео-отчёты по тренировкам</div>
+          <div className="section-title">{t('Видео-отчёты по тренировкам')}</div>
           {recent.length === 0 ? (
             <div className="empty compact">
               За последние {WINDOW_DAYS} дней тренировок не было — сдавать пока нечего.
@@ -184,11 +193,11 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
           {/* Дни питания сдаются в самом дневнике, под тем, что за день
               съедено: отчёт о еде осмыслен рядом с едой, а не списком дат в
               отрыве от неё. Форма — components/NutritionDayReport. */}
-          <div className="section-title">Питание</div>
+          <div className="section-title">{t('Питание')}</div>
           <button className="list-item" onClick={() => nav('/nutrition')}>
             <div className="grow">
-              <div className="strong">Открыть дневник</div>
-              <div className="mute-sm">Отчёт за день сдаётся под записями о еде</div>
+              <div className="strong">{t('Открыть дневник')}</div>
+              <div className="mute-sm">{t('Отчёт за день сдаётся под записями о еде')}</div>
             </div>
             <IconChevronRight size={16} />
           </button>
@@ -200,7 +209,7 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
       <WeightSheet
         open={weightOpen}
         onClose={() => setWeightOpen(false)}
-        onSaved={() => toast('Вес записан')}
+        onSaved={() => toast(t('Вес записан'))}
       />
       <TaskSheet task={openTask} onClose={() => setOpenTask(null)} />
       <WorkoutReportSheet
@@ -234,19 +243,19 @@ function SubmittedList({
 
   return (
     <>
-      <div className="section-title">Сданные отчёты</div>
+      <div className="section-title">{t('Сданные отчёты')}</div>
       {!open ? (
         <button className="list-item" onClick={() => setOpen(true)}>
           <div className="grow">
-            <div className="strong">Показать сданное</div>
-            <div className="mute-sm">Вес, замеры, InBody, шаги и сон — с возможностью удалить</div>
+            <div className="strong">{t('Показать сданное')}</div>
+            <div className="mute-sm">{t('Вес, замеры, InBody, шаги и сон — с возможностью удалить')}</div>
           </div>
           <IconChevronRight size={16} />
         </button>
       ) : entries == null ? (
         <div className="card skeleton" style={{ height: 120 }} />
       ) : entries.length === 0 ? (
-        <div className="empty compact">Пока ничего не сдано.</div>
+        <div className="empty compact">{t('Пока ничего не сдано.')}</div>
       ) : (
         <div className="group">
           {entries.map((e) => (
@@ -262,7 +271,7 @@ function SubmittedList({
                 aria-label={`Удалить: ${e.title} от ${formatDate(e.at)}`}
                 onClick={async () => {
                   await deleteSubmittedEntry(e)
-                  onToast('Запись удалена')
+                  onToast(t('Запись удалена'))
                 }}
               >
                 <IconTrash size={16} />
@@ -298,7 +307,7 @@ function ReportRow({
         </div>
         {subtitle && <div className="mute-sm">{subtitle}</div>}
       </div>
-      {answered && <span className="badge pro">ответ</span>}
+      {answered && <span className="badge pro">{t('ответ')}</span>}
       {submitted ? (
         <span className="badge">
           <IconCheck size={11} />
@@ -328,7 +337,7 @@ function TargetsCard({ targets }: { targets: NutritionTarget }) {
 
   return (
     <>
-      <div className="section-title">Цели на неделю</div>
+      <div className="section-title">{t('Цели на неделю')}</div>
       <div className="card">
         {rows.length > 0 && (
           <div className="group">
@@ -407,7 +416,7 @@ function ActivityCard({ date, userId }: { date: string; userId: string }) {
     <div className="card">
       <div className="row" style={{ gap: 8 }}>
         <div className="field grow">
-          <label>Шаги</label>
+          <label>{t('Шаги')}</label>
           <input
             className="input"
             inputMode="numeric"
@@ -417,7 +426,7 @@ function ActivityCard({ date, userId }: { date: string; userId: string }) {
           />
         </div>
         <div className="field grow">
-          <label>Сон, ч</label>
+          <label>{t('Сон, ч')}</label>
           <input
             className="input"
             inputMode="decimal"

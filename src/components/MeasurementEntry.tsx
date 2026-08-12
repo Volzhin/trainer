@@ -7,6 +7,7 @@ import { Sheet } from './Sheet'
 import { ManualMeasurementSheet, metricRows } from './BodyCompositionView'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
 
 type Parsed = { fileName: string; report?: InBodyReport; error?: string }
 
@@ -118,8 +119,8 @@ export function MeasurementEntry({ userId }: { userId: string }) {
       <div className="group">
         <button className="group-row" onClick={() => setManualOpen(true)}>
           <span className="grow">
-            <span className="title">Сдать еженедельные замеры</span>
-            <span className="sub">Обхваты, вес и процент жира вручную</span>
+            <span className="title">{t('Сдать еженедельные замеры')}</span>
+            <span className="sub">{t('Обхваты, вес и процент жира вручную')}</span>
           </span>
         </button>
         <button className="group-row" disabled={busy} onClick={() => fileRef.current?.click()}>
@@ -129,9 +130,9 @@ export function MeasurementEntry({ userId }: { userId: string }) {
                 ? progress && progress.total > 1
                   ? `Читаю ${progress.done + 1} из ${progress.total}…`
                   : 'Читаю отчёт…'
-                : 'Сдать InBody'}
+                : t('Сдать InBody')}
             </span>
-            <span className="sub">PDF из зала — можно выбрать сразу несколько</span>
+            <span className="sub">{t('PDF из зала — можно выбрать сразу несколько')}</span>
           </span>
         </button>
       </div>

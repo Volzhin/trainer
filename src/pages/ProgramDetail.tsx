@@ -12,6 +12,7 @@ import { Sheet } from '../components/Sheet'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
 import { plural } from '../lib/calc'
+import { t } from '../lib/i18n'
 
 const WEEKDAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
 
@@ -240,7 +241,7 @@ export function ProgramDetail() {
                         <button
                           className="icon-btn"
                           onClick={() => db.templateItems.delete(item.id)}
-                          aria-label="Убрать"
+                          aria-label={t('Удалить')}
                         >
                           <IconTrash size={16} />
                         </button>
@@ -253,13 +254,13 @@ export function ProgramDetail() {
                         реже всех, и терять на нём ширину обиднее всего. */}
                     <div className="row mt-2" style={{ gap: 8 }}>
                       <NumField
-                        label="подходы"
+                        label={t('подходы')}
                         value={item.target_sets}
                         disabled={!editable}
                         onChange={(v) => patchItem(item.id, { target_sets: v })}
                       />
                       <NumField
-                        label="повторы от"
+                        label={t('повторы от')}
                         value={item.target_reps ?? 0}
                         disabled={!editable}
                         onChange={(v) =>
@@ -274,7 +275,7 @@ export function ProgramDetail() {
                         }
                       />
                       <NumField
-                        label="до"
+                        label={t('до')}
                         value={item.target_reps_max ?? item.target_reps ?? 0}
                         min={item.target_reps ?? 0}
                         disabled={!editable}
@@ -289,7 +290,7 @@ export function ProgramDetail() {
                     </div>
                     <div className="row mt-2" style={{ gap: 8 }}>
                       <NumField
-                        label="отдых, сек"
+                        label={t('отдых, сек')}
                         value={item.rest_seconds}
                         step={15}
                         disabled={!editable}
@@ -303,7 +304,7 @@ export function ProgramDetail() {
               {editable && (
                 <div style={{ padding: 12, borderTop: '1px solid var(--border)' }}>
                   <button className="btn sm block" onClick={() => setPickerFor(routine.id)}>
-                    <IconPlus size={15} /> Добавить упражнение
+                    <IconPlus size={15} /> {t('Добавить упражнение')}
                   </button>
                 </div>
               )}
@@ -318,16 +319,16 @@ export function ProgramDetail() {
           onClick={async () => {
             const count = (routines ?? []).length
             await createRoutine(id, `День ${count + 1}`)
-            toast('День добавлен')
+            toast(t('День добавлен'))
           }}
         >
-          <IconPlus size={17} /> Добавить день
+          <IconPlus size={17} /> {t('Добавить день')}
         </button>
       )}
 
       {volume.length > 0 && (
         <>
-          <div className="section-title">Объём за неделю</div>
+          <div className="section-title">{t('Объём за неделю')}</div>
           <div className="card">
             <div className="mute-sm mb-3">
               Подходы по всем дням программы. Пересчитывается на месте — видно, куда
@@ -352,7 +353,7 @@ export function ProgramDetail() {
               ))}
             </div>
             <div className="row between mt-4">
-              <span className="mute-sm">Всего за неделю</span>
+              <span className="mute-sm">{t('Всего за неделю')}</span>
               <span className="figures strong">
                 {volumeTotal} {plural(volumeTotal, ['подход', 'подхода', 'подходов'])}
               </span>

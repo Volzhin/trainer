@@ -16,6 +16,7 @@ import { activeAssignmentFor } from '../db/coach'
 import { useApp, useProfile } from '../store/app'
 import { haptics } from '../lib/native'
 import { plural } from '../lib/calc'
+import { t } from '../lib/i18n'
 
 const GOALS = ['Все', 'Гипертрофия', 'Сила', 'Дом', 'Похудение', 'Кроссфит']
 
@@ -84,18 +85,18 @@ export function Programs() {
     <div className={`screen${active ? ' with-banner' : ''}`}>
       <div className="header">
         <div>
-          <h1>{assigned ? 'Моя программа' : 'Программы'}</h1>
+          <h1>{assigned ? t('Моя программа') : t('Программы')}</h1>
           <div className="sub">
             {assigned
               ? `От тренера${assigned.trainer ? ` · ${assigned.trainer.name}` : ''}`
-              : 'Готовые сплиты и свои шаблоны'}
+              : t('Готовые сплиты и свои шаблоны')}
           </div>
         </div>
         {!assigned && (
           <button
             className="icon-btn"
             onClick={() => setCreateOpen(true)}
-            aria-label="Создать программу"
+            aria-label={t('Создать программу')}
           >
             <IconPlus size={18} />
           </button>
@@ -108,13 +109,13 @@ export function Programs() {
             className={`chip${tab === 'catalog' ? ' active' : ''}`}
             onClick={() => setTab('catalog')}
           >
-            Каталог
+            {t('Каталог')}
           </button>
           <button
             className={`chip${tab === 'mine' ? ' active' : ''}`}
             onClick={() => setTab('mine')}
           >
-            Мои программы ({myCount})
+            {t('Мои программы')} ({myCount})
           </button>
         </div>
       )}
@@ -146,10 +147,12 @@ export function Programs() {
                 <IconClipboard size={34} />
               </div>
               {assigned
-                ? 'Программа от тренера скоро появится'
+                ? t('Программа от тренера скоро появится')
                 : tab === 'mine'
-                  ? 'Здесь появятся программы от тренера и отмеченные звёздочкой в каталоге. Свою можно собрать кнопкой «+».'
-                  : 'В этой категории пусто'}
+                  ? t(
+                      'Здесь появятся программы от тренера и отмеченные звёздочкой в каталоге. Свою можно собрать кнопкой «+».',
+                    )
+                  : t('В этой категории пусто')}
             </div>
           )
         )}
@@ -182,9 +185,9 @@ export function Programs() {
                     onClick={(e) => {
                       e.stopPropagation()
                       void deleteProgram(p.id)
-                      toast('Программа удалена')
+                      toast(t('Программа удалена'))
                     }}
-                    aria-label="Удалить"
+                    aria-label={t('Удалить')}
                   >
                     <IconTrash size={17} />
                   </button>
@@ -231,7 +234,7 @@ export function Programs() {
                             nav(`/session/${sid}`)
                           }}
                         >
-                          <IconPlay size={13} /> Начать
+                          <IconPlay size={13} /> {t('Начать')}
                         </button>
                       </div>
                     ))}
@@ -243,10 +246,10 @@ export function Programs() {
       </div>
 
 
-      <Sheet open={createOpen} title="Новая программа" onClose={() => setCreateOpen(false)}>
+      <Sheet open={createOpen} title={t('Новая программа')} onClose={() => setCreateOpen(false)}>
         <div className="stack">
           <div className="field">
-            <label>Название</label>
+            <label>{t('Название')}</label>
             <input
               className="input"
               value={name}
@@ -256,7 +259,7 @@ export function Programs() {
             />
           </div>
           <button className="btn primary block" onClick={onCreate}>
-            Создать
+            {t('Создать')}
           </button>
         </div>
       </Sheet>
