@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Consent } from '../db/db'
 import { redeemInvite, removeLink, trainerOfClient } from '../db/coach'
 import { ContactLinks } from './ContactLinks'
 import { ConsentStep } from './ConsentStep'
+import { BarcodeScanner, QR_FORMATS } from './BarcodeScanner'
+import { IconCamera } from './Icons'
 import { Sheet } from './Sheet'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
@@ -19,9 +21,44 @@ export function MyTrainerCard() {
   // его позвали, потом соглашается с условиями. Обратный порядок заставлял
   // бы читать документы тех, кто ошибся кодом.
   const [step, setStep] = useState<'code' | 'consent'>('code')
+  const [scanOpen, setScanOpen] = useState(false)
+
 
   const linkVersion = useLiveQuery(() => db.links.count(), [])
   const bond = useLiveQuery(() => trainerOfClient(userId), [userId, linkVersion])
+
+  /*
+   * Код из ссылки QR. Тренер показывает код с адресом, клиент наводит
+   * камеру телефона и попадает сюда с уже подставленным кодом — вводить
+   * шесть символов с чужого экрана не приходится.
+   *
+   * Параметр из адреса убираем сразу: перезагрузив страницу через неделю,
+   * человек не должен снова увидеть форму привязки к тренеру, от которого
+   * давно ушёл.
+   */
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const fromLink = params.get('join')?.trim().toUpperCase()
+    if (!fromLink) return
+
+    // Параметр вычищаем сразу, даже если форму не открыли: он одноразовый,
+    // и оставлять его в адресе значит показывать ту же форму при каждой
+    // перезагрузке.
+    params.delete('join')
+    const rest = params.toString()
+    history.replaceState(null, '', location.pathname + (rest ? `?${rest}` : '') + location.hash)
+
+    // Связка ещё читается — undefined. Ждём: открыть форму привязки тому,
+    // у кого тренер уже есть, значит предложить сделать невозможное, а
+    // ошибку он увидит только после подписания документов.
+    if (bond === undefined) return
+    if (bond) {
+      toast(t('Вы уже работаете с тренером'))
+      return
+    }
+    setCode(fromLink)
+    setOpen(true)
+  }, [bond])
 
   const submit = async (consents: Consent[]) => {
     setBusy(true)
@@ -123,7 +160,12 @@ export function MyTrainerCard() {
               disabled={code.length < 6}
               onClick={() => setStep('consent')}
             >
-              Далее
+              {t('Далее')}
+            </button>
+            {/* Сканер — рядом с полем, а не вместо него: камера есть не у
+                всех браузеров, и путь руками должен оставаться на виду. */}
+            <button className="btn block" onClick={() => setScanOpen(true)}>
+              <IconCamera size={16} /> {t('Сканировать QR')}
             </button>
             <div className="mute-sm" style={{ textAlign: 'center' }}>
               Подключая тренера, вы открываете ему доступ к своей истории тренировок.
@@ -133,6 +175,36 @@ export function MyTrainerCard() {
           <ConsentStep busy={busy} onBack={() => setStep('code')} onAccept={submit} />
         )}
       </Sheet>
+
+      <BarcodeScanner
+        open={scanOpen}
+        formats={QR_FORMATS}
+        title={t('Сканировать QR')}
+        hint={t('Или введите код руками')}
+        onClose={() => setScanOpen(false)}
+        onDetected={(raw) => {
+          setCode(codeFromScan(raw))
+          setScanOpen(false)
+        }}
+      />
     </>
   )
+}
+
+/**
+ * Что делать с прочитанным кодом.
+ *
+ * В QR лежит ссылка, но человек может отсканировать и голый код — или
+ * ввести его руками в том же поле сканера. Достаём шесть символов из
+ * любого варианта, а не требуем угадать нужный.
+ */
+function codeFromScan(raw: string): string {
+  const text = raw.trim()
+  try {
+    const join = new URL(text).searchParams.get('join')
+    if (join) return join.trim().toUpperCase()
+  } catch {
+    /* не ссылка — значит сам код */
+  }
+  return text.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)
 }

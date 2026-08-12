@@ -286,6 +286,8 @@ const EN: Record<string, string> = {
   'Упражнения программы': 'Program exercises',
   'Программа не назначена': 'No program assigned',
   Открыть: 'Open',
+  Снять: 'Unassign',
+  'Программа снята с клиента': 'Program removed from the client',
   'Дневник по дням': 'Diary by day',
   'Нажмите на день, чтобы прочитать отчёт и ответить клиенту.':
     'Tap a day to read the report and reply to your client.',
@@ -565,6 +567,12 @@ const EN: Record<string, string> = {
   слева: 'left',
   справа: 'right',
   'Код приглашения': 'Invite code',
+  Далее: 'Next',
+  'Вы уже работаете с тренером': 'You already work with a trainer',
+  'Сканировать QR': 'Scan QR',
+  'Или введите код руками': 'Or type the code by hand',
+  'Клиент наводит камеру — приложение откроется с готовым кодом':
+    'The client points a camera — the app opens with the code filled in',
   'Ответ тренера': 'Trainer’s reply',
   'Насколько были сыты': 'How full you felt',
   'Что мешало держаться плана, что съели сверх нормы':

@@ -2356,3 +2356,13 @@ button.group-row:active {
   height: 30px;
   justify-self: center;
 }
+
+/* QR приглашения. Белая подложка с полями обязательна: сканеры ищут
+   границы кода по контрасту, и на тёмной карточке без неё код не читается. */
+.qr-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+  border-radius: var(--r-lg);
+  background: #fff;
+}

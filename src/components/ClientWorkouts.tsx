@@ -4,12 +4,13 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type WorkoutSession } from '../db/db'
 import { loadProgress } from '../db/analytics'
 import { workoutReportsOf, reviewedRefs } from '../db/reports'
-import { activeAssignmentFor } from '../db/coach'
+import { activeAssignmentFor, cancelAssignment } from '../db/coach'
 import { localDate } from '../lib/tdee'
 import { plural } from '../lib/calc'
 import { ReportCalendar, type ReportState } from './ReportCalendar'
 import { ExerciseRow } from './ProgressView'
 import { SessionReview } from './SessionReview'
+import { useApp } from '../store/app'
 import { t } from '../lib/i18n'
 
 const WEEKDAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
@@ -31,6 +32,7 @@ export function ClientWorkouts({
   onAssign: () => void
 }) {
   const nav = useNavigate()
+  const { toast } = useApp()
   const [reviewing, setReviewing] = useState<WorkoutSession | null>(null)
 
   const version = useLiveQuery(
@@ -114,6 +116,18 @@ export function ClientWorkouts({
               </button>
               <button className="btn sm grow" onClick={onAssign}>
                 {t('Заменить')}
+              </button>
+              {/* Снять программу — не то же самое, что заменить: клиент может
+                  уйти на паузу или в отпуск, и тогда план ему только мешает.
+                  Кнопка потерялась при переносе программы из сводки сюда. */}
+              <button
+                className="btn sm ghost danger"
+                onClick={async () => {
+                  await cancelAssignment(assigned.assignment.id)
+                  toast(t('Программа снята с клиента'))
+                }}
+              >
+                {t('Снять')}
               </button>
             </div>
           </>

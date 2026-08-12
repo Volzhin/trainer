@@ -12,11 +12,25 @@ import {
 import { pendingReviewCount, weekStatus, type ReviewStage } from '../../db/reports'
 import { unreadCount } from '../../db/chat'
 import { Sheet } from '../../components/Sheet'
+import { QrCode } from '../../components/QrCode'
 import { IconChat, IconPlus, IconRecord, IconTrash, IconUsers } from '../../components/Icons'
 import { plural } from '../../lib/calc'
 import { useApp, useProfile } from '../../store/app'
 import { haptics } from '../../lib/native'
 import { t } from '../../lib/i18n'
+
+/**
+ * Ссылка для QR-кода.
+ *
+ * В коде лежит адрес, а не сами шесть символов: наведя камеру телефона,
+ * человек попадает сразу в приложение с подставленным кодом. Голый код
+ * системная камера показала бы текстом, и его пришлось бы переписывать
+ * руками — то есть ровно то, от чего QR и избавляет.
+ *
+ * Параметр до решётки: маршрутизация у приложения хэшевая, и всё после #
+ * достаётся ей, а не нам.
+ */
+const inviteLink = (code: string) => `${location.origin}${location.pathname}?join=${code}`
 
 /** Клиент считается «выпавшим», если не тренировался больше недели. */
 const STALE_DAYS = 7
@@ -403,23 +417,35 @@ function InviteSheet({
 
         {(invites ?? []).length > 0 && <div className="section-title">{t('Активные коды')}</div>}
         {(invites ?? []).map((i) => (
-          <div className="list-item" key={i.code}>
-            <div className="grow">
-              <div style={{ fontWeight: 700, letterSpacing: 2, fontSize: 20 }}>{i.code}</div>
-              <div className="mute-sm">
-                {t('действует до')} {new Date(i.expires_at).toLocaleDateString('ru-RU')}
+          <div className="card" key={i.code}>
+            <div className="row">
+              <div className="grow">
+                <div style={{ fontWeight: 700, letterSpacing: 2, fontSize: 20 }}>{i.code}</div>
+                <div className="mute-sm">
+                  {t('действует до')} {new Date(i.expires_at).toLocaleDateString('ru-RU')}
+                </div>
               </div>
+              <button className="btn sm" onClick={() => copy(i.code)}>
+                {t('Скопировать')}
+              </button>
+              <button
+                className="icon-btn"
+                onClick={() => revokeInvite(i.code)}
+                aria-label={t('Отозвать')}
+              >
+                <IconTrash size={16} />
+              </button>
             </div>
-            <button className="btn sm" onClick={() => copy(i.code)}>
-              {t('Скопировать')}
-            </button>
-            <button
-              className="icon-btn"
-              onClick={() => revokeInvite(i.code)}
-              aria-label={t('Отозвать')}
-            >
-              <IconTrash size={16} />
-            </button>
+
+            {/* Код и QR рядом, а не вместо друг друга: продиктовать по
+                телефону иногда быстрее, чем свести две камеры, а на
+                встрече наоборот. Пусть будет и то и другое. */}
+            <div className="qr-wrap mt-3">
+              <QrCode value={inviteLink(i.code)} size={168} />
+            </div>
+            <div className="mute-sm text-center mt-2">
+              {t('Клиент наводит камеру — приложение откроется с готовым кодом')}
+            </div>
           </div>
         ))}
       </div>

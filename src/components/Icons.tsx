@@ -42,6 +42,14 @@ export const IconList = ({ size }: P) => (
   </svg>
 )
 
+/** Камера. Корпус со скошенным плечом под видоискатель и круг объектива. */
+export const IconCamera = ({ size }: P) => (
+  <svg {...base(size)}>
+    <path d="M3 8.5a2 2 0 0 1 2-2h2.2l1.3-2h6l1.3 2H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    <circle cx="12" cy="13" r="3.4" />
+  </svg>
+)
+
 export const IconInfo = ({ size }: P) => (
   <svg {...base(size)}>
     <circle cx="12" cy="12" r="9" />
