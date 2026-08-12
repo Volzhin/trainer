@@ -45,7 +45,13 @@ export function NutritionDayReport({ date }: { date: string }) {
 
   // Без тренера сдавать некому, а пустой день — не отчёт: просить отчитаться
   // о дне, в котором ничего не записано, значит просить выдумать.
-  if (!bond || !logs) return null
+  //
+  // «Записано» — это и продукты в дневнике, и итог, перенесённый рукой из
+  // стороннего счётчика. Пока учитывались только продукты, человек с
+  // ручным отчётом не мог его сдать вовсе: блок сдачи ему не показывался.
+  const m = day?.manual
+  const hasManual = !!m && (m.kcal != null || m.protein != null || m.fat != null || m.carbs != null)
+  if (!bond || (!logs && !hasManual)) return null
 
   const satiety = draft ? draft.satiety : day?.satiety
   const comment = draft ? draft.comment : (day?.comment ?? '')

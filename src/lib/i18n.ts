@@ -458,6 +458,11 @@ const EN: Record<string, string> = {
   'Перенесите итог дня из своего счётчика. Пустое поле останется пустым.':
     'Copy the day’s totals from your tracker. An empty field stays empty.',
   'Добавить скриншот': 'Add a screenshot',
+  'За какой день': 'Which day',
+  'За этот день отчёт уже сдан — вы его измените.':
+    'A report for this day is already submitted — you will edit it.',
+  'За этот день уже есть отчёт — вы его измените.':
+    'There is already a report for this day — you will edit it.',
   'Скриншот прикреплён': 'Screenshot attached',
   'Отчёт сохранён': 'Report saved',
   'скрин.': 'shots',

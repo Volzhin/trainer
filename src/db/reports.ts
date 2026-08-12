@@ -573,10 +573,25 @@ export async function weekProgress(clientId: string): Promise<WeekProgress> {
     .between([clientId, from], [clientId, to], true, true)
     .toArray()
 
+  // День считается заполненным и тогда, когда он собран из продуктов, и
+  // тогда, когда итог перенесён рукой из стороннего счётчика. Для клиента
+  // это одна и та же работа, и делить её на «настоящую» и нет незачем.
+  const days = await db.nutritionDays
+    .where('[user_id+date]')
+    .between([clientId, from], [clientId, to], true, true)
+    .toArray()
+  const filled = new Set(logs.map((l) => l.date))
+  for (const d of days) {
+    const m = d.manual
+    if (m && (m.kcal != null || m.protein != null || m.fat != null || m.carbs != null)) {
+      filled.add(d.date)
+    }
+  }
+
   return {
     sessionsDone: sessions,
     sessionsTarget: assignment?.schedule?.length ?? assignment?.weekly_target ?? null,
-    nutritionDays: new Set(logs.map((l) => l.date)).size,
+    nutritionDays: filled.size,
   }
 }
 

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db'
+import { localDate } from '../lib/tdee'
+import { formatDate } from '../lib/calc'
 import { setManualNutrition } from '../db/reports'
 import { addNutritionShot, deleteAttachment, nutritionShots } from '../db/coach'
 import { Sheet } from './Sheet'
@@ -27,26 +29,47 @@ export function ManualNutritionReport({ date }: { date: string }) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [form, setForm] = useState({ kcal: '', protein: '', fat: '', carbs: '' })
+  /**
+   * За какой день отчёт. По умолчанию открытый в дневнике, но менять
+   * можно: считают вечером, а переносят через день-другой, и заставлять
+   * ради этого листать дневник назад — лишний шаг.
+   */
+  const [forDate, setForDate] = useState(date)
 
+  // Строка дня, который сейчас выбран в форме, и строка дня, открытого на
+  // экране, — разные: первая нужна форме, вторая подписи под кнопкой.
   const day = useLiveQuery(() => db.nutritionDays.get(`${userId}:${date}`), [userId, date])
+  const target = useLiveQuery(
+    () => db.nutritionDays.get(`${userId}:${forDate}`),
+    [userId, forDate],
+  )
   const shotsVersion = useLiveQuery(() => db.attachments.count(), [])
   const shots = useLiveQuery(
-    () => nutritionShots(date, userId),
-    [date, userId, shotsVersion],
+    () => nutritionShots(forDate, userId),
+    [forDate, userId, shotsVersion],
   )
 
   // Открывая форму, показываем уже введённое: отчёт правят чаще, чем
   // заполняют с нуля — вечером вспомнили про перекус.
+  // Открывая форму, возвращаемся к дню, открытому в дневнике.
+  useEffect(() => {
+    if (open) setForDate(date)
+  }, [open, date])
+
+  // Показываем то, что уже введено за выбранный день: отчёт правят чаще,
+  // чем заполняют с нуля, — вечером вспомнили про перекус. И второй отчёт
+  // за тот же день завести нельзя: строка дня одна, новая запись её
+  // заменяет, а не добавляет вторую.
   useEffect(() => {
     if (!open) return
-    const m = day?.manual
+    const m = target?.manual
     setForm({
       kcal: m?.kcal != null ? String(m.kcal) : '',
       protein: m?.protein != null ? String(m.protein) : '',
       fat: m?.fat != null ? String(m.fat) : '',
       carbs: m?.carbs != null ? String(m.carbs) : '',
     })
-  }, [open, day?.manual])
+  }, [open, forDate, target?.manual])
 
   const num = (v: string) => {
     const n = parseFloat(v.replace(',', '.'))
@@ -56,14 +79,20 @@ export function ManualNutritionReport({ date }: { date: string }) {
   const save = async () => {
     setBusy(true)
     try {
-      await setManualNutrition(date, {
+      await setManualNutrition(forDate, {
         kcal: num(form.kcal),
         protein: num(form.protein),
         fat: num(form.fat),
         carbs: num(form.carbs),
       })
       haptics.success()
-      toast(t('Отчёт сохранён'))
+      // Называем день, если он не тот, что открыт: сохранив отчёт за
+      // позавчера, легко решить, что записал за сегодня.
+      toast(
+        forDate === date
+          ? t('Отчёт сохранён')
+          : `${t('Отчёт сохранён')} · ${formatDate(new Date(`${forDate}T12:00:00`).getTime())}`,
+      )
       setOpen(false)
     } finally {
       setBusy(false)
@@ -75,7 +104,7 @@ export function ManualNutritionReport({ date }: { date: string }) {
     if (!files.length) return
     setBusy(true)
     try {
-      for (const file of files) await addNutritionShot({ date, blob: file, userId })
+      for (const file of files) await addNutritionShot({ date: forDate, blob: file, userId })
       haptics.impact()
       toast(t('Скриншот прикреплён'))
     } finally {
@@ -87,6 +116,11 @@ export function ManualNutritionReport({ date }: { date: string }) {
   const manual = day?.manual
   const filled = manual && (manual.kcal || manual.protein || manual.fat || manual.carbs)
   const shotCount = shots?.length ?? 0
+  const tm = target?.manual
+  const alreadyFilled =
+    !!tm && (tm.kcal != null || tm.protein != null || tm.fat != null || tm.carbs != null)
+  // Вперёд не пускаем: отчёта за день, который ещё не прошёл, не бывает.
+  const today = localDate()
 
   const field = (key: keyof typeof form, label: string) => (
     <div className="field grow" key={key}>
@@ -130,6 +164,28 @@ export function ManualNutritionReport({ date }: { date: string }) {
         <div className="stack">
           <div className="muted">
             {t('Перенесите итог дня из своего счётчика. Пустое поле останется пустым.')}
+          </div>
+
+          <div className="field">
+            <label htmlFor="manual-date">{t('За какой день')}</label>
+            <input
+              id="manual-date"
+              className="input"
+              type="date"
+              value={forDate}
+              max={today}
+              onChange={(e) => setForDate(e.target.value || date)}
+            />
+            {/* Отчёт за день один. Выбрав день, за который уже сдавали,
+                человек правит тот же отчёт, а не заводит второй — и должен
+                понимать это до того, как нажмёт «Сохранить». */}
+            {alreadyFilled && (
+              <div className="mute-sm mt-1">
+                {target?.status === 'submitted'
+                  ? t('За этот день отчёт уже сдан — вы его измените.')
+                  : t('За этот день уже есть отчёт — вы его измените.')}
+              </div>
+            )}
           </div>
 
           <div className="row" style={{ gap: 8 }}>
