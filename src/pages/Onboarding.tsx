@@ -90,7 +90,16 @@ export function Onboarding({ onDone }: Props) {
     }
   }
 
+  /**
+   * Пропуск снимает только необязательные шаги. Выбранную роль он обязан
+   * применить: иначе человек, отметивший «я тренер», молча оказывается в
+   * клиентском приложении и не понимает, куда делся кабинет.
+   */
   const skip = async () => {
+    if (role === 'TRAINER') {
+      const trainerId = await createAccount({ name: 'Тренер', role: 'TRAINER' })
+      await switchTo(trainerId)
+    }
     await markOnboarded()
     onDone()
   }

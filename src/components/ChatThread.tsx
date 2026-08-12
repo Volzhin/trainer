@@ -5,6 +5,7 @@ import { markThreadRead, sendText, threadMessages } from '../db/chat'
 import { formatDate } from '../lib/calc'
 import { IconChat } from './Icons'
 import { haptics } from '../lib/native'
+import { useApp } from '../store/app'
 
 /**
  * Ветка переписки. Одна и та же у тренера и у клиента — разговор общий,
@@ -28,6 +29,7 @@ export function ChatThread({
   meRole: Role
   emptyHint: string
 }) {
+  const { toast } = useApp()
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
@@ -57,6 +59,11 @@ export function ChatThread({
       await sendText({ trainerId, clientId, authorId: meId, authorRole: meRole, text: draft })
       haptics.selection()
       setDraft('')
+    } catch {
+      // Текст в поле не трогаем: сообщение не ушло, и человеку есть что
+      // отправить повторно. Без этого кнопка просто «отжималась», и понять,
+      // что произошло, было нельзя.
+      toast('Сообщение не отправилось — попробуйте ещё раз')
     } finally {
       setBusy(false)
     }

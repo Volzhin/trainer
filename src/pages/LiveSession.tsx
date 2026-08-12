@@ -133,13 +133,14 @@ export function LiveSession() {
     )
   }
 
-  const onToggleDone = async (set: ExerciseSet, block: Block) => {
+  const onToggleDone = async (set: ExerciseSet, block: Block, entered: EnteredSet) => {
     if (set.is_done) {
       await uncompleteSet(set.id)
       haptics.selection()
       return
     }
-    if (!set.weight_kg && !set.reps_completed) {
+    // Введённое в строке главнее того, что успело доехать до пропсы.
+    if (!(entered.weightKg ?? set.weight_kg) && !(entered.reps ?? set.reps_completed)) {
       toast('Укажите вес или повторения')
       return
     }
@@ -281,7 +282,7 @@ export function LiveSession() {
                 set={s}
                 index={i}
                 prev={block.prev[i]}
-                onToggle={() => onToggleDone(s, block)}
+                onToggle={(entered) => onToggleDone(s, block, entered)}
                 onDelete={() => deleteSetRow(s.id)}
               />
             ))}
@@ -431,6 +432,9 @@ function Stopwatch({ from, stopped }: { from: number; stopped: number | null }) 
   return <>{formatDuration(stopped ?? now - from)}</>
 }
 
+/** Что стоит в полях строки прямо сейчас — до того, как это доедет до пропсы. */
+type EnteredSet = { weightKg?: number; reps?: number }
+
 function SetRow({
   set,
   index,
@@ -441,7 +445,7 @@ function SetRow({
   set: ExerciseSet
   index: number
   prev?: ExerciseSet
-  onToggle: () => void
+  onToggle: (entered: EnteredSet) => void
   onDelete: () => void
 }) {
   const [weight, setWeight] = useState(set.weight_kg?.toString() ?? '')
@@ -452,14 +456,17 @@ function SetRow({
     setReps(set.reps_completed?.toString() ?? '')
   }, [set.weight_kg, set.reps_completed])
 
-  const commitWeight = (v: string) => {
+  const asWeight = (v: string) => {
     const n = parseFloat(v.replace(',', '.'))
-    void updateSet(set.id, { weight_kg: Number.isFinite(n) ? n : undefined })
+    return Number.isFinite(n) ? n : undefined
   }
-  const commitReps = (v: string) => {
+  const asReps = (v: string) => {
     const n = parseInt(v, 10)
-    void updateSet(set.id, { reps_completed: Number.isFinite(n) ? n : undefined })
+    return Number.isFinite(n) ? n : undefined
   }
+
+  const commitWeight = (v: string) => updateSet(set.id, { weight_kg: asWeight(v) })
+  const commitReps = (v: string) => updateSet(set.id, { reps_completed: asReps(v) })
 
   const oneRm =
     set.is_done && set.weight_kg && set.reps_completed
@@ -499,10 +506,15 @@ function SetRow({
         />
         <button
           className={`check${set.is_done ? ' on' : ''}`}
-          onClick={() => {
-            commitWeight(weight)
-            commitReps(reps)
-            onToggle()
+          onClick={async () => {
+            // Дожидаемся записи и передаём введённое наверх. Проверка «пусто
+            // ли» по пропсе смотрит на прошлый рендер: подход, куда вес и
+            // повторы вписали только что, выглядит там незаполненным — и
+            // отметить его не давало. По той же причине рекорд считался бы
+            // по старым числам.
+            await commitWeight(weight)
+            await commitReps(reps)
+            onToggle({ weightKg: asWeight(weight), reps: asReps(reps) })
           }}
           aria-label="Подход выполнен"
         >

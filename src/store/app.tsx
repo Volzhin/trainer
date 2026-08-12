@@ -77,13 +77,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!rest) return
     firedRef.current = false
 
+    // Панель отдыха убираем не сразу, а через полторы секунды — чтобы сигнал
+    // было видно. Ссылку на этот таймер держим и снимаем вместе с остальными:
+    // подходы идут подряд, и следующий отдых, запущенный внутри этих полутора
+    // секунд, гасился бы «хвостом» предыдущего сразу после появления.
+    let hide: number | undefined
+
     const fire = () => {
       if (firedRef.current) return
       firedRef.current = true
       haptics.warning()
       beep(2)
       notifyRestOver(rest.label)
-      window.setTimeout(() => setRest(null), 1500)
+      hide = window.setTimeout(() => setRest(null), 1500)
     }
 
     const exact = window.setTimeout(fire, Math.max(0, rest.endsAt - Date.now()))
@@ -97,6 +103,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => {
       window.clearTimeout(exact)
       window.clearInterval(guard)
+      if (hide !== undefined) window.clearTimeout(hide)
     }
   }, [rest])
 
