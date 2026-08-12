@@ -1,9 +1,11 @@
 import {
   db,
+  deleteSynced,
   uid,
   now,
   currentUserId,
   type ClientTask,
+  type ReportReply,
   type DailyActivity,
   type NutritionDay,
   type NutritionTarget,
@@ -165,15 +167,35 @@ export async function nutritionDaysOf(clientId: string, from: string, to: string
 /* --------------------------- проверка тренером ------------------------- */
 
 /**
+ * Разбирает ли тренер дни питания.
+ *
+ * Раздел питания снят с интерфейса клиента (см. закомментированные маршруты
+ * в App.tsx), и прочитать ответ на день питания ему негде. Пока это так, дни
+ * не попадают ни в очередь разбора, ни в счётчик непроверенного: тренер
+ * писал бы разбор в пустоту и считал, что ответил. Вернётся раздел —
+ * достаточно поменять здесь.
+ */
+export const NUTRITION_REVIEW_ENABLED = false
+
+/**
+ * Ключ ответа. Для тренировки это сам отчёт, для дня питания — клиент и дата:
+ * день определяется парой, а не датой самой по себе.
+ */
+const replyId = (clientId: string, target: ReviewTarget, ref: string) =>
+  target === 'workout' ? ref : `${clientId}:${ref}`
+
+/**
  * Отметить отчёт проверенным и ответить клиенту.
  *
- * Пишет в две строки, и это не дублирование: комментарий адресован клиенту
- * и потому ложится на его отчёт, откуда он его и прочитает. Отметка о
- * проверке остаётся у тренера и к клиенту не едет — ему незачем знать,
- * дошли ли до него руки.
+ * Пишет в две строки, и это не дублирование: отметка о проверке остаётся у
+ * тренера и к клиенту не едет — ему незачем знать, дошли ли до него руки, —
+ * а ответ адресован клиенту и уезжает к нему.
  *
- * Идентификатор отметки выводится из цели, а не выдаётся случайно: проверка
- * одного отчёта — одна запись, сколько бы раз тренер её ни открывал.
+ * Идентификаторы выводятся из цели, а не выдаются случайно: разбор одного
+ * отчёта — одна запись, сколько бы раз тренер её ни открывал. Клиент входит
+ * в ключ отметки, потому что у дня питания ref — это просто дата: без него
+ * разбор дня одного клиента затирал бы отметку по другому за то же число, и
+ * его отчёт снова оказывался бы неразобранным.
  */
 export async function reviewReport(input: {
   clientId: string
@@ -185,7 +207,7 @@ export async function reviewReport(input: {
 }) {
   const trainerId = input.trainerId ?? currentUserId()
   const ts = now()
-  const id = `${trainerId}:${input.target}:${input.ref}`
+  const id = `${trainerId}:${input.clientId}:${input.target}:${input.ref}`
 
   await db.reviews.put({
     id,
@@ -197,18 +219,81 @@ export async function reviewReport(input: {
     updated_at: ts,
   })
 
-  const comment = input.comment?.trim()
-  if (comment) {
-    if (input.target === 'workout') {
-      await db.workoutReports.update(input.ref, { trainer_comment: comment, updated_at: ts })
-    } else {
-      await db.nutritionDays.update(`${input.clientId}:${input.ref}`, {
-        trainer_comment: comment,
-        updated_at: ts,
-      })
-    }
-  }
+  await setReportReply({ ...input, trainerId })
   return id
+}
+
+/**
+ * Ответ тренера на отчёт. Пустой текст ответ снимает: тренер, стёрший его и
+ * нажавший кнопку, вправе ожидать, что клиент больше ничего не увидит.
+ */
+export async function setReportReply(input: {
+  clientId: string
+  target: ReviewTarget
+  ref: string
+  comment?: string
+  trainerId?: string
+}) {
+  const trainerId = input.trainerId ?? currentUserId()
+  const id = replyId(input.clientId, input.target, input.ref)
+  const text = input.comment?.trim()
+  const existing = await db.reportReplies.get(id)
+  const ts = now()
+
+  if (!text) {
+    // Ответы, написанные до переезда в отдельную таблицу, лежат в самой строке
+    // отчёта, а её тренер больше не правит — просто удалить строку ответа
+    // мало, старый текст снова стал бы виден. Пустой ответ его перекрывает.
+    const legacy = await legacyComment(input.clientId, input.target, input.ref)
+    if (!legacy) {
+      if (existing) await deleteSynced('reportReplies', id)
+      return
+    }
+    await db.reportReplies.put({
+      id,
+      client_id: input.clientId,
+      trainer_id: trainerId,
+      target: input.target,
+      text: '',
+      created_at: existing?.created_at ?? ts,
+      updated_at: ts,
+    })
+    return
+  }
+  await db.reportReplies.put({
+    id,
+    client_id: input.clientId,
+    trainer_id: trainerId,
+    target: input.target,
+    text,
+    created_at: existing?.created_at ?? ts,
+    updated_at: ts,
+  })
+}
+
+/** Ответ прежних версий — он лежит в самой строке отчёта. */
+async function legacyComment(
+  clientId: string,
+  target: ReviewTarget,
+  ref: string,
+): Promise<string | undefined> {
+  if (target === 'workout') return (await db.workoutReports.get(ref))?.trainer_comment
+  return (await db.nutritionDays.get(`${clientId}:${ref}`))?.trainer_comment
+}
+
+/**
+ * Текст ответа или ничего, если ответа нет.
+ *
+ * Пустая строка — это снятый ответ, а не отсутствующий: она специально
+ * перекрывает то, что осталось в самой строке отчёта от прежних версий.
+ */
+export const replyText = (reply?: ReportReply, legacy?: string): string | undefined =>
+  reply ? reply.text || undefined : legacy
+
+/** Ответы тренера по клиенту, по ключу ответа — для списков и календарей. */
+export async function repliesOf(clientId: string): Promise<Map<string, ReportReply>> {
+  const rows = await db.reportReplies.where('client_id').equals(clientId).toArray()
+  return new Map(rows.map((r) => [r.id, r]))
 }
 
 /** Проверенные цели по одному клиенту — для календарей в кабинете тренера. */
@@ -221,6 +306,16 @@ export async function reviewedRefs(
 }
 
 /* ------------------------- недельные рекомендации ---------------------- */
+
+/**
+ * Неделя как календарная дата понедельника.
+ *
+ * Ключом служит она, а не метка времени: полночь понедельника у тренера в
+ * Москве и у клиента во Владивостоке — разные моменты, и цели, выданные в
+ * одном поясе, в другом считались бы выданными на неделю вперёд. Клиент
+ * восточнее тренера не видел бы их всю текущую неделю.
+ */
+const weekKey = (ts: number): string => localDate(weekStart(ts))
 
 /**
  * Выдать цели на неделю.
@@ -240,8 +335,9 @@ export async function setWeeklyTargets(input: {
   week?: number
 }) {
   const trainerId = input.trainerId ?? currentUserId()
-  const week = weekStart(input.week ?? Date.now())
-  const id = `${input.clientId}:${week}`
+  const at = input.week ?? Date.now()
+  const week = weekStart(at)
+  const id = `${input.clientId}:${weekKey(at)}`
   const ts = now()
 
   const target: NutritionTarget = {
@@ -249,6 +345,7 @@ export async function setWeeklyTargets(input: {
     client_id: input.clientId,
     trainer_id: trainerId,
     week_start: week,
+    week_key: weekKey(at),
     kcal: input.kcal,
     protein: input.protein,
     fat: input.fat,
@@ -258,6 +355,13 @@ export async function setWeeklyTargets(input: {
     created_at: ts,
     updated_at: ts,
   }
+  // Цели на эту же неделю, выданные до перехода на календарный ключ, лежат
+  // под идентификатором из метки времени. Без их снятия на неделю приходится
+  // две строки, и какая из них «действующая», решает порядок в базе — то есть
+  // тренер правит цели, а обе стороны продолжают видеть прежние цифры.
+  const legacyId = `${input.clientId}:${week}`
+  if (legacyId !== id) await db.nutritionTargets.delete(legacyId)
+
   await db.nutritionTargets.put(target)
   return id
 }
@@ -267,19 +371,30 @@ export async function currentTargets(
   clientId = currentUserId(),
 ): Promise<NutritionTarget | null> {
   const rows = await db.nutritionTargets.where('client_id').equals(clientId).toArray()
-  const week = weekStart(Date.now())
+  const week = weekKey(Date.now())
+  const keyOf = (t: NutritionTarget) => t.week_key ?? localDate(t.week_start)
+  // При совпадении недели побеждает выданное позже: строки за одну неделю
+  // могли остаться от разных версий ключа, и порядок в базе тут не указ.
   const past = rows
-    .filter((t) => t.week_start <= week)
-    .sort((a, b) => b.week_start - a.week_start)
+    .filter((t) => keyOf(t) <= week)
+    .sort((a, b) => keyOf(b).localeCompare(keyOf(a)) || b.updated_at - a.updated_at)
   return past[0] ?? null
 }
 
 /* ----------------------------- шаги и сон ------------------------------ */
 
+/**
+ * Шаги и сон за день.
+ *
+ * Пропуск и очистка — разные намерения, поэтому и значения разные: undefined
+ * оставляет прежнее, null стирает. Без этого различия стереть однажды
+ * введённое число было невозможно в принципе — форма показывала пустое поле,
+ * а в базе оставалось старое значение.
+ */
 export async function setDailyActivity(input: {
   date?: string
-  steps?: number
-  sleepMinutes?: number
+  steps?: number | null
+  sleepMinutes?: number | null
   userId?: string
 }) {
   const userId = input.userId ?? currentUserId()
@@ -287,12 +402,15 @@ export async function setDailyActivity(input: {
   const id = dayId(userId, date)
   const existing = await db.dailyActivity.get(id)
 
+  const keep = <T>(next: T | null | undefined, prev: T | undefined) =>
+    next === undefined ? prev : (next ?? undefined)
+
   const row: DailyActivity = {
     id,
     user_id: userId,
     date,
-    steps: input.steps ?? existing?.steps,
-    sleep_minutes: input.sleepMinutes ?? existing?.sleep_minutes,
+    steps: keep(input.steps, existing?.steps),
+    sleep_minutes: keep(input.sleepMinutes, existing?.sleep_minutes),
     source: 'manual',
     updated_at: now(),
   }
@@ -497,8 +615,9 @@ export async function pendingReviewCount(clientId: string): Promise<number> {
 
   // Считаем непроверенное, а не сданное: тренеру важно, сколько ещё
   // предстоит разобрать, а не сколько клиент прислал за всё время.
-  return (
-    workouts.filter((r) => !seenWorkouts.has(r.id)).length +
-    days.filter((d) => !seenDays.has(d.date)).length
-  )
+  const pendingDays = NUTRITION_REVIEW_ENABLED
+    ? days.filter((d) => !seenDays.has(d.date)).length
+    : 0
+
+  return workouts.filter((r) => !seenWorkouts.has(r.id)).length + pendingDays
 }

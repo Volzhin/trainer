@@ -1,5 +1,6 @@
 import {
   db,
+  deleteSynced,
   uid,
   now,
   currentUserId,
@@ -108,7 +109,7 @@ export async function logQuick(input: {
 }
 
 export async function deleteFoodLog(id: string) {
-  await db.foodLogs.delete(id)
+  await deleteSynced('foodLogs', id)
 }
 
 export async function updateFoodAmount(id: string, amount: number) {
@@ -241,7 +242,7 @@ export async function deleteCustomFood(id: string) {
   const food = await db.foods.get(id)
   if (!food || food.source !== 'manual') throw new Error('Удалять можно только свои продукты')
   // Записи в дневнике держат слепок нутриентов, поэтому история не пострадает.
-  await db.foods.delete(id)
+  await deleteSynced('foods', id)
 }
 
 /** Свои продукты — отдельным списком для управления и быстрого выбора. */
@@ -334,14 +335,16 @@ export async function loadPlan(userId = currentUserId()): Promise<NutritionPlan>
   const tdee = expenditure.tdee + (profile.manual_offset ?? 0)
 
   // Норма тренера главнее расчёта: спорить с ним внутри приложения нельзя.
-  const fromCoach = profile.coach_kcal != null
-  const target = fromCoach
-    ? profile.coach_kcal!
-    : targetKcal(tdee, profile.weekly_change_kg ?? 0)
+  // Лежит она в своей строке; поле в карточке питания читается запасным
+  // вариантом — там остались нормы, назначенные до переезда.
+  const assigned = await db.coachTargets.get(userId)
+  const coachKcal = assigned?.kcal ?? profile.coach_kcal
+  const coachMacros = assigned?.kcal ? assigned.macros : profile.coach_macros
+
+  const fromCoach = coachKcal != null
+  const target = fromCoach ? coachKcal : targetKcal(tdee, profile.weekly_change_kg ?? 0)
   const macros =
-    fromCoach && profile.coach_macros
-      ? profile.coach_macros
-      : macroTargets(target, profile.macro_split)
+    fromCoach && coachMacros ? coachMacros : macroTargets(target, profile.macro_split)
 
   return {
     profile,
@@ -375,11 +378,14 @@ export async function nutritionSummary(
   const plan = await loadPlan(userId)
   const logs = await db.foodLogs.where('user_id').equals(userId).toArray()
 
-  const from = Date.now() - daysBack * 86400_000
+  // Окно режем по той же дате, по которой группируем: запись, внесённая
+  // сегодня задним числом, иначе прошла бы фильтр и создала «день» за
+  // пределами периода, перекосив средние.
+  const from = localDate(Date.now() - daysBack * 86400_000)
   const byDate = new Map<string, { kcal: number; p: number; f: number; c: number }>()
 
   for (const l of logs) {
-    if (l.logged_at < from) continue
+    if (l.date < from) continue
     const acc = byDate.get(l.date) ?? { kcal: 0, p: 0, f: 0, c: 0 }
     acc.kcal += l.nutrients.kcal
     acc.p += l.nutrients.protein
@@ -412,7 +418,14 @@ export async function nutritionSummary(
   }
 }
 
-/** Тренер назначает норму КБЖУ. Пустое значение снимает назначение. */
+/**
+ * Тренер назначает норму КБЖУ. Пустое значение снимает назначение.
+ *
+ * Пишется в собственную строку, а не в карточку питания клиента: карточку
+ * правит он сам, и запись тренера поверх неё либо не уезжала вовсе, либо
+ * увозила клиенту чужие настройки целиком — обмен разбирает конфликты
+ * строкой, а не полями.
+ */
 export async function setCoachTargets(
   clientId: string,
   targets: {
@@ -425,30 +438,28 @@ export async function setCoachTargets(
   coachId: string,
 ) {
   if (!targets?.kcal) {
-    await updateNutritionProfile(
-      {
-        coach_kcal: undefined,
-        coach_macros: undefined,
-        coach_id: undefined,
-        coach_note: undefined,
-      },
-      clientId,
-    )
+    if (await db.coachTargets.get(clientId)) await deleteSynced('coachTargets', clientId)
     return
   }
-  await updateNutritionProfile(
-    {
-      coach_kcal: targets.kcal,
-      coach_macros: {
-        protein: targets.protein ?? 0,
-        fat: targets.fat ?? 0,
-        carbs: targets.carbs ?? 0,
-      },
-      coach_id: coachId,
-      coach_note: targets.note,
+
+  await db.coachTargets.put({
+    id: clientId,
+    client_id: clientId,
+    trainer_id: coachId,
+    kcal: targets.kcal,
+    macros: {
+      protein: targets.protein ?? 0,
+      fat: targets.fat ?? 0,
+      carbs: targets.carbs ?? 0,
     },
-    clientId,
-  )
+    note: targets.note,
+    updated_at: now(),
+  })
+}
+
+/** Действующая норма от тренера — её показывают обе стороны. */
+export async function coachTargetsOf(clientId: string) {
+  return db.coachTargets.get(clientId)
 }
 
 /** Точки для графика тренда расхода — как менялся метаболизм по неделям. */

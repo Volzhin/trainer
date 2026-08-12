@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type NutritionDay, type WorkoutReport } from '../db/db'
+import { db, type NutritionDay, type ReportReply, type WorkoutReport } from '../db/db'
 import {
   activityRange,
   addTask,
   currentTargets,
   reviewReport,
+  repliesOf,
+  replyText,
+  NUTRITION_REVIEW_ENABLED,
   reviewedRefs,
   setWeeklyTargets,
   submittedNutritionDays,
@@ -42,6 +45,7 @@ export function ClientReports({ clientId }: { clientId: string }) {
   const days = useLiveQuery(() => submittedNutritionDays(clientId), [clientId])
   const seenWorkouts = useLiveQuery(() => reviewedRefs(clientId, 'workout'), [clientId])
   const seenDays = useLiveQuery(() => reviewedRefs(clientId, 'nutrition'), [clientId])
+  const replies = useLiveQuery(() => repliesOf(clientId), [clientId])
   const sessions = useLiveQuery(
     () => db.sessions.where('user_id').equals(clientId).toArray(),
     [clientId],
@@ -70,9 +74,15 @@ export function ClientReports({ clientId }: { clientId: string }) {
 
   const submittedWorkouts = reports.filter((r) => r.status === 'submitted')
 
+  // Дни питания в очередь не идут, пока раздел снят у клиента: ответ на них
+  // ему негде прочитать (см. NUTRITION_REVIEW_ENABLED).
   const queue: ReviewSubject[] = [
-    ...submittedWorkouts.map((r) => toWorkoutSubject(r, titleOf.get(r.session_id)?.title)),
-    ...days.map(toDaySubject),
+    ...submittedWorkouts.map((r) =>
+      toWorkoutSubject(r, titleOf.get(r.session_id)?.title, replies?.get(r.id)),
+    ),
+    ...(NUTRITION_REVIEW_ENABLED
+      ? days.map((d) => toDaySubject(d, replies?.get(`${clientId}:${d.date}`)))
+      : []),
   ].sort((a, b) => (b.submittedAt ?? 0) - (a.submittedAt ?? 0))
 
   const isReviewed = (s: ReviewSubject) =>
@@ -250,23 +260,30 @@ type ReviewSubject = {
   submittedAt?: number
 }
 
-const toWorkoutSubject = (r: WorkoutReport, title?: string): ReviewSubject => ({
+// Ответ приходит отдельной строкой: поле в самом отчёте осталось только ради
+// написанного до этого разделения, и читается через replyText — пустой ответ
+// означает снятый, а не отсутствующий.
+const toWorkoutSubject = (
+  r: WorkoutReport,
+  title?: string,
+  reply?: ReportReply,
+): ReviewSubject => ({
   target: 'workout',
   ref: r.id,
   title: title ?? 'Тренировка',
   subtitle: r.submitted_at ? `Сдана ${formatDate(r.submitted_at)}` : 'Сдана',
   comment: r.client_comment,
-  reply: r.trainer_comment,
+  reply: replyText(reply, r.trainer_comment),
   submittedAt: r.submitted_at,
 })
 
-const toDaySubject = (d: NutritionDay): ReviewSubject => ({
+const toDaySubject = (d: NutritionDay, reply?: ReportReply): ReviewSubject => ({
   target: 'nutrition',
   ref: d.date,
   title: `Питание · ${formatDate(new Date(`${d.date}T12:00:00`).getTime())}`,
   subtitle: d.satiety ? `Сытость: ${SATIETY_LABELS[d.satiety]}` : 'День питания',
   comment: d.comment,
-  reply: d.trainer_comment,
+  reply: replyText(reply, d.trainer_comment),
   submittedAt: d.submitted_at,
 })
 
@@ -330,9 +347,15 @@ function ReviewSheet({
           />
         </div>
         {/* Отметка о проверке ставится и без ответа: пустой ответ — это
-            «посмотрел, вопросов нет», и клиенту про это знать нечего. */}
+            «посмотрел, вопросов нет», и клиенту про это знать нечего.
+            Стёртый ответ именно стирается — иначе кнопка обещала бы одно, а
+            клиент продолжал видеть прежний разбор. */}
         <button className="btn primary block" disabled={busy} onClick={send}>
-          {reply.trim() ? 'Ответить и отметить разобранным' : 'Отметить разобранным'}
+          {reply.trim()
+            ? 'Ответить и отметить разобранным'
+            : subject.reply
+              ? 'Удалить ответ и отметить разобранным'
+              : 'Отметить разобранным'}
         </button>
       </div>
     </Sheet>

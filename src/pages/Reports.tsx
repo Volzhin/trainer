@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { ClientTask, NutritionTarget, WorkoutReport, WorkoutSession } from '../db/db'
@@ -8,6 +8,8 @@ import {
   completeTask,
   currentTargets,
   openTasks,
+  repliesOf,
+  replyText,
   setDailyActivity,
   submitWorkoutReport,
   workoutReportsOf,
@@ -68,6 +70,9 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
   const tasks = useLiveQuery(() => openTasks(userId), [userId])
   const targets = useLiveQuery(() => currentTargets(userId), [userId])
   const sessions = useLiveQuery(() => listMySessions(), [userId])
+  // Ответы тренера лежат отдельными строками; поле в самом отчёте читается
+  // запасным вариантом — там остались ответы, полученные до разделения.
+  const replies = useLiveQuery(() => repliesOf(userId), [userId])
   const reports = useLiveQuery(() => workoutReportsOf(userId), [userId])
 
   const today = localDate()
@@ -78,6 +83,8 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
   const loading = tasks === undefined || sessions === undefined || reports === undefined
 
   const reportOf = new Map((reports ?? []).map((r) => [r.session_id, r]))
+  const answerFor = (report?: WorkoutReport) =>
+    report ? replyText(replies?.get(report.id), report.trainer_comment) : undefined
   const recent = (sessions ?? []).filter(
     (s) => s.start_time >= Date.now() - WINDOW_DAYS * 86400_000,
   )
@@ -138,7 +145,7 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
                   title={s.title}
                   subtitle={formatDate(s.start_time)}
                   submitted={reportOf.get(s.id)?.status === 'submitted'}
-                  answered={!!reportOf.get(s.id)?.trainer_comment}
+                  answered={!!answerFor(reportOf.get(s.id))}
                   onOpen={() => setOpenSession(s)}
                 />
               ))}
@@ -157,6 +164,7 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
       <WorkoutReportSheet
         session={openSession}
         report={openSession ? reportOf.get(openSession.id) : undefined}
+        reply={openSession ? answerFor(reportOf.get(openSession.id)) : undefined}
         onClose={() => setOpenSession(null)}
       />
     </div>
@@ -252,10 +260,14 @@ function TargetsCard({ targets }: { targets: NutritionTarget }) {
 /** Часы с дробной частью удобнее двух полей, но в базе лежат минуты. */
 const hoursToMinutes = (v: string) => {
   const h = parseFloat(v.replace(',', '.'))
-  return Number.isFinite(h) && h > 0 ? Math.round(h * 60) : undefined
+  // Ноль — такой же честный ответ, как и любой другой: бывают ночи без сна.
+  return Number.isFinite(h) && h >= 0 ? Math.round(h * 60) : undefined
 }
 
-const minutesToHours = (m?: number) => (m ? String(Math.round((m / 60) * 10) / 10) : '')
+// Ноль — записанное значение, а не пустое поле: иначе введённый ноль сразу
+// после сохранения исчезал бы из формы, а кнопка оставалась активной.
+const minutesToHours = (m?: number) =>
+  m === undefined ? '' : String(Math.round((m / 60) * 10) / 10)
 
 function ActivityCard({ date, userId }: { date: string; userId: string }) {
   const { toast } = useApp()
@@ -268,27 +280,37 @@ function ActivityCard({ date, userId }: { date: string; userId: string }) {
    * под руку старое значение после сохранения нельзя.
    */
   const [draft, setDraft] = useState<{ steps: string; sleep: string } | null>(null)
-  const savedSteps = saved?.steps ? String(saved.steps) : ''
+  const savedSteps = saved?.steps === undefined ? '' : String(saved.steps)
   const savedSleep = minutesToHours(saved?.sleep_minutes)
   const steps = draft?.steps ?? savedSteps
   const sleep = draft?.sleep ?? savedSleep
-  const dirty = steps !== savedSteps || sleep !== savedSleep
 
   const raw = steps.replace(/\s/g, '')
   const stepsNum = raw ? Number(raw) : undefined
-  const sleepNum = hoursToMinutes(sleep)
+  const sleepNum = sleep.trim() ? hoursToMinutes(sleep) : undefined
   // Пустое поле — это «не вводил», а не ноль; мусор в поле сохранять нельзя.
   const valid =
     (stepsNum === undefined || (Number.isFinite(stepsNum) && stepsNum >= 0)) &&
     (!sleep.trim() || sleepNum !== undefined)
 
+  // Сравниваем числа, а не текст: «7,5» и «7.5» — одно и то же значение, и
+  // после сохранения введённого через запятую кнопка иначе оставалась бы
+  // активной, как будто запись не прошла.
+  const dirty =
+    (stepsNum === undefined ? undefined : Math.round(stepsNum)) !== saved?.steps ||
+    sleepNum !== saved?.sleep_minutes
+
   const save = async () => {
     await setDailyActivity({
       date,
-      steps: stepsNum === undefined ? undefined : Math.round(stepsNum),
-      sleepMinutes: sleepNum,
+      // Очищенное поле стирает значение, а не оставляет прежнее: человек
+      // видел бы пустую форму при сохранённом старом числе.
+      steps: raw ? Math.round(stepsNum!) : null,
+      sleepMinutes: sleep.trim() ? sleepNum : null,
       userId,
     })
+    // Черновик снимаем: дальше поля показывают то, что действительно записано.
+    setDraft(null)
     haptics.success()
     toast('Записано')
   }
@@ -353,9 +375,25 @@ function TaskSheet({ task, onClose }: { task: ClientTask | null; onClose: () => 
   const [answer, setAnswer] = useState('')
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => setAnswer(task?.answer ?? ''), [task?.id])
+  /**
+   * Черновик по каждому заданию. Шторка закрывается тапом мимо неё и по
+   * Escape, без подтверждения, — и написанное эссе пропадало от одного
+   * случайного касания. Здесь оно переживает закрытие и возвращается, когда
+   * задание открывают снова.
+   */
+  const drafts = useRef(new Map<string, string>())
+
+  useEffect(() => {
+    if (!task) return
+    setAnswer(drafts.current.get(task.id) ?? task.answer ?? '')
+  }, [task?.id])
 
   if (!task) return null
+
+  const edit = (value: string) => {
+    setAnswer(value)
+    drafts.current.set(task.id, value)
+  }
 
   const route = TASK_ROUTE[task.kind]
   // Эссе — это и есть ответ: отметить его выполненным, ничего не написав,
@@ -366,9 +404,13 @@ function TaskSheet({ task, onClose }: { task: ClientTask | null; onClose: () => 
     setBusy(true)
     try {
       await completeTask(task.id, answer)
+      drafts.current.delete(task.id)
       haptics.success()
       toast('Задание выполнено')
       onClose()
+    } catch {
+      // Молча закрывать шторку нельзя: человек решит, что задание отправлено.
+      toast('Не удалось сохранить — попробуйте ещё раз')
     } finally {
       setBusy(false)
     }
@@ -385,7 +427,7 @@ function TaskSheet({ task, onClose }: { task: ClientTask | null; onClose: () => 
             className="textarea"
             style={needsText ? { minHeight: 160 } : undefined}
             value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
+            onChange={(e) => edit(e.target.value)}
             placeholder={needsText ? 'Пишите как есть — это для вас и для тренера' : ''}
           />
         </div>
@@ -429,17 +471,26 @@ function TrainerReply({ text }: { text?: string }) {
 function WorkoutReportSheet({
   session,
   report,
+  reply,
   onClose,
 }: {
   session: WorkoutSession | null
   report?: WorkoutReport
+  reply?: string
   onClose: () => void
 }) {
   const { toast } = useApp()
   const [comment, setComment] = useState('')
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => setComment(report?.client_comment ?? ''), [session?.id, report?.id])
+  // Написанное переживает закрытие шторки: закрыть её можно случайным тапом
+  // мимо, а подтверждения здесь нет.
+  const drafts = useRef(new Map<string, string>())
+
+  useEffect(() => {
+    if (!session) return
+    setComment(drafts.current.get(session.id) ?? report?.client_comment ?? '')
+  }, [session?.id, report?.id])
 
   if (!session) return null
 
@@ -449,9 +500,12 @@ function WorkoutReportSheet({
     setBusy(true)
     try {
       await submitWorkoutReport(session.id, comment)
+      drafts.current.delete(session.id)
       haptics.success()
       toast(submitted ? 'Отчёт обновлён' : 'Отчёт сдан')
       onClose()
+    } catch {
+      toast('Не удалось сдать отчёт — попробуйте ещё раз')
     } finally {
       setBusy(false)
     }
@@ -461,7 +515,7 @@ function WorkoutReportSheet({
     <Sheet open={!!session} title={session.title} onClose={onClose}>
       <div className="mute-sm">{formatDate(session.start_time)}</div>
 
-      <TrainerReply text={report?.trainer_comment} />
+      <TrainerReply text={reply} />
 
       <div className="stack" style={{ marginTop: 14 }}>
         <div className="field">
@@ -469,7 +523,10 @@ function WorkoutReportSheet({
           <textarea
             className="textarea"
             value={comment}
-            onChange={(e) => setComment(e.target.value)}
+            onChange={(e) => {
+              setComment(e.target.value)
+              drafts.current.set(session.id, e.target.value)
+            }}
             placeholder="Самочувствие, что было тяжело, что болело"
           />
         </div>
