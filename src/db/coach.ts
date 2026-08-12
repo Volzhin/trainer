@@ -395,7 +395,6 @@ export type ClientDetail = {
   sessions: WorkoutSession[]
   volumeByWeek: { label: string; value: number }[]
   records: { name: string; score: number }[]
-  weightPoints: { x: number; y: number }[]
 }
 
 /** Полная выборка по одному клиенту для карточки в кабинете тренера. */
@@ -440,8 +439,6 @@ export async function loadClientDetail(clientId: string): Promise<ClientDetail |
     best.set(s.exercise_id, Math.max(best.get(s.exercise_id) ?? 0, score))
   }
 
-  const metrics = await db.bodyMetrics.where('user_id').equals(clientId).sortBy('logged_at')
-
   return {
     client,
     sessions,
@@ -450,9 +447,6 @@ export async function loadClientDetail(clientId: string): Promise<ClientDetail |
       .map(([exId, score]) => ({ name: exMap.get(exId)?.name ?? '—', score }))
       .sort((a, b) => b.score - a.score)
       .slice(0, 6),
-    weightPoints: metrics
-      .filter((m) => m.weight_kg != null)
-      .map((m) => ({ x: m.logged_at, y: m.weight_kg! })),
   }
 }
 

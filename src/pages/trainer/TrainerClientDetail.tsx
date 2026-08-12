@@ -10,7 +10,6 @@ import {
   setLinkMode,
   setLinkPayment,
 } from '../../db/coach'
-import { LineChart } from '../../components/LineChart'
 import { ContactLinks } from '../../components/ContactLinks'
 import { BodyCompositionView } from '../../components/BodyCompositionView'
 import { Sheet } from '../../components/Sheet'
@@ -73,7 +72,7 @@ export function TrainerClientDetail() {
 
   if (!detail) return <div className="screen">{t('Загрузка…')}</div>
 
-  const { client, weightPoints } = detail
+  const { client } = detail
 
   const unlink = async () => {
     if (!link) return
@@ -182,21 +181,10 @@ export function TrainerClientDetail() {
 
       {tab === 'body' && (
         <div className="mt-1">
-          {/* Вес стоит перед составом тела, а не в сводке профиля: смотрят
-              на него вместе с процентом жира и обхватами — из них и
-              складывается ответ, уходит ли вес туда, куда нужно. Отдельно
-              от них цифра веса не значит почти ничего. */}
-          <div className="section-title">{t('Вес')}</div>
-          <div className="card">
-            {weightPoints.length < 2 ? (
-              <div className="mute-sm">
-                {t('Взвешиваний за две недели меньше двух — графика нет.')}
-              </div>
-            ) : (
-              <LineChart data={weightPoints} unit=" кг" color="var(--ok)" />
-            )}
-          </div>
-
+          {/* Отдельного графика веса здесь нет: он уже внутри разбора, в
+              блоке «Динамика», и там его можно переключить на любую другую
+              метрику или сравнить две. Второй график показывал бы то же
+              самое, но хуже. */}
           <BodyCompositionView userId={id} subject="client" />
         </div>
       )}
