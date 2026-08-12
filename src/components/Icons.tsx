@@ -42,6 +42,14 @@ export const IconList = ({ size }: P) => (
   </svg>
 )
 
+export const IconInfo = ({ size }: P) => (
+  <svg {...base(size)}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v5" />
+    <path d="M12 8h.01" />
+  </svg>
+)
+
 export const IconChart = ({ size }: P) => (
   <svg {...base(size)}>
     <path d="M3 21h18" />

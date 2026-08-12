@@ -781,6 +781,32 @@ export async function progressionFor(
   return { progression: last.progression!, text: last.text || undefined }
 }
 
+/**
+ * Последний разбор упражнения от тренера — текст и рекомендация по весу.
+ *
+ * Раньше комментарий доставался только вместе с рекомендацией: выборка
+ * отбирала строки, где progression заполнен. Тренер, написавший «пауза
+ * внизу» и не тронувший вес, разговаривал сам с собой.
+ */
+export async function coachNoteFor(
+  exerciseId: string,
+  clientId = currentUserId(),
+): Promise<{ progression?: Progression; text?: string; at: number } | null> {
+  const rows = await db.feedback
+    .where('exercise_id')
+    .equals(exerciseId)
+    .and((f) => f.client_id === clientId && (!!f.progression || !!f.text.trim()))
+    .toArray()
+  if (!rows.length) return null
+
+  const last = rows.sort((a, b) => b.created_at - a.created_at)[0]
+  return {
+    progression: last.progression,
+    text: last.text.trim() || undefined,
+    at: last.created_at,
+  }
+}
+
 /* ------------------------------ сводка --------------------------------- */
 
 /** Сколько отчётов ждёт проверки — бейдж в списке клиентов у тренера. */

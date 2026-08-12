@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { progressionFor } from '../db/reports'
+import { coachNoteFor } from '../db/reports'
 import type { Progression } from '../db/db'
 
 /**
@@ -21,17 +21,21 @@ const LABELS: Record<Progression, { text: string; color: string }> = {
 }
 
 export function CoachHint({ exerciseId, clientId }: { exerciseId: string; clientId?: string }) {
-  const hint = useLiveQuery(() => progressionFor(exerciseId, clientId), [exerciseId, clientId])
+  const hint = useLiveQuery(() => coachNoteFor(exerciseId, clientId), [exerciseId, clientId])
   if (!hint) return null
 
-  const label = LABELS[hint.progression]
+  const label = hint.progression ? LABELS[hint.progression] : null
 
   return (
     <div className="quote inset">
-      <span className="badge" style={{ color: label.color, borderColor: label.color }}>
-        {label.text}
-      </span>
-      {hint.text && <div className="mute-sm mt-1">{hint.text}</div>}
+      {label && (
+        <span className="badge" style={{ color: label.color, borderColor: label.color }}>
+          {label.text}
+        </span>
+      )}
+      {/* Комментарий показываем и без рекомендации по весу: «пауза внизу»
+          указание не хуже, чем «прибавить». */}
+      {hint.text && <div className={`mute-sm${label ? ' mt-1' : ''}`}>{hint.text}</div>}
     </div>
   )
 }

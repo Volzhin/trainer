@@ -26,7 +26,9 @@ import {
 } from '../lib/calc'
 import {
   IconBack,
+  IconChart,
   IconCheck,
+  IconInfo,
   IconPlus,
   IconRecord,
   IconSwap,
@@ -36,6 +38,8 @@ import { ExercisePicker } from '../components/ExercisePicker'
 import { ExerciseTechniqueSheet } from '../components/ExerciseTechnique'
 import { VideoUploader } from '../components/ExerciseVideo'
 import { CoachHint } from '../components/CoachHint'
+import { ExerciseBrief } from '../components/ExerciseBrief'
+import { ExerciseStatsSheet } from '../components/ExerciseStatsSheet'
 import { submitWorkoutReport } from '../db/reports'
 import { trainerOfClient } from '../db/coach'
 import { Sheet } from '../components/Sheet'
@@ -58,6 +62,7 @@ export function LiveSession() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [swapFor, setSwapFor] = useState<Block | null>(null)
   const [techniqueFor, setTechniqueFor] = useState<string | null>(null)
+  const [statsFor, setStatsFor] = useState<Exercise | null>(null)
   const [finishOpen, setFinishOpen] = useState(false)
   const [notes, setNotes] = useState('')
   /**
@@ -219,6 +224,47 @@ export function LiveSession() {
     }
   }
 
+  /**
+   * Отметить всё упражнение разом.
+   *
+   * Если хоть один подход не отмечен — отмечаем оставшиеся; если отмечены
+   * все — снимаем. Так одна кнопка делает то, чего от неё ждут в обоих
+   * состояниях, и не требует догадываться, что она сделает.
+   *
+   * Пустые подходы пропускаем: «сделано» там, где не введено ни веса, ни
+   * повторов, — запись о том, чего не было. Отдых после общей отметки не
+   * запускаем: её жмут, когда упражнение уже закончено.
+   */
+  const onToggleBlock = async (block: Block) => {
+    const allDone = block.sets.every((x) => x.is_done)
+    if (allDone) {
+      for (const set of block.sets) await uncompleteSet(set.id)
+      haptics.selection()
+      return
+    }
+
+    let marked = 0
+    let prs = 0
+    for (const set of block.sets) {
+      if (set.is_done) continue
+      if (!set.weight_kg && !set.reps_completed) continue
+      const { isPR } = await completeSet(set.id)
+      if (isPR) prs++
+      marked++
+    }
+
+    if (!marked) {
+      toast('Нечего отмечать: подходы пустые')
+      return
+    }
+    if (prs) {
+      haptics.success()
+      toast(`Личный рекорд: ${block.exercise.name}!`, 'pr')
+    } else {
+      haptics.impact()
+    }
+  }
+
   const onFinish = async () => {
     const saved = await finishSession(id, notes.trim() || undefined)
     stopRest()
@@ -315,6 +361,22 @@ export function LiveSession() {
               </button>
               <button
                 className="icon-btn"
+                onClick={() => setTechniqueFor(block.exercise.id)}
+                aria-label={`Техника: ${block.exercise.name}`}
+                title="Как делать"
+              >
+                <IconInfo size={17} />
+              </button>
+              <button
+                className="icon-btn"
+                onClick={() => setStatsFor(block.exercise)}
+                aria-label={`Статистика: ${block.exercise.name}`}
+                title="Статистика по подходам"
+              >
+                <IconChart size={17} />
+              </button>
+              <button
+                className="icon-btn"
                 onClick={() => setSwapFor(block)}
                 aria-label="Заменить упражнение"
                 title="Заменить (тренажёр занят)"
@@ -334,11 +396,24 @@ export function LiveSession() {
                 на глаза до того, как человек наберёт вес, а не после. */}
             <CoachHint exerciseId={block.exercise.id} />
 
+            <ExerciseBrief exerciseId={block.exercise.id} />
+
             <div className="set-grid head">
               <div className="num">#</div>
               <div style={{ textAlign: 'center' }}>кг</div>
               <div style={{ textAlign: 'center' }}>повт.</div>
-              <div />
+              {/* Общая галочка: отметить всё упражнение разом. Подходы часто
+                  делают по плану и отмечают в конце — тыкать в каждую
+                  строку по очереди значит повторять одно действие пять раз.
+                  Пустые подходы она не трогает: отметить «сделано» там, где
+                  не введено ни веса, ни повторов, нечего. */}
+              <button
+                className={`check sm${block.sets.every((x) => x.is_done) ? ' on' : ''}`}
+                aria-label={`Отметить всё: ${block.exercise.name}`}
+                onClick={() => void onToggleBlock(block)}
+              >
+                <IconCheck size={15} />
+              </button>
             </div>
 
             {block.sets.map((s, i) => (
@@ -400,6 +475,12 @@ export function LiveSession() {
       </div>
 
       <ExerciseTechniqueSheet exerciseId={techniqueFor} onClose={() => setTechniqueFor(null)} />
+
+      <ExerciseStatsSheet
+        exerciseId={statsFor?.id ?? null}
+        name={statsFor?.name}
+        onClose={() => setStatsFor(null)}
+      />
 
       <ExercisePicker
         open={pickerOpen}

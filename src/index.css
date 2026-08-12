@@ -2311,3 +2311,35 @@ button.group-row:active {
   /* Обводка фоном карточки: без неё счётчик сливается с иконкой под ним. */
   border: 2px solid var(--surface);
 }
+
+/* Что человек уже делал в этом упражнении — лучший подход и прошлая
+   тренировка. Стоит между словом тренера и полями ввода: это последнее,
+   на что смотрят перед тем, как набрать вес. */
+.ex-brief {
+  display: flex;
+  gap: var(--space-5);
+  margin: 0 12px 10px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+
+.ex-brief .cap {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-bottom: 2px;
+}
+
+.ex-brief .figures {
+  font-size: 15px;
+  color: var(--text);
+}
+
+/* Уменьшенная галочка для шапки таблицы подходов: отмечает всё упражнение
+   разом. Меньше построчной, потому что действие реже, а места в шапке
+   ровно столько же, сколько под колонку. */
+.check.sm {
+  width: 32px;
+  height: 30px;
+  justify-self: center;
+}

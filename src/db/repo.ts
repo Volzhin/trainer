@@ -8,7 +8,7 @@ import {
   type WorkoutSession,
 } from './db'
 import { invalidateExercises } from './catalog'
-import { estimate1RM, startOfDay } from '../lib/calc'
+import { bestSet, estimate1RM, startOfDay } from '../lib/calc'
 import type { BodyMetric } from './db'
 import type { InBodyReport } from '../lib/inbody'
 
@@ -306,6 +306,43 @@ export async function discardSession(sessionId: string) {
 /* ------------------------------- история ------------------------------ */
 
 /** Подходы этого упражнения из последней завершённой тренировки. */
+/**
+ * Лучший подход за всю историю и подходы последней тренировки.
+ *
+ * Два разных ответа на два разных вопроса. «Лучший» говорит, на что человек
+ * способен, «последний» — от чего отталкиваться сегодня. Показывать только
+ * рекорд жестоко: он мог быть год назад и на свежих силах.
+ */
+export async function exerciseHistory(
+  exerciseId: string,
+  userId = currentUserId(),
+): Promise<{ best?: ExerciseSet; last: ExerciseSet[] }> {
+  const rows = await db.sets.where('exercise_id').equals(exerciseId).toArray()
+  const done = rows.filter((s) => s.is_done)
+  if (!done.length) return { last: [] }
+
+  const sessions = await db.sessions.bulkGet([
+    ...new Set(done.map((s) => s.workout_session_id)),
+  ])
+  const mine = new Map(
+    sessions
+      .filter((s): s is WorkoutSession => !!s && s.user_id === userId && s.is_completed === 1)
+      .map((s) => [s.id, s]),
+  )
+
+  const own = done.filter((s) => mine.has(s.workout_session_id))
+  if (!own.length) return { last: [] }
+
+  const latestId = [...mine.values()].sort((a, b) => b.start_time - a.start_time)[0].id
+
+  return {
+    best: bestSet(own),
+    last: own
+      .filter((s) => s.workout_session_id === latestId)
+      .sort((a, b) => a.set_number - b.set_number),
+  }
+}
+
 export async function lastSetsForExercise(exerciseId: string): Promise<ExerciseSet[]> {
   const sets = await db.sets.where('exercise_id').equals(exerciseId).toArray()
   const done = sets.filter((s) => s.is_done)
