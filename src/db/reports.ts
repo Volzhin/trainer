@@ -107,6 +107,16 @@ export async function setSatiety(date: string, satiety: NutritionDay['satiety'])
   await db.nutritionDays.update(day.id, { satiety, updated_at: now() })
 }
 
+/** Итог дня, введённый рукой: четыре числа вместо разбора по продуктам. */
+export async function setManualNutrition(
+  date: string,
+  manual: NutritionDay['manual'],
+  userId = currentUserId(),
+) {
+  const day = await ensureNutritionDay(date, userId)
+  await db.nutritionDays.update(day.id, { manual, updated_at: now() })
+}
+
 export async function submitNutritionDay(date: string, comment?: string) {
   const day = await ensureNutritionDay(date)
   const ts = now()

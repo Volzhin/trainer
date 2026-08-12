@@ -453,6 +453,15 @@ export interface NutritionDay {
   date: string
   /** 5 — сытый, 1 — очень голодный. */
   satiety?: 1 | 2 | 3 | 4 | 5
+  /**
+   * Итог дня, введённый рукой.
+   *
+   * Пока полной базы продуктов нет, человек считает КБЖУ в стороннем
+   * приложении и переносит четыре числа сюда. Дневник по продуктам от
+   * этого не отменяется: если день собран из записей, эти поля пусты, и
+   * тренер видит посчитанное приложением.
+   */
+  manual?: { kcal?: number; protein?: number; fat?: number; carbs?: number }
   comment?: string
   status: ReportStatus
   submitted_at?: number
@@ -678,8 +687,15 @@ export const threadId = (trainerId: string, clientId: string) => `${trainerId}::
 export interface Attachment {
   id: string
   user_id: string
-  session_id: string
-  exercise_id: string
+  /** К какой тренировке приложено. Пусто у скриншотов дня питания. */
+  session_id?: string
+  exercise_id?: string
+  /**
+   * День питания (YYYY-MM-DD), если это скриншот дневника из другого
+   * приложения. Своей таблицы им заводить незачем: у вложений уже есть
+   * отдельный путь выгрузки файлов, а json-синхронизация Blob не возит.
+   */
+  nutrition_date?: string
   kind: 'video' | 'photo'
   /** Оригинал на устройстве. У приехавшего с сервера файла его нет. */
   blob?: Blob
@@ -822,6 +838,15 @@ class TrainerDB extends Dexie {
     /** v8 — заготовки заданий у тренера. */
     this.version(8).stores({
       taskTemplates: 'id, trainer_id, created_at',
+    })
+
+    /**
+     * v9 — скриншоты дневника питания. Пока своей базы продуктов нет,
+     * клиент считает КБЖУ в стороннем приложении и присылает картинку.
+     */
+    this.version(9).stores({
+      attachments:
+        'id, user_id, session_id, exercise_id, nutrition_date, [session_id+exercise_id]',
     })
   }
 }

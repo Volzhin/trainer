@@ -789,6 +789,41 @@ export async function addAttachment(input: {
   return attachment.id
 }
 
+/**
+ * Скриншот дневника питания за день.
+ *
+ * Кладём в ту же таблицу, что и видео техники: у неё есть свой путь
+ * выгрузки файлов, а обычная синхронизация возит json и Blob не увезёт.
+ */
+export async function addNutritionShot(input: {
+  date: string
+  blob: Blob
+  userId?: string
+}): Promise<string> {
+  const id = uid()
+  const ts = now()
+  await db.attachments.add({
+    id,
+    user_id: input.userId ?? currentUserId(),
+    nutrition_date: input.date,
+    kind: 'photo',
+    blob: input.blob,
+    mime: input.blob.type || 'image/jpeg',
+    size: input.blob.size,
+    created_at: ts,
+    updated_at: ts,
+  })
+  return id
+}
+
+export async function nutritionShots(
+  date: string,
+  userId = currentUserId(),
+): Promise<Attachment[]> {
+  const rows = await db.attachments.where('nutrition_date').equals(date).toArray()
+  return rows.filter((a) => a.user_id === userId).sort((a, b) => a.created_at - b.created_at)
+}
+
 export async function attachmentsForSession(sessionId: string): Promise<Attachment[]> {
   const rows = await db.attachments.where('session_id').equals(sessionId).toArray()
   return rows.sort((a, b) => a.created_at - b.created_at)

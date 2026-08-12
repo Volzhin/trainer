@@ -10,6 +10,8 @@ import {
   weeklyStats,
 } from '../db/reports'
 import { logsForDate, sumNutrients } from '../db/nutrition'
+import { nutritionShots } from '../db/coach'
+import { ShotThumb } from './ShotThumb'
 import { formatDate } from '../lib/calc'
 import { LineChart } from './LineChart'
 import { Sheet } from './Sheet'
@@ -168,7 +170,18 @@ function NutritionDayFacts({
   const facts = useLiveQuery(async () => {
     const logs = await logsForDate(date, clientId)
     const activity = await activityFor(date, clientId)
-    return { eaten: sumNutrients(logs), activity, entries: logs.length }
+    const day = await db.nutritionDays.get(`${clientId}:${date}`)
+    const shots = await nutritionShots(date, clientId)
+    return {
+      eaten: sumNutrients(logs),
+      entries: logs.length,
+      // Итог, введённый рукой, важнее посчитанного: пока базы продуктов
+      // нет, человек считает КБЖУ в стороннем счётчике, и его четыре
+      // числа — единственное, что он на самом деле сдал.
+      manual: day?.manual,
+      activity,
+      shots,
+    }
   }, [clientId, date])
 
   if (!facts) return <div className="card skeleton" style={{ height: 96 }} />
@@ -187,16 +200,32 @@ function NutritionDayFacts({
   return (
     <div className="card mt-2">
       <div className="cap mb-1">{t('За этот день')}</div>
-      {facts.entries === 0 ? (
-        <div className="mute-sm">{t('Записей о еде за день нет.')}</div>
-      ) : (
-        <>
-          {row(t('Калории'), facts.eaten.kcal, targets?.kcal, ' ккал')}
-          {row(t('Белки'), Math.round(facts.eaten.protein), targets?.protein, ' г')}
-          {row(t('Жиры'), Math.round(facts.eaten.fat), targets?.fat, ' г')}
-          {row(t('Углеводы'), Math.round(facts.eaten.carbs), targets?.carbs, ' г')}
-        </>
-      )}
+      {(() => {
+        const m = facts.manual
+        const hasManual = m && (m.kcal != null || m.protein != null || m.fat != null || m.carbs != null)
+        if (!hasManual && facts.entries === 0) {
+          return <div className="mute-sm">{t('Записей о еде за день нет.')}</div>
+        }
+        const eaten = hasManual
+          ? {
+              kcal: m?.kcal ?? 0,
+              protein: m?.protein ?? 0,
+              fat: m?.fat ?? 0,
+              carbs: m?.carbs ?? 0,
+            }
+          : facts.eaten
+        return (
+          <>
+            {hasManual && (
+              <div className="mute-sm mb-1">{t('Из счётчика клиента')}</div>
+            )}
+            {row(t('Калории'), Math.round(eaten.kcal), targets?.kcal, ' ккал')}
+            {row(t('Белки'), Math.round(eaten.protein), targets?.protein, ' г')}
+            {row(t('Жиры'), Math.round(eaten.fat), targets?.fat, ' г')}
+            {row(t('Углеводы'), Math.round(eaten.carbs), targets?.carbs, ' г')}
+          </>
+        )
+      })()}
 
       {row(
         t('Шаги'),
@@ -207,6 +236,16 @@ function NutritionDayFacts({
         <span className="mute-sm">{t('Сон')}</span>
         <span className="figures">{sleepLabel(facts.activity?.sleep_minutes)}</span>
       </div>
+
+      {/* Скриншоты счётчика: без них четыре числа приходится принимать на
+          веру, а именно их клиент и прислал как доказательство. */}
+      {facts.shots.length > 0 && (
+        <div className="shot-grid mt-3">
+          {facts.shots.map((a) => (
+            <ShotThumb key={a.id} attachment={a} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

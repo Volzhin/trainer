@@ -1,0 +1,179 @@
+import { useEffect, useRef, useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { db } from '../db/db'
+import { setManualNutrition } from '../db/reports'
+import { addNutritionShot, deleteAttachment, nutritionShots } from '../db/coach'
+import { Sheet } from './Sheet'
+import { ShotThumb } from './ShotThumb'
+import { IconPlus, IconTrash } from './Icons'
+import { useApp } from '../store/app'
+import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
+
+/**
+ * Отчёт по питанию, собранный вручную.
+ *
+ * Пока своей базы продуктов нет, человек считает КБЖУ в стороннем
+ * приложении. Требовать, чтобы он повторно вбивал туда каждую котлету,
+ * значит требовать двойной работы — он просто перестанет отчитываться.
+ * Поэтому четыре числа и скриншот: ровно то, что у него уже есть.
+ *
+ * Дневник по продуктам это не отменяет. Если день собран из записей, поля
+ * остаются пустыми, и тренер видит посчитанное приложением.
+ */
+export function ManualNutritionReport({ date }: { date: string }) {
+  const { toast, userId } = useApp()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [form, setForm] = useState({ kcal: '', protein: '', fat: '', carbs: '' })
+
+  const day = useLiveQuery(() => db.nutritionDays.get(`${userId}:${date}`), [userId, date])
+  const shotsVersion = useLiveQuery(() => db.attachments.count(), [])
+  const shots = useLiveQuery(
+    () => nutritionShots(date, userId),
+    [date, userId, shotsVersion],
+  )
+
+  // Открывая форму, показываем уже введённое: отчёт правят чаще, чем
+  // заполняют с нуля — вечером вспомнили про перекус.
+  useEffect(() => {
+    if (!open) return
+    const m = day?.manual
+    setForm({
+      kcal: m?.kcal != null ? String(m.kcal) : '',
+      protein: m?.protein != null ? String(m.protein) : '',
+      fat: m?.fat != null ? String(m.fat) : '',
+      carbs: m?.carbs != null ? String(m.carbs) : '',
+    })
+  }, [open, day?.manual])
+
+  const num = (v: string) => {
+    const n = parseFloat(v.replace(',', '.'))
+    return Number.isFinite(n) && n >= 0 ? n : undefined
+  }
+
+  const save = async () => {
+    setBusy(true)
+    try {
+      await setManualNutrition(date, {
+        kcal: num(form.kcal),
+        protein: num(form.protein),
+        fat: num(form.fat),
+        carbs: num(form.carbs),
+      })
+      haptics.success()
+      toast(t('Отчёт сохранён'))
+      setOpen(false)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const attach = async (list: FileList | null) => {
+    const files = Array.from(list ?? [])
+    if (!files.length) return
+    setBusy(true)
+    try {
+      for (const file of files) await addNutritionShot({ date, blob: file, userId })
+      haptics.impact()
+      toast(t('Скриншот прикреплён'))
+    } finally {
+      setBusy(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  const manual = day?.manual
+  const filled = manual && (manual.kcal || manual.protein || manual.fat || manual.carbs)
+  const shotCount = shots?.length ?? 0
+
+  const field = (key: keyof typeof form, label: string) => (
+    <div className="field grow" key={key}>
+      <label>{label}</label>
+      <input
+        className="input"
+        inputMode="decimal"
+        value={form[key]}
+        placeholder="—"
+        onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+      />
+    </div>
+  )
+
+  return (
+    <>
+      <div className="section-title">{t('Отчёт по питанию')}</div>
+      <button className="list-item" onClick={() => setOpen(true)}>
+        <div className="grow">
+          <div className="strong">
+            {filled ? t('Изменить отчёт') : t('Прикрепить отчёт по питанию')}
+          </div>
+          <div className="mute-sm">
+            {filled
+              ? [
+                  manual?.kcal != null && `${manual.kcal} ккал`,
+                  manual?.protein != null && `Б ${manual.protein}`,
+                  manual?.fat != null && `Ж ${manual.fat}`,
+                  manual?.carbs != null && `У ${manual.carbs}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')
+              : t('КБЖУ числом и скриншот из вашего счётчика')}
+            {shotCount > 0 && ` · ${shotCount} ${t('скрин.')}`}
+          </div>
+        </div>
+        <IconPlus size={16} />
+      </button>
+
+      <Sheet open={open} title={t('Отчёт по питанию')} onClose={() => setOpen(false)}>
+        <div className="stack">
+          <div className="muted">
+            {t('Перенесите итог дня из своего счётчика. Пустое поле останется пустым.')}
+          </div>
+
+          <div className="row" style={{ gap: 8 }}>
+            {field('kcal', t('Калории'))}
+            {field('protein', t('Белки, г'))}
+          </div>
+          <div className="row" style={{ gap: 8 }}>
+            {field('fat', t('Жиры, г'))}
+            {field('carbs', t('Углеводы, г'))}
+          </div>
+
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            multiple
+            style={{ display: 'none' }}
+            onChange={(e) => void attach(e.target.files)}
+          />
+          <button className="btn block" disabled={busy} onClick={() => fileRef.current?.click()}>
+            <IconPlus size={16} /> {t('Добавить скриншот')}
+          </button>
+
+          {shotCount > 0 && (
+            <div className="shot-grid">
+              {shots?.map((a) => (
+                <ShotThumb attachment={a} key={a.id}>
+                  <button
+                    className="icon-btn"
+                    aria-label={t('Удалить')}
+                    onClick={() => deleteAttachment(a.id)}
+                  >
+                    <IconTrash size={15} />
+                  </button>
+                </ShotThumb>
+              ))}
+            </div>
+          )}
+
+          <button className="btn primary block" disabled={busy} onClick={save}>
+            {busy ? t('Сохраняю…') : t('Сохранить')}
+          </button>
+        </div>
+      </Sheet>
+    </>
+  )
+}

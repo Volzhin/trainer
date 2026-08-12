@@ -426,7 +426,9 @@ async function pushAttachments(): Promise<number> {
         owner: a.user_id,
         rid: a.id,
         kind: a.kind,
-        note: a.exercise_id,
+        // Пометка объясняет, к чему файл: упражнение у видео техники,
+        // день у скриншота дневника. Без неё запись на сервере безымянна.
+        note: a.exercise_id ?? a.nutrition_date ?? '',
         file: a.blob,
         filename: `${a.id}.${ext}`,
       })

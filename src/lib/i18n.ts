@@ -187,6 +187,7 @@ const EN: Record<string, string> = {
   'Шаги и сон за сегодня': 'Steps and sleep today',
   'Видео-отчёты по тренировкам': 'Workout video reports',
   'Сданные отчёты': 'Submitted reports',
+  'Все тренировки сданы.': 'All workouts submitted.',
   'Показать сданное': 'Show what was submitted',
   'Вес, замеры, InBody, шаги и сон — с возможностью удалить':
     'Weight, measurements, InBody, steps and sleep — each can be deleted',
@@ -418,6 +419,18 @@ const EN: Record<string, string> = {
   Записано: 'Saved',
   'цель не задана': 'no target set',
   'Отчёт тренеру': 'Report to trainer',
+  'Отчёт по питанию': 'Nutrition report',
+  'Прикрепить отчёт по питанию': 'Attach a nutrition report',
+  'Изменить отчёт': 'Edit the report',
+  'КБЖУ числом и скриншот из вашего счётчика':
+    'Calories and macros as numbers, plus a screenshot from your tracker',
+  'Перенесите итог дня из своего счётчика. Пустое поле останется пустым.':
+    'Copy the day’s totals from your tracker. An empty field stays empty.',
+  'Добавить скриншот': 'Add a screenshot',
+  'Скриншот прикреплён': 'Screenshot attached',
+  'Отчёт сохранён': 'Report saved',
+  'скрин.': 'shots',
+  'Сохраняю…': 'Saving…',
 
   /* --- история, тренировка, упражнения --- */
   История: 'History',
@@ -457,6 +470,7 @@ const EN: Record<string, string> = {
   Сон: 'Sleep',
   'Шаги и сон': 'Steps and sleep',
   'За этот день': 'That day',
+  'Из счётчика клиента': 'From the client’s tracker',
   'Записей о еде за день нет.': 'No food entries that day.',
   шагов: 'steps',
   дней: 'days',

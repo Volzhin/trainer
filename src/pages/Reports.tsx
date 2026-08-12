@@ -100,7 +100,8 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
     (s) => s.start_time >= Date.now() - WINDOW_DAYS * 86400_000,
   )
 
-  const pending = recent.filter((s) => reportOf.get(s.id)?.status !== 'submitted').length
+  const pendingSessions = recent.filter((s) => reportOf.get(s.id)?.status !== 'submitted')
+  const pending = pendingSessions.length
 
   return (
     <div className="screen">
@@ -170,20 +171,22 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
           <div className="section-title">{t('Шаги и сон за сегодня')}</div>
           <ActivityCard date={today} userId={userId} />
 
+          {/* Только несданные: экран отвечает на вопрос «что с меня ещё
+              причитается». Сданное уже ушло тренеру, и висеть в списке дел
+              ему незачем — а список, где половина строк ничего не требует,
+              перестают читать. Ответы тренера приходят в саму тренировку. */}
           <div className="section-title">{t('Видео-отчёты по тренировкам')}</div>
-          {recent.length === 0 ? (
-            <div className="empty compact">
-              За последние {WINDOW_DAYS} дней тренировок не было — сдавать пока нечего.
-            </div>
+          {pendingSessions.length === 0 ? (
+            <div className="empty compact">{t('Все тренировки сданы.')}</div>
           ) : (
             <div>
-              {recent.map((s) => (
+              {pendingSessions.map((s) => (
                 <ReportRow
                   key={s.id}
                   title={s.title}
                   subtitle={formatDate(s.start_time)}
-                  submitted={reportOf.get(s.id)?.status === 'submitted'}
-                  answered={!!reportOf.get(s.id)?.trainer_comment}
+                  submitted={false}
+                  answered={false}
                   onOpen={() => setOpenSession(s)}
                 />
               ))}

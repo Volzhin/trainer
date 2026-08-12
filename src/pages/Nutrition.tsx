@@ -7,6 +7,7 @@ import { localDate } from '../lib/tdee'
 import { FoodPicker } from '../components/FoodPicker'
 import { MacroRings } from '../components/MacroRings'
 import { NutritionDayReport } from '../components/NutritionDayReport'
+import { ManualNutritionReport } from '../components/ManualNutritionReport'
 import { IconBack, IconChevronRight, IconPlus, IconTrash } from '../components/Icons'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
@@ -189,6 +190,10 @@ export function Nutrition() {
           </div>
         )
       })}
+
+      {/* Ручной отчёт стоит перед отчётом тренеру: сначала человек
+          переносит цифры, потом сдаёт день. */}
+      <ManualNutritionReport key={`m-${date}`} date={date} />
 
       {/* key по дате: при переходе на другой день черновик отчёта должен
           начинаться заново, а не переезжать с предыдущего. */}
