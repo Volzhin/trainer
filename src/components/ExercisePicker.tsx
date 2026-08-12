@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { type Exercise } from '../db/db'
 import { useExercises } from '../db/catalog'
@@ -23,8 +23,20 @@ export function ExercisePicker({
   preferMuscle,
 }: Props) {
   const [q, setQ] = useState('')
-  const [muscle, setMuscle] = useState<string>(preferMuscle ?? 'Все')
+  const [muscle, setMuscle] = useState<string>('Все')
   const exercises = useExercises()
+
+  /**
+   * Пикер живёт в разметке экрана постоянно, а подсказка о мышце приходит
+   * только вместе с открытием, поэтому фильтр ставится на каждом открытии, а
+   * не при монтировании. Заодно поиск не тянется из прошлого раза: набранное
+   * слово от предыдущего выбора скрывает половину каталога.
+   */
+  useEffect(() => {
+    if (!open) return
+    setQ('')
+    setMuscle(preferMuscle ?? 'Все')
+  }, [open, preferMuscle])
   const facets = useLiveQuery(() => loadFacets(), [exercises?.length], {
     muscles: [],
     equipment: [],

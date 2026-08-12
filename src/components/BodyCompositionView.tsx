@@ -29,7 +29,7 @@ import {
 import { Sheet } from './Sheet'
 import { IconTrash } from './Icons'
 import { formatDate, plural } from '../lib/calc'
-import { deriveComposition } from '../lib/anthropometry'
+import { BODY_FAT_RANGE, deriveComposition } from '../lib/anthropometry'
 import { getNutritionProfile } from '../db/nutrition'
 import { macroTargets, MACRO_PRESETS } from '../lib/tdee'
 import { useApp } from '../store/app'
@@ -367,8 +367,11 @@ export function BodyCompositionView({
       setPending(parsed)
     } else {
       // Разбирать нечего — показываем причину, а не пустой лист подтверждения.
+      // Общая причина у всей пачки (например, нераспознанная дата) полезнее
+      // счёта файлов: по ней понятно, что делать дальше.
+      const reasons = new Set(parsed.map((x) => x.error))
       toast(
-        parsed.length === 1
+        reasons.size === 1
           ? (parsed[0].error ?? 'Не удалось разобрать PDF')
           : 'Ни один файл разобрать не удалось',
       )
@@ -478,6 +481,12 @@ export function BodyCompositionView({
 
   const trendPoints = pointsFor(trendKey)
   const trendPoints2 = trendKey2 ? pointsFor(trendKey2) : []
+
+  /** Метрики, по которым в замерах есть хоть одно значение. */
+  const trendable = useMemo(
+    () => TRACKABLE.filter((r) => (metrics ?? []).some((m) => typeof m[r.key] === 'number')),
+    [metrics],
+  )
 
   // Ряды одного цвета отличались бы только пунктиром — уводим второй в синий.
   const colorOf = (r?: Row) => (!r || r.color === C.neutral ? 'var(--accent)' : r.color)
@@ -610,13 +619,14 @@ export function BodyCompositionView({
         </>
       )}
 
-      {trendPoints.length > 0 && (
+      {/* Переключатели стоят выше условия про точки: они относятся ко всему
+          разделу, а не к выбранной метрике. Спрятанные вместе с графиком, они
+          не давали уйти с метрики без данных — раздел исчезал целиком. */}
+      {trendable.length > 0 && (
         <>
           <div className="section-title">Динамика</div>
           <div className="chips" style={{ marginBottom: 10 }}>
-            {TRACKABLE.filter((r) =>
-              (metrics ?? []).some((m) => typeof m[r.key] === 'number'),
-            ).map((r) => (
+            {trendable.map((r) => (
               <button
                 key={String(r.key)}
                 className={`chip${trendKeys.includes(r.key) ? ' active' : ''}`}
@@ -628,30 +638,36 @@ export function BodyCompositionView({
             ))}
           </div>
           <div className="card">
-            <LineChart
-              data={trendPoints}
-              unit={trendRow.unit ? ` ${trendRow.unit}` : ''}
-              label={trendRow.label}
-              norm={normFor(trendKey)}
-              color={color1}
-              second={
-                trendRow2 && trendPoints2.length
-                  ? {
-                      data: trendPoints2,
-                      color: color2,
-                      unit: trendRow2.unit ? ` ${trendRow2.unit}` : '',
-                      label: trendRow2.label,
-                      norm: normFor(trendKey2),
-                    }
-                  : undefined
-              }
-            />
-            {(!trendRow2 || !trendPoints2.length || trendPoints.length === 1) && (
-              <div className="mute-sm" style={{ marginTop: 8 }}>
-                {trendPoints.length === 1
-                  ? 'Нужен ещё один замер, чтобы увидеть тренд'
-                  : 'Нажмите вторую метрику, чтобы сравнить'}
-              </div>
+            {trendPoints.length > 0 ? (
+              <>
+                <LineChart
+                  data={trendPoints}
+                  unit={trendRow.unit ? ` ${trendRow.unit}` : ''}
+                  label={trendRow.label}
+                  norm={normFor(trendKey)}
+                  color={color1}
+                  second={
+                    trendRow2 && trendPoints2.length
+                      ? {
+                          data: trendPoints2,
+                          color: color2,
+                          unit: trendRow2.unit ? ` ${trendRow2.unit}` : '',
+                          label: trendRow2.label,
+                          norm: normFor(trendKey2),
+                        }
+                      : undefined
+                  }
+                />
+                {(!trendRow2 || !trendPoints2.length || trendPoints.length === 1) && (
+                  <div className="mute-sm" style={{ marginTop: 8 }}>
+                    {trendPoints.length === 1
+                      ? 'Нужен ещё один замер, чтобы увидеть тренд'
+                      : 'Нажмите вторую метрику, чтобы сравнить'}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="empty">Нет данных по метрике «{trendRow.label}»</div>
             )}
           </div>
         </>
@@ -1210,6 +1226,19 @@ function ManualMeasurementSheet({
     [values, heightCm, sex],
   )
 
+  /**
+   * Полдень выбранного дня: замер хранится моментом времени, и от полуночи он
+   * перескакивал бы на соседний день. Поле даты можно очистить прямо в
+   * браузере, поэтому результат обязан быть числом — иначе в базу уйдёт NaN,
+   * сортировка замеров рассыплется, а в истории появится «Invalid Date».
+   */
+  const at = new Date(`${date}T12:00:00`).getTime()
+  const dateOk = Number.isFinite(at)
+
+  const ownFat = num('body_fat_pct')
+  const fatOutOfRange =
+    ownFat != null && (ownFat < BODY_FAT_RANGE.min || ownFat > BODY_FAT_RANGE.max)
+
   const girthFields: { key: string; label: string; hint?: string }[] = [
     { key: 'neck_cm', label: 'Шея', hint: 'под кадыком, лента горизонтально' },
     { key: 'waist_cm', label: 'Талия', hint: 'на уровне пупка, не втягивая живот' },
@@ -1221,9 +1250,9 @@ function ManualMeasurementSheet({
   const submit = async () => {
     const weight = num('weight_kg')
     if (!weight && derived.bodyFatPct == null) return
+    if (!dateOk) return
     setBusy(true)
     try {
-      const at = new Date(`${date}T12:00:00`).getTime()
       const res = await saveManualMeasurement(
         {
           weight_kg: weight,
@@ -1232,8 +1261,10 @@ function ManualMeasurementSheet({
           hip_cm: num('hip_cm'),
           chest_cm: num('chest_cm'),
           thigh_cm: num('thigh_cm'),
-          // Значение, введённое руками, приоритетнее расчётного.
-          body_fat_pct: num('body_fat_pct') ?? derived.bodyFatPct,
+          // Введённое руками значение приоритетнее расчётного, но в базу идёт
+          // из расчёта: там оно уже подтянуто к правдоподобным границам, а от
+          // сырых «120 %» безжировая масса уходила бы в минус.
+          body_fat_pct: derived.bodyFatPct,
           body_fat_kg: derived.fatMassKg,
           fat_free_mass_kg: derived.leanMassKg,
           skeletal_muscle_kg: derived.skeletalMuscleKg,
@@ -1288,6 +1319,11 @@ function ManualMeasurementSheet({
             max={new Date().toISOString().slice(0, 10)}
             onChange={(e) => setDate(e.target.value)}
           />
+          {!dateOk && (
+            <div className="mute-sm" style={{ color: 'var(--warn)', marginTop: 6 }}>
+              Укажите дату замера — без неё его некуда поставить в истории.
+            </div>
+          )}
         </div>
 
         <div className="row" style={{ gap: 8 }}>
@@ -1385,11 +1421,19 @@ function ManualMeasurementSheet({
             placeholder="—"
             style={{ fontFamily: 'var(--font-num)' }}
           />
+          {/* Опечатку в проценте видно сразу: состав считается от него, и
+              значение вне диапазона просто подтянется к границе. */}
+          {fatOutOfRange && (
+            <div className="mute-sm" style={{ color: 'var(--warn)', marginTop: 6 }}>
+              Процент жира бывает от {BODY_FAT_RANGE.min} до {BODY_FAT_RANGE.max} — считаем по
+              ближайшей границе.
+            </div>
+          )}
         </div>
 
         <button
           className="btn primary block"
-          disabled={busy || (!values.weight_kg && derived.bodyFatPct == null)}
+          disabled={busy || !dateOk || (!values.weight_kg && derived.bodyFatPct == null)}
           onClick={submit}
         >
           Сохранить замер

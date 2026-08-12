@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 /**
  * cells — показания точки по столбцам. Столбцы у всех рядов одинаковые по
@@ -37,6 +37,19 @@ export function LineChart({
   // Выбранная точка. Объявлено до раннего возврата: иначе на пустых данных
   // порядок хуков разъедется.
   const [active, setActive] = useState<number | null>(null)
+
+  /**
+   * Прочерк линии идёт сдвигом dashoffset, поэтому штрих должен быть длиной
+   * со всю ломаную. Длину меряем у самого пути: на шумных рядах веса ломаная
+   * набирает заметно больше единиц viewBox, чем любое значение «на глаз», и
+   * хвост линии остался бы в пропуске между штрихами.
+   */
+  const pathRef = useRef<SVGPathElement>(null)
+  const [dash, setDash] = useState<number | null>(null)
+  useEffect(() => {
+    const el = pathRef.current
+    setDash(typeof el?.getTotalLength === 'function' ? el.getTotalLength() : null)
+  }, [data, height])
 
   if (data.length === 0) {
     return <div className="empty">Недостаточно данных</div>
@@ -238,13 +251,21 @@ export function LineChart({
             <>
               <path d={area} fill={color} opacity={0.12} />
               <path
+                ref={pathRef}
                 className="arc-draw"
                 d={path}
                 fill="none"
                 stroke={color}
                 strokeWidth={2}
                 strokeLinejoin="round"
-                style={{ strokeDasharray: 1400, '--dash': 1400 } as React.CSSProperties}
+                style={
+                  {
+                    // До первого замера длины берём заведомо большое число:
+                    // короткую линию оно прочерчивает целиком.
+                    strokeDasharray: dash ?? 1400,
+                    '--dash': dash ?? 1400,
+                  } as React.CSSProperties
+                }
               />
             </>
           )}

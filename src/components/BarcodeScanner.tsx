@@ -38,6 +38,14 @@ export function BarcodeScanner({
   const [error, setError] = useState<string>()
   const [manual, setManual] = useState('')
 
+  // Обработчик находки держим в ссылке: он приходит стрелкой из разметки
+  // родителя, а камеру нельзя перезапускать на каждую его перерисовку —
+  // getUserMedia гасил бы поток и просил доступ заново посреди сканирования.
+  const detectedRef = useRef(onDetected)
+  useEffect(() => {
+    detectedRef.current = onDetected
+  })
+
   useEffect(() => {
     if (!open) return
     let cancelled = false
@@ -71,7 +79,7 @@ export function BarcodeScanner({
             if (code) {
               haptics.success()
               cancelled = true
-              onDetected(code)
+              detectedRef.current(code)
               return
             }
           } catch {
@@ -93,7 +101,7 @@ export function BarcodeScanner({
       streamRef.current?.getTracks().forEach((t) => t.stop())
       streamRef.current = null
     }
-  }, [open, onDetected])
+  }, [open])
 
   return (
     <Sheet open={open} title="Штрихкод" onClose={onClose}>

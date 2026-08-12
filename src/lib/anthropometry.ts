@@ -95,8 +95,15 @@ export function deriveComposition(input: {
     out.waistToHip = Math.round((girths.waist / girths.hip) * 100) / 100
   }
 
+  // Введённый руками процент проходит то же ограничение, что и расчётный:
+  // значение больше ста даёт отрицательную безжировую массу, а она уходит в
+  // базу и на графики как настоящий замер.
   const pct =
-    input.knownBodyFatPct ?? (heightCm ? bodyFatFromGirths(girths, heightCm, sex) : undefined)
+    input.knownBodyFatPct != null
+      ? clampPct(input.knownBodyFatPct)
+      : heightCm
+        ? bodyFatFromGirths(girths, heightCm, sex)
+        : undefined
   if (pct == null) return out
   out.bodyFatPct = round1(pct)
 
@@ -115,8 +122,11 @@ export function deriveComposition(input: {
   return out
 }
 
+/** Правдоподобные границы процента жира: за ними расчёт теряет смысл. */
+export const BODY_FAT_RANGE = { min: 3, max: 60 }
+
 /** Ограничение диапазона: формула за его пределами теряет смысл. */
 function clampPct(value: number): number | undefined {
   if (!Number.isFinite(value)) return undefined
-  return Math.min(60, Math.max(3, value))
+  return Math.min(BODY_FAT_RANGE.max, Math.max(BODY_FAT_RANGE.min, value))
 }

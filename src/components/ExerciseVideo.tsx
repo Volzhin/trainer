@@ -27,14 +27,39 @@ export function AttachmentPlayer({
   onDelete?: () => void
 }) {
   const local = useBlobUrl(attachment.blob)
+  const [remote, setRemote] = useState<string>()
+
   // Своё видео играем из локального файла, чужое — с сервера. Тренеру
   // оригинал никогда не приезжает в базу устройства: ролики слишком тяжёлые.
-  const url =
-    local ??
-    (attachment.remote_id && attachment.remote_file
-      ? attachmentUrl(attachment.remote_id, attachment.remote_file)
-      : undefined)
+  // За чужим идём отдельным шагом: файл защищён, и к ссылке нужен токен.
+  const { remote_id, remote_file } = attachment
+  useEffect(() => {
+    if (local || !remote_id || !remote_file) return
+    let alive = true
+    void attachmentUrl(remote_id, remote_file).then((u) => {
+      if (alive) setRemote(u)
+    })
+    return () => {
+      alive = false
+    }
+  }, [local, remote_id, remote_file])
 
+  /**
+   * Токен на файл живёт минуты, а докачка длинного ролика идёт дольше: когда
+   * запрос куска возвращает отказ, плеер сообщает об ошибке. Берём свежую
+   * ссылку и возвращаемся на то же место — иначе видео просто перестаёт
+   * играть посреди просмотра, без всякого объяснения.
+   */
+  const renew = async (media: HTMLMediaElement) => {
+    if (local || !remote_id || !remote_file) return
+    const at = media.currentTime
+    const fresh = await attachmentUrl(remote_id, remote_file, true)
+    setRemote(fresh)
+    media.src = fresh
+    media.currentTime = at
+  }
+
+  const url = local ?? remote
   if (!url) return null
 
   return (
@@ -45,6 +70,7 @@ export function AttachmentPlayer({
           controls
           playsInline
           preload="metadata"
+          onError={(e) => void renew(e.currentTarget)}
           style={{ width: '100%', borderRadius: 12, background: '#000', display: 'block' }}
         />
       ) : (

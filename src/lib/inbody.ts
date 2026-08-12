@@ -135,11 +135,14 @@ function extractNorms(lines: Item[][]): { min: number; max: number; x: number; y
   const out: { min: number; max: number; x: number; y: number }[] = []
   for (const tokens of lines) {
     for (const t of tokens) {
-      const m = t.text.replace(/\s/g, '').match(/^([\d.]+)[–-]([\d.]+)$/)
+      // Запятая как десятичный разделитель: в отчётах с русской локалью норма
+      // печатается как «62,0–81,0», и без неё пропадали бы разом полоса нормы
+      // на графике, шкала «ниже — норма — выше» и статусы строк.
+      const m = t.text.replace(/\s/g, '').match(/^([\d.,]+)[–-]([\d.,]+)$/)
       if (!m) continue
-      const min = parseFloat(m[1])
-      const max = parseFloat(m[2])
-      if (Number.isFinite(min) && Number.isFinite(max)) out.push({ min, max, x: t.x, y: t.y })
+      const min = toNumber(m[1])
+      const max = toNumber(m[2])
+      if (min !== undefined && max !== undefined) out.push({ min, max, x: t.x, y: t.y })
     }
   }
   return out
@@ -226,8 +229,13 @@ function extractSegments(lines: Item[][]): { muscle: Segments; fat: Segments } {
   return { muscle: build('muscle'), fat: build('fat') }
 }
 
-/** Дата замера в отчёте — в формате ДД.ММ.ГГ рядом с подписью «Дата». */
-function parseMeasuredAt(items: Item[]): number {
+/**
+ * Дата замера в отчёте — в формате ДД.ММ.ГГ рядом с подписью «Дата».
+ * Не нашли — возвращаем null: замеры хранятся по дням, и подстановка
+ * сегодняшнего числа схлопнула бы всю пачку нераспознанных отчётов в один
+ * замер, о чём интерфейс отчитался бы как об удачной загрузке.
+ */
+function parseMeasuredAt(items: Item[]): number | null {
   const label = items.find((i) => /^Дата$/i.test(i.text))
   const scope = label
     ? items.filter((i) => Math.abs(i.y - label.y) < 8 && i.x > label.x)
@@ -239,7 +247,7 @@ function parseMeasuredAt(items: Item[]): number {
     const d = new Date(year, Number(m[2]) - 1, Number(m[1]), 12)
     if (!Number.isNaN(d.getTime())) return d.getTime()
   }
-  return Date.now()
+  return null
 }
 
 async function readItems(file: File): Promise<Item[]> {
@@ -277,7 +285,10 @@ export async function parseInBodyPdf(file: File): Promise<InBodyReport> {
   }
 
   const lines = toLines(items)
-  const report: InBodyReport = { measured_at: parseMeasuredAt(items), norms: {} }
+  const measuredAt = parseMeasuredAt(items)
+  // Дату приписываем в самом конце: сначала нужно понять, отчёт ли это вообще,
+  // иначе на постороннем PDF мы жаловались бы на дату, а не на файл.
+  const report: Omit<InBodyReport, 'measured_at'> = { norms: {} }
 
   const pairs = extractPairs(lines)
   const norms = extractNorms(lines)
@@ -324,5 +335,8 @@ export async function parseInBodyPdf(file: File): Promise<InBodyReport> {
   if (report.weight_kg == null && report.body_fat_pct == null) {
     throw new Error('Не похоже на отчёт о составе тела — не нашли ни веса, ни процента жира')
   }
-  return report
+  if (measuredAt == null) {
+    throw new Error('Не нашли дату замера — добавьте этот отчёт вручную, указав дату')
+  }
+  return { ...report, measured_at: measuredAt }
 }

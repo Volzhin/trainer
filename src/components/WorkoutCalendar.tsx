@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, currentUserId, type WorkoutSession } from '../db/db'
+import { db, type WorkoutSession } from '../db/db'
 import {
   listMySessions,
   repeatSession,
@@ -43,14 +43,16 @@ const mondayOf = (ts: number) => {
  */
 export function WorkoutCalendar() {
   const nav = useNavigate()
-  const { toast } = useApp()
+  // Аккаунт берём из контекста: календарь переживает переключение профиля без
+  // размонтирования, и без него в запросах остался бы прошлый пользователь.
+  const { toast, userId } = useApp()
   const [mode, setMode] = useState<'week' | 'month'>('week')
   const [anchor, setAnchor] = useState(() => startOfDay(Date.now()))
   const [selected, setSelected] = useState(() => startOfDay(Date.now()))
 
-  const sessions = useLiveQuery(() => listMySessions(), [], [] as WorkoutSession[])
+  const sessions = useLiveQuery(() => listMySessions(), [userId], [] as WorkoutSession[])
   const allSets = useLiveQuery(() => db.sets.toArray(), [], [])
-  const plan = useLiveQuery(() => activeAssignmentFor(currentUserId()), [])
+  const plan = useLiveQuery(() => activeAssignmentFor(userId), [userId])
 
   /** Тренировки, разложенные по дням — основа и маркеров, и списка. */
   const byDay = useMemo(() => {
@@ -81,7 +83,9 @@ export function WorkoutCalendar() {
       new Date(anchor).getMonth() + 1,
       0,
     ).getTime()
-    const weeks = Math.ceil((startOfDay(lastDay) - gridStart) / (7 * DAY)) + 1
+    // Последний день месяца входит в сетку целиком, поэтому считаем недели по
+    // дню после него: без этого почти каждый месяц получал лишнюю строку.
+    const weeks = Math.ceil((startOfDay(lastDay) + DAY - gridStart) / (7 * DAY))
     return Array.from({ length: weeks * 7 }, (_, i) => gridStart + i * DAY)
   }, [mode, anchor])
 
@@ -89,14 +93,14 @@ export function WorkoutCalendar() {
   const planned = useLiveQuery(
     async () =>
       days.length
-        ? await plannedDates(days[0], days[days.length - 1], currentUserId())
+        ? await plannedDates(days[0], days[days.length - 1], userId)
         : new Map<number, string>(),
-    [days[0], days[days.length - 1], plan?.assignment.id],
+    [days[0], days[days.length - 1], plan?.assignment.id, userId],
     new Map<string, string>() as unknown as Map<number, string>,
   )
   const plannedToday = useLiveQuery(
-    () => plannedForDate(selected, currentUserId()),
-    [selected, plan?.assignment.id],
+    () => plannedForDate(selected, userId),
+    [selected, plan?.assignment.id, userId],
   )
 
   const shift = (dir: -1 | 1) => {
