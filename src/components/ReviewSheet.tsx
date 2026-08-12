@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { NutritionDay, ReviewTarget, WorkoutReport } from '../db/db'
 import { reviewReport } from '../db/reports'
 import { formatDate } from '../lib/calc'
@@ -53,12 +53,19 @@ export function ReviewSheet({
   subject,
   clientId,
   trainerId,
+  context,
   onClose,
   onDone,
 }: {
   subject: ReviewSubject | null
   clientId: string
   trainerId: string
+  /**
+   * Что показать над отчётом: цели, цифры дня — всё, при чём тренер и
+   * судит. Слот, а не готовая разметка: у тренировки и дня питания
+   * контекст разный, а сам разбор одинаковый.
+   */
+  context?: ReactNode
   onClose: () => void
   onDone: () => void
 }) {
@@ -90,6 +97,8 @@ export function ReviewSheet({
   return (
     <Sheet open={!!subject} title={subject.title} onClose={onClose}>
       <div className="mute-sm">{subject.subtitle}</div>
+
+      {context && <div className="mt-3">{context}</div>}
 
       {subject.comment && (
         <div className="card mt-3">

@@ -1,27 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db/db'
+import { db, type NutritionTarget } from '../db/db'
 import {
-  activityRange,
+  activityFor,
   currentTargets,
   reviewedRefs,
   setWeeklyTargets,
   submittedNutritionDays,
   weeklyStats,
 } from '../db/reports'
-import { localDate } from '../lib/tdee'
-import { formatDate, plural } from '../lib/calc'
+import { logsForDate, sumNutrients } from '../db/nutrition'
+import { formatDate } from '../lib/calc'
 import { LineChart } from './LineChart'
-import { Group, Row } from './Group'
 import { Sheet } from './Sheet'
 import { ReportCalendar, type ReportState } from './ReportCalendar'
 import { ReviewSheet, toDaySubject, type ReviewSubject } from './ReviewSheet'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
 import { t } from '../lib/i18n'
-
-/** Глубина ленты активности: дальше двух недель разбирать уже поздно. */
-const WINDOW_DAYS = 14
 
 /**
  * Питание клиента глазами тренера — один связанный отчёт.
@@ -34,8 +30,6 @@ const WINDOW_DAYS = 14
 export function ClientNutritionReview({ clientId }: { clientId: string }) {
   const { toast, userId } = useApp()
 
-  const today = localDate()
-  const from = localDate(Date.now() - (WINDOW_DAYS - 1) * 86400_000)
 
   const version = useLiveQuery(
     async () => [await db.nutritionDays.count(), await db.reviews.count()],
@@ -45,10 +39,6 @@ export function ClientNutritionReview({ clientId }: { clientId: string }) {
   const days = useLiveQuery(() => submittedNutritionDays(clientId), [clientId, version?.join('-')])
   const seen = useLiveQuery(() => reviewedRefs(clientId, 'nutrition'), [clientId, version?.join('-')])
   const targets = useLiveQuery(() => currentTargets(clientId), [clientId, version?.join('-')])
-  const activity = useLiveQuery(
-    () => activityRange(clientId, from, today),
-    [clientId, from, today],
-  )
 
   const [reviewing, setReviewing] = useState<ReviewSubject | null>(null)
   const [targetsOpen, setTargetsOpen] = useState(false)
@@ -65,6 +55,11 @@ export function ClientNutritionReview({ clientId }: { clientId: string }) {
 
   return (
     <div className="mt-4">
+      {/* Цели строкой наверху и без кнопки: это условие, при котором тренер
+          читает всё остальное на экране, а не действие. Выдача — внизу,
+          после того как он посмотрел, что происходило. */}
+      <TargetsLine targets={targets ?? null} />
+
       <div className="section-title">{t('Дневник по дням')}</div>
       <div className="card">
         <ReportCalendar
@@ -79,47 +74,28 @@ export function ClientNutritionReview({ clientId }: { clientId: string }) {
         </div>
       </div>
 
-      <div className="section-title">{t('Цели на неделю')}</div>
-      <div className="card">
-        {targets ? (
-          <>
-            <div className="mute-sm figures">
-              {[
-                targets.kcal && `${targets.kcal} ккал`,
-                targets.protein && `Б ${targets.protein}`,
-                targets.fat && `Ж ${targets.fat}`,
-                targets.carbs && `У ${targets.carbs}`,
-                targets.steps && `${targets.steps} шагов`,
-              ]
-                .filter(Boolean)
-                .join(' · ') || 'без цифр'}
-            </div>
-            {targets.note && <div className="mute-sm quote mt-2">{targets.note}</div>}
-            <button className="btn sm block mt-3" onClick={() => setTargetsOpen(true)}>
-              {t('Обновить цели')}
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="muted">{t('Цели на эту неделю не выданы.')}</div>
-            <button className="btn primary block mt-4" onClick={() => setTargetsOpen(true)}>
-              {t('Выдать цели')}
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* Шаги и сон — хвост того же отчёта, а не отдельная тема: они
-          объясняют расход, без которого калории не с чем сравнивать. */}
-      <div className="section-title">
-        {t('Шаги и сон')} · {WINDOW_DAYS} {t('дней')}
-      </div>
-      <ActivityList rows={activity ?? []} />
+      <button className="btn primary block mt-5" onClick={() => setTargetsOpen(true)}>
+        {targets ? t('Обновить цели') : t('Выдать цели')}
+      </button>
 
       <ReviewSheet
         subject={reviewing}
         clientId={clientId}
         trainerId={userId}
+        /* Разбирая день, тренер должен видеть, при каких целях он прошёл и
+           что в нём было. Иначе комментарий пишется по памяти. */
+        context={
+          reviewing ? (
+            <>
+              <TargetsLine targets={targets ?? null} compact />
+              <NutritionDayFacts
+                clientId={clientId}
+                date={reviewing.ref}
+                targets={targets ?? null}
+              />
+            </>
+          ) : undefined
+        }
         onClose={() => setReviewing(null)}
         onDone={() => toast(t('Отчёт разобран'))}
       />
@@ -136,6 +112,105 @@ export function ClientNutritionReview({ clientId }: { clientId: string }) {
   )
 }
 
+/**
+ * Цели на неделю одной строкой.
+ *
+ * Наверху вкладки и внутри разбора — один и тот же вид: тренер сравнивает
+ * день с целями, и цели должны быть перед глазами в обоих местах. Строка,
+ * а не карточка с кнопкой: это условие задачи, а не действие.
+ */
+function TargetsLine({
+  targets,
+  compact,
+}: {
+  targets: NutritionTarget | null
+  compact?: boolean
+}) {
+  const parts = targets
+    ? [
+        targets.kcal && `${targets.kcal} ккал`,
+        targets.protein && `Б ${targets.protein}`,
+        targets.fat && `Ж ${targets.fat}`,
+        targets.carbs && `У ${targets.carbs}`,
+        targets.steps && `${targets.steps} ${t('шагов')}`,
+      ].filter(Boolean)
+    : []
+
+  return (
+    <div className={`targets-line${compact ? ' compact' : ''}`}>
+      <div className="cap">{t('Цели на неделю')}</div>
+      {parts.length ? (
+        <div className="figures">{parts.join(' · ')}</div>
+      ) : (
+        <div className="mute-sm">{t('Цели на эту неделю не выданы.')}</div>
+      )}
+      {targets?.note && !compact && <div className="mute-sm quote mt-2">{targets.note}</div>}
+    </div>
+  )
+}
+
+/**
+ * Что было в этом дне: съеденное против целей, шаги и сон.
+ *
+ * Шаги и сон стоят рядом с КБЖУ, а не отдельным разделом на вкладке:
+ * они объясняют расход, без которого съеденное не с чем сравнивать. По
+ * отдельности эти цифры не отвечают ни на один вопрос.
+ */
+function NutritionDayFacts({
+  clientId,
+  date,
+  targets,
+}: {
+  clientId: string
+  date: string
+  targets: NutritionTarget | null
+}) {
+  const facts = useLiveQuery(async () => {
+    const logs = await logsForDate(date, clientId)
+    const activity = await activityFor(date, clientId)
+    return { eaten: sumNutrients(logs), activity, entries: logs.length }
+  }, [clientId, date])
+
+  if (!facts) return <div className="card skeleton" style={{ height: 96 }} />
+
+  const row = (label: string, actual: number, goal?: number, unit = '') => (
+    <div className="row between mt-1" key={label}>
+      <span className="mute-sm">{label}</span>
+      <span className="figures">
+        {actual}
+        {unit}
+        {goal ? ` / ${goal}${unit}` : ''}
+      </span>
+    </div>
+  )
+
+  return (
+    <div className="card mt-2">
+      <div className="cap mb-1">{t('За этот день')}</div>
+      {facts.entries === 0 ? (
+        <div className="mute-sm">{t('Записей о еде за день нет.')}</div>
+      ) : (
+        <>
+          {row(t('Калории'), facts.eaten.kcal, targets?.kcal, ' ккал')}
+          {row(t('Белки'), Math.round(facts.eaten.protein), targets?.protein, ' г')}
+          {row(t('Жиры'), Math.round(facts.eaten.fat), targets?.fat, ' г')}
+          {row(t('Углеводы'), Math.round(facts.eaten.carbs), targets?.carbs, ' г')}
+        </>
+      )}
+
+      {row(
+        t('Шаги'),
+        facts.activity?.steps ?? 0,
+        targets?.steps,
+      )}
+      <div className="row between mt-1">
+        <span className="mute-sm">{t('Сон')}</span>
+        <span className="figures">{sleepLabel(facts.activity?.sleep_minutes)}</span>
+      </div>
+    </div>
+  )
+}
+
 /* ------------------------------ шаги и сон ----------------------------- */
 
 const sleepLabel = (m?: number) => {
@@ -145,58 +220,6 @@ const sleepLabel = (m?: number) => {
   return rest ? `${h} ч ${rest} мин` : `${h} ч`
 }
 
-function ActivityList({
-  rows,
-}: {
-  rows: { date: string; steps?: number; sleep_minutes?: number }[]
-}) {
-  const withData = rows.filter((r) => r.steps || r.sleep_minutes)
-  if (withData.length === 0) {
-    return <div className="empty compact">{t('Клиент не вводил шаги и сон. Это ручной ввод.')}</div>
-  }
-
-  const steps = withData.filter((r) => r.steps).map((r) => r.steps as number)
-  const sleep = withData.filter((r) => r.sleep_minutes).map((r) => r.sleep_minutes as number)
-  const avg = (xs: number[]) => Math.round(xs.reduce((a, b) => a + b, 0) / xs.length)
-
-  return (
-    <>
-      <div className="card">
-        <div className="metrics">
-          <div className="metric">
-            <div className="num">{steps.length ? avg(steps) : '—'}</div>
-            <div className="cap">{t('шагов в среднем')}</div>
-          </div>
-          <div className="metric">
-            <div className="num">{sleep.length ? sleepLabel(avg(sleep)) : '—'}</div>
-            <div className="cap">{t('сна в среднем')}</div>
-          </div>
-        </div>
-        <div className="mute-sm mt-3">
-          Данные за {withData.length} {plural(withData.length, ['день', 'дня', 'дней'])} из{' '}
-          {WINDOW_DAYS}
-        </div>
-      </div>
-
-      <Group>
-        {withData
-          .slice()
-          .reverse()
-          .map((r) => (
-            <Row
-              key={r.date}
-              title={formatDate(new Date(`${r.date}T12:00:00`).getTime())}
-              value={
-                <span style={{ fontFamily: 'var(--font-num)' }}>
-                  {r.steps ?? '—'} · {sleepLabel(r.sleep_minutes)}
-                </span>
-              }
-            />
-          ))}
-      </Group>
-    </>
-  )
-}
 
 /* --------------------------- цели на неделю ---------------------------- */
 
@@ -211,12 +234,6 @@ function ActivityList({
 function WeeklyStatsBlock({ clientId, open }: { clientId: string; open: boolean }) {
   const stats = useLiveQuery(() => (open ? weeklyStats(clientId) : undefined), [clientId, open])
   if (!stats) return <div className="card skeleton" style={{ height: 180 }} />
-
-  const fatRow = [
-    ['старт', stats.fatStart],
-    ['пред.', stats.fatPrev],
-    ['посл.', stats.fatLast],
-  ] as const
 
   return (
     <div className="card">
@@ -255,14 +272,21 @@ function WeeklyStatsBlock({ clientId, open }: { clientId: string; open: boolean 
       </div>
 
       <div className="mute-sm mt-4 mb-2">{t('Процент жира по замерам')}</div>
-      <div className="stat-grid three">
-        {fatRow.map(([label, value]) => (
-          <div className="stat" key={label}>
-            <div className="value t-num">{value == null ? '—' : `${value}%`}</div>
-            <div className="label">{label}</div>
-          </div>
-        ))}
-      </div>
+      {/* Только за две последние недели — то же окно, что у веса. Замер
+          полугодовой давности к решению о целях на неделю отношения не
+          имеет, а рядом со свежими читался бы как часть той же динамики. */}
+      {stats.fatPoints.length === 0 ? (
+        <div className="mute-sm">{t('За две недели замеров не было.')}</div>
+      ) : (
+        <div className="group">
+          {stats.fatPoints.map((p) => (
+            <div className="group-row" key={p.at}>
+              <span className="grow title">{formatDate(p.at)}</span>
+              <span className="value figures">{p.value}%</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="mute-sm mt-4 mb-2">{t('В среднем за неделю')}</div>
       <div className="group">

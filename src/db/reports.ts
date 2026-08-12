@@ -631,10 +631,14 @@ export type WeeklyStats = {
   weightAvgPrev: number | null
   weightAvgLast: number | null
   weightDeltaPct: number | null
-  /** Процент жира: стартовый замер, предпоследний и последний. */
-  fatStart: number | null
-  fatPrev: number | null
-  fatLast: number | null
+  /**
+   * Процент жира за две последние недели — то же окно, что у веса.
+   *
+   * Стартовый замер отсюда убран: цели выдают на неделю, и цифра
+   * полугодовой давности к этому решению отношения не имеет, а рядом с
+   * двумя свежими читается как часть той же динамики.
+   */
+  fatPoints: { at: number; value: number }[]
   /** Средние за последнюю неделю. null — данных нет, а не ноль. */
   avgSteps: number | null
   avgSleepMinutes: number | null
@@ -678,10 +682,9 @@ export async function weeklyStats(clientId: string): Promise<WeeklyStats> {
       ? Math.round(((weightAvgLast - weightAvgPrev) / weightAvgPrev) * 1000) / 10
       : null
 
-  const fats = metrics.filter((m) => m.body_fat_pct != null)
-  const fatStart = fats.length ? fats[0].body_fat_pct! : null
-  const fatLast = fats.length ? fats[fats.length - 1].body_fat_pct! : null
-  const fatPrev = fats.length > 1 ? fats[fats.length - 2].body_fat_pct! : null
+  const fatPoints = metrics
+    .filter((m) => m.body_fat_pct != null && m.logged_at >= twoWeeksAgo)
+    .map((m) => ({ at: m.logged_at, value: m.body_fat_pct! }))
 
   const from = localDate(weekAgo)
   const to = localDate(now_)
@@ -707,9 +710,7 @@ export async function weeklyStats(clientId: string): Promise<WeeklyStats> {
     weightAvgPrev: weightAvgPrev == null ? null : Math.round(weightAvgPrev * 10) / 10,
     weightAvgLast: weightAvgLast == null ? null : Math.round(weightAvgLast * 10) / 10,
     weightDeltaPct,
-    fatStart,
-    fatPrev,
-    fatLast,
+    fatPoints,
     avgSteps: avgSteps == null ? null : Math.round(avgSteps),
     avgSleepMinutes: avgSleep == null ? null : Math.round(avgSleep),
     avgSatiety: avgSatiety == null ? null : Math.round(avgSatiety * 10) / 10,
