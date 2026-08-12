@@ -111,7 +111,9 @@ export function ClientNutritionReview({ clientId }: { clientId: string }) {
 
       {/* Шаги и сон — хвост того же отчёта, а не отдельная тема: они
           объясняют расход, без которого калории не с чем сравнивать. */}
-      <div className="section-title">Шаги и сон за {WINDOW_DAYS} дней</div>
+      <div className="section-title">
+        {t('Шаги и сон')} · {WINDOW_DAYS} {t('дней')}
+      </div>
       <ActivityList rows={activity ?? []} />
 
       <ReviewSheet

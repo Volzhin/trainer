@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db/db'
 import {
   addTask,
   deleteTaskTemplate,
@@ -12,7 +11,7 @@ import {
   workoutReportsOf,
 } from '../db/reports'
 import { Sheet } from './Sheet'
-import { ReviewSheet, toDaySubject, toWorkoutSubject, type ReviewSubject } from './ReviewSheet'
+import { ReviewSheet, type ReviewSubject } from './ReviewSheet'
 import { Group, Row } from './Group'
 import { IconCheck, IconPlus, IconTrash } from './Icons'
 import { Toggle } from './Toggle'
@@ -40,16 +39,11 @@ export function ClientReports({ clientId }: { clientId: string }) {
   const days = useLiveQuery(() => submittedNutritionDays(clientId), [clientId])
   const seenWorkouts = useLiveQuery(() => reviewedRefs(clientId, 'workout'), [clientId])
   const seenDays = useLiveQuery(() => reviewedRefs(clientId, 'nutrition'), [clientId])
-  const sessions = useLiveQuery(
-    () => db.sessions.where('user_id').equals(clientId).toArray(),
-    [clientId],
-  )
   const tasks = useLiveQuery(() => tasksOf(clientId), [clientId])
 
   const [reviewing, setReviewing] = useState<ReviewSubject | null>(null)
   const [taskOpen, setTaskOpen] = useState(false)
 
-  const titleOf = useMemo(() => new Map((sessions ?? []).map((s) => [s.id, s])), [sessions])
 
   const loading =
     reports === undefined ||
@@ -60,17 +54,6 @@ export function ClientReports({ clientId }: { clientId: string }) {
 
   if (loading) return <div className="empty">{t('Загрузка…')}</div>
 
-  const submittedWorkouts = reports.filter((r) => r.status === 'submitted')
-
-  const queue: ReviewSubject[] = [
-    ...submittedWorkouts.map((r) => toWorkoutSubject(r, titleOf.get(r.session_id)?.title)),
-    ...days.map(toDaySubject),
-  ].sort((a, b) => (b.submittedAt ?? 0) - (a.submittedAt ?? 0))
-
-  const isReviewed = (s: ReviewSubject) =>
-    s.target === 'workout' ? seenWorkouts.has(s.ref) : seenDays.has(s.ref)
-
-  const pending = queue.filter((s) => !isReviewed(s))
 
   /*
    * Состояния по дням для календарей. Ключ — локальная дата: тренер
@@ -85,51 +68,19 @@ export function ClientReports({ clientId }: { clientId: string }) {
 
   return (
     <div className="mt-4">
+      {/* Разбор живёт там, где сдавали: тренировки в своей вкладке,
+          питание в своей. Общая очередь дублировала бы их третьим списком,
+          и разобранное в календаре оставалось бы «новым» здесь. */}
       <div className="stat-grid">
-        <div className="stat">
-          <div className="value" style={{ color: pending.length ? 'var(--warn)' : undefined }}>
-            {pending.length}
-          </div>
-          <div className="label">{t('ждут разбора')}</div>
-        </div>
         <div className="stat">
           <div className="value">{openTasks.length}</div>
           <div className="label">{t('заданий не выполнено')}</div>
         </div>
-      </div>
-
-      <div className="section-title">{t('Ждут разбора')}</div>
-      {queue.length === 0 ? (
-        <div className="empty compact">{t('Клиент пока ничего не сдавал.')}</div>
-      ) : (
-        <div>
-          {queue.map((s) => (
-            <button
-              key={`${s.target}:${s.ref}`}
-              className="list-item"
-              onClick={() => setReviewing(s)}
-            >
-              <div className="grow">
-                <div className="truncate strong">
-                  {s.title}
-                </div>
-                <div className="mute-sm truncate">
-                  {s.subtitle}
-                  {s.comment ? ` · ${s.comment}` : ''}
-                </div>
-              </div>
-              {isReviewed(s) ? (
-                <span className="badge">
-                  <IconCheck size={11} />
-                  разобран
-                </span>
-              ) : (
-                <span className="badge pro">{t('новый')}</span>
-              )}
-            </button>
-          ))}
+        <div className="stat">
+          <div className="value">{doneTasks.length}</div>
+          <div className="label">{t('выполнено')}</div>
         </div>
-      )}
+      </div>
 
       <div className="section-title">{t('Задания')}</div>
       {openTasks.length === 0 && doneTasks.length === 0 ? (

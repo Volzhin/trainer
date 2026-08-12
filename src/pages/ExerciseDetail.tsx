@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db/db'
+import { db, currentUserId } from '../db/db'
 import { IconBack } from '../components/Icons'
 import { LineChart } from '../components/LineChart'
 import { ExerciseMedia } from '../components/ExerciseMedia'
@@ -22,7 +22,14 @@ export function ExerciseDetail() {
     const sessions = await db.sessions.bulkGet([
       ...new Set(done.map((s) => s.workout_session_id)),
     ])
-    const byId = new Map(sessions.filter(Boolean).map((s) => [s!.id, s!]))
+    // Только свои тренировки: на общем устройстве живёт несколько
+    // аккаунтов, а в базе тренера — тренировки всех клиентов. Без фильтра
+    // в личный прогресс попадали чужие подходы.
+    const byId = new Map(
+      sessions
+        .filter((s) => !!s && s.user_id === currentUserId())
+        .map((s) => [s!.id, s!] as const),
+    )
 
     const grouped = new Map<
       string,

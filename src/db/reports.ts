@@ -809,6 +809,35 @@ export async function coachNoteFor(
 
 /* ------------------------------ сводка --------------------------------- */
 
+/**
+ * Сколько ждёт разбора, по видам отдельно.
+ *
+ * Раздельно, потому что разбирают их в разных вкладках: одно общее число
+ * говорит «где-то есть работа», но не куда идти.
+ */
+export async function pendingByTarget(
+  clientId: string,
+): Promise<{ workouts: number; nutrition: number }> {
+  const workouts = await db.workoutReports
+    .where('[user_id+status]')
+    .equals([clientId, 'submitted'])
+    .toArray()
+  const days = await db.nutritionDays
+    .where('[user_id+status]')
+    .equals([clientId, 'submitted'])
+    .toArray()
+
+  const [seenWorkouts, seenDays] = await Promise.all([
+    reviewedRefs(clientId, 'workout'),
+    reviewedRefs(clientId, 'nutrition'),
+  ])
+
+  return {
+    workouts: workouts.filter((r) => !seenWorkouts.has(r.id)).length,
+    nutrition: days.filter((d) => !seenDays.has(d.date)).length,
+  }
+}
+
 /** Сколько отчётов ждёт проверки — бейдж в списке клиентов у тренера. */
 export async function pendingReviewCount(clientId: string): Promise<number> {
   const workouts = await db.workoutReports

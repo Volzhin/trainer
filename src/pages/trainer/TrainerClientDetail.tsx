@@ -16,7 +16,7 @@ import { BodyCompositionView } from '../../components/BodyCompositionView'
 import { Sheet } from '../../components/Sheet'
 import { ClientNutritionReview } from '../../components/ClientNutritionReview'
 import { ClientReports } from '../../components/ClientReports'
-import { pendingReviewCount, tasksOf, weekProgress } from '../../db/reports'
+import { pendingByTarget, tasksOf, weekProgress } from '../../db/reports'
 import { ChatThread } from '../../components/ChatThread'
 import { ClientWorkouts } from '../../components/ClientWorkouts'
 import { IconBack, IconCheck } from '../../components/Icons'
@@ -152,7 +152,12 @@ export function TrainerClientDetail() {
           {/* Что выдано, но не сделано или не разобрано — единственное на
               экране, что требует действия прямо сейчас. */}
           <div className="section-title">{t('Требует внимания')}</div>
-          <OutstandingCard clientId={id} onOpenReports={() => setTab('reports')} />
+          <OutstandingCard
+            clientId={id}
+            onOpenTasks={() => setTab('reports')}
+            onOpenWorkouts={() => setTab('history')}
+            onOpenNutrition={() => setTab('nutrition')}
+          />
 
           <div className="section-title">{t('Неделя')}</div>
           <WeekCard clientId={id} />
@@ -279,20 +284,25 @@ function WeekCard({ clientId }: { clientId: string }) {
  */
 function OutstandingCard({
   clientId,
-  onOpenReports,
+  onOpenTasks,
+  onOpenWorkouts,
+  onOpenNutrition,
 }: {
   clientId: string
-  onOpenReports: () => void
+  onOpenTasks: () => void
+  onOpenWorkouts: () => void
+  onOpenNutrition: () => void
 }) {
   const tasks = useLiveQuery(() => tasksOf(clientId), [clientId])
-  const pending = useLiveQuery(() => pendingReviewCount(clientId), [clientId])
+  const pending = useLiveQuery(() => pendingByTarget(clientId), [clientId])
 
   if (tasks === undefined || pending === undefined) {
     return <div className="card skeleton" style={{ height: 84 }} />
   }
 
   const open = tasks.filter((x) => x.status === 'open')
-  if (open.length === 0 && pending === 0) {
+  const total = pending.workouts + pending.nutrition
+  if (open.length === 0 && total === 0) {
     return <div className="card mute-sm">{t('Всё закрыто: заданий не висит, отчёты разобраны.')}</div>
   }
 
@@ -313,18 +323,34 @@ function OutstandingCard({
         </>
       )}
 
-      {pending > 0 && (
-        <div className={open.length > 0 ? 'mt-3' : undefined}>
-          <div className="strong" style={{ color: 'var(--warn)' }}>
-            {pending} {plural(pending, ['отчёт', 'отчёта', 'отчётов'])} ждёт разбора
-          </div>
-          <div className="mute-sm mt-1">{t('Это ваш ход — клиент уже сдал.')}</div>
-        </div>
+      {open.length > 0 && (
+        <button className="btn sm block mt-3" onClick={onOpenTasks}>
+          {t('Задания')}
+        </button>
       )}
 
-      <button className="btn sm block mt-3" onClick={onOpenReports}>
-        {t('Ждут разбора')}
-      </button>
+      {/* Разбор ведут там, где сдавали, поэтому и кнопок две: одна вкладка
+          на оба вида отчётов означала бы третий список тех же записей. */}
+      {total > 0 && (
+        <div className={open.length > 0 ? 'mt-4' : undefined}>
+          <div className="strong" style={{ color: 'var(--warn)' }}>
+            {total} {plural(total, ['отчёт', 'отчёта', 'отчётов'])} ждёт разбора
+          </div>
+          <div className="mute-sm mt-1">{t('Это ваш ход — клиент уже сдал.')}</div>
+          <div className="row mt-3" style={{ gap: 8 }}>
+            {pending.workouts > 0 && (
+              <button className="btn sm grow" onClick={onOpenWorkouts}>
+                {t('Тренировки')} · {pending.workouts}
+              </button>
+            )}
+            {pending.nutrition > 0 && (
+              <button className="btn sm grow" onClick={onOpenNutrition}>
+                {t('Питание')} · {pending.nutrition}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

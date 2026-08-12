@@ -254,16 +254,25 @@ export async function updateSet(setId: string, patch: Partial<ExerciseSet>) {
 
 /**
  * Отмечает подход выполненным и проверяет личный рекорд по расчётному 1ПМ
- * среди всех ранее завершённых тренировок.
+ * среди ранее завершённых тренировок того же человека.
+ *
+ * Владельца берём у самой тренировки, а не у текущего аккаунта: подход
+ * может отмечаться и в чужой базе, и рекорд обязан считаться по тому, чья
+ * это тренировка.
  */
 export async function completeSet(setId: string): Promise<{ isPR: boolean }> {
   const set = await db.sets.get(setId)
   if (!set) return { isPR: false }
 
+  const session = await db.sessions.get(set.workout_session_id)
   let isPR = false
-  if (set.weight_kg && set.reps_completed) {
+  if (set.weight_kg && set.reps_completed && session) {
     const score = estimate1RM(set.weight_kg, set.reps_completed)
-    const best = await bestPreviousScore(set.exercise_id, set.workout_session_id)
+    const best = await bestPreviousScore(
+      set.exercise_id,
+      set.workout_session_id,
+      session.user_id,
+    )
     isPR = score > best && best > 0
   }
   await db.sets.update(setId, { is_done: 1, is_pr: isPR ? 1 : 0, updated_at: now() })
@@ -343,7 +352,18 @@ export async function exerciseHistory(
   }
 }
 
-export async function lastSetsForExercise(exerciseId: string): Promise<ExerciseSet[]> {
+/**
+ * Подходы прошлой тренировки — только свои.
+ *
+ * Фильтр по владельцу обязателен. В базе тренера лежат тренировки всех его
+ * клиентов, а на общем устройстве — несколько аккаунтов, и без него
+ * «прошлый раз» показывал подходы того, кто просто тренировался позже.
+ * Хуже того, эти же числа подставляются в поля новой тренировки.
+ */
+export async function lastSetsForExercise(
+  exerciseId: string,
+  userId = currentUserId(),
+): Promise<ExerciseSet[]> {
   const sets = await db.sets.where('exercise_id').equals(exerciseId).toArray()
   const done = sets.filter((s) => s.is_done)
   if (!done.length) return []
@@ -351,25 +371,47 @@ export async function lastSetsForExercise(exerciseId: string): Promise<ExerciseS
   const sessions = await db.sessions.bulkGet([
     ...new Set(done.map((s) => s.workout_session_id)),
   ])
-  const completed = sessions.filter((s): s is WorkoutSession => !!s && s.is_completed === 1)
-  if (!completed.length) return []
+  const mine = sessions.filter(
+    (s): s is WorkoutSession => !!s && s.is_completed === 1 && s.user_id === userId,
+  )
+  if (!mine.length) return []
 
-  const latest = completed.sort((a, b) => b.start_time - a.start_time)[0]
+  const latest = mine.sort((a, b) => b.start_time - a.start_time)[0]
   return done
     .filter((s) => s.workout_session_id === latest.id)
     .sort((a, b) => a.set_number - b.set_number)
 }
 
+/**
+ * Лучший результат в упражнении до этой тренировки — только свой.
+ *
+ * Без фильтра по владельцу личный рекорд считался по подходам всех
+ * пользователей сразу: клиенту не засчитывался рекорд, потому что кто-то
+ * другой на том же устройстве или в базе тренера поднял больше. «Личный»
+ * в названии — не фигура речи.
+ */
 async function bestPreviousScore(
   exerciseId: string,
   excludeSessionId: string,
+  userId: string,
 ): Promise<number> {
   const sets = await db.sets.where('exercise_id').equals(exerciseId).toArray()
+  const candidates = sets.filter(
+    (s) => s.workout_session_id !== excludeSessionId && s.is_done && s.weight_kg && s.reps_completed,
+  )
+  if (!candidates.length) return 0
+
+  const sessions = await db.sessions.bulkGet([
+    ...new Set(candidates.map((s) => s.workout_session_id)),
+  ])
+  const mine = new Set(
+    sessions.filter((s): s is WorkoutSession => !!s && s.user_id === userId).map((s) => s.id),
+  )
+
   let best = 0
-  for (const s of sets) {
-    if (s.workout_session_id === excludeSessionId) continue
-    if (!s.is_done || !s.weight_kg || !s.reps_completed) continue
-    best = Math.max(best, estimate1RM(s.weight_kg, s.reps_completed))
+  for (const s of candidates) {
+    if (!mine.has(s.workout_session_id)) continue
+    best = Math.max(best, estimate1RM(s.weight_kg!, s.reps_completed!))
   }
   return best
 }
