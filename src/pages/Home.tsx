@@ -8,6 +8,7 @@ import { plural, startOfDay } from '../lib/calc'
 import { WorkoutCalendar } from '../components/WorkoutCalendar'
 import { IconChevronRight, IconPlay } from '../components/Icons'
 import { useApp } from '../store/app'
+import { t } from '../lib/i18n'
 
 /**
  * Главный экран — это календарь тренировок и ничего больше.
@@ -33,13 +34,16 @@ export function Home() {
     <div className={`screen${active ? ' with-banner' : ''}`}>
       <div className="header">
         <div>
-          <h1>Привет{profile?.name && profile.name !== 'Гость' ? `, ${profile.name}` : ''}</h1>
+          <h1>
+            {t('Привет')}
+            {profile?.name && profile.name !== 'Гость' ? `, ${profile.name}` : ''}
+          </h1>
           <div className="sub">
             {sessions === undefined
               ? ' '
               : sessions.length === 0
-                ? 'Выберите день и начните тренировку'
-                : `${thisWeek} ${plural(thisWeek, ['тренировка', 'тренировки', 'тренировок'])} за неделю`}
+                ? t('Выберите день и начните тренировку')
+                : `${thisWeek} ${plural(thisWeek, ['тренировка', 'тренировки', 'тренировок'])} ${t('за неделю')}`}
           </div>
         </div>
         {!online && (
@@ -54,7 +58,7 @@ export function Home() {
           className="btn primary block mb-4"
           onClick={() => nav(`/session/${active.id}`)}
         >
-          <IconPlay size={18} /> Вернуться к тренировке
+          <IconPlay size={18} /> {t('Вернуться к тренировке')}
         </button>
       )}
 
@@ -68,7 +72,7 @@ export function Home() {
         >
           <div className="grow">
             <div className="strong">
-              {todo.length} {plural(todo.length, ['задание', 'задания', 'заданий'])} от тренера
+              {todo.length} {plural(todo.length, ['задание', 'задания', 'заданий'])} {t('от тренера')}
             </div>
             <div className="mute-sm truncate">{todo[0].title}</div>
           </div>
@@ -83,13 +87,13 @@ export function Home() {
           которого в этом плане нет. */}
       {assigned && !assigned.isSelfPlan && (
         <>
-          <div className="section-title">Программа от тренера</div>
+          <div className="section-title">{t('Программа от тренера')}</div>
           <div className="card">
             <div style={{ fontWeight: 700, fontSize: 17 }}>{assigned.program.name}</div>
             <div className="mute-sm" style={{ marginTop: 3 }}>
-              {assigned.trainer?.name ?? 'Тренер'}
+              {assigned.trainer?.name ?? t('Тренер')}
               {assigned.weeksLeft != null &&
-                ` · осталось ${assigned.weeksLeft} ${plural(assigned.weeksLeft, ['неделя', 'недели', 'недель'])}`}
+                ` · ${t('осталось')} ${assigned.weeksLeft} ${plural(assigned.weeksLeft, ['неделя', 'недели', 'недель'])}`}
             </div>
 
             {/* Дни недели с планом: клиенту важно знать, когда он тренируется,
@@ -100,7 +104,7 @@ export function Home() {
                   const on = assigned.assignment.schedule?.some((sl) => sl.weekday === wd)
                   return (
                     <div key={wd} className={`weekday${on ? ' on' : ''}`}>
-                      <span className="wd">{label}</span>
+                      <span className="wd">{t(label)}</span>
                       <span className="slot">{on ? '•' : '—'}</span>
                     </div>
                   )
@@ -109,9 +113,9 @@ export function Home() {
             ) : null}
 
             <div className="row between" style={{ marginTop: 16, marginBottom: 8 }}>
-              <span className="mute-sm">На этой неделе</span>
+              <span className="mute-sm">{t('На этой неделе')}</span>
               <span className="mute-sm figures">
-                {assigned.doneThisWeek} из {assigned.assignment.weekly_target}
+                {assigned.doneThisWeek} {t('из')} {assigned.assignment.weekly_target}
               </span>
             </div>
             <div className="bar">
@@ -138,7 +142,7 @@ export function Home() {
               className="btn sm block mt-4"
               onClick={() => nav('/programs')}
             >
-              Открыть программу
+              {t('Открыть программу')}
             </button>
           </div>
         </>

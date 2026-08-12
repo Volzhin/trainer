@@ -113,6 +113,120 @@ const EN: Record<string, string> = {
   Упражнения: 'Exercises',
   Программа: 'Program',
   Заметки: 'Notes',
+
+  /* --- главная и календарь --- */
+  Привет: 'Hi',
+  Гость: 'Guest',
+  'Выберите день и начните тренировку': 'Pick a day and start a workout',
+  'за неделю': 'this week',
+  'Вернуться к тренировке': 'Back to the workout',
+  'от тренера': 'from your trainer',
+  'Программа от тренера': 'Program from your trainer',
+  Тренер: 'Trainer',
+  'осталось': 'left',
+  'На этой неделе': 'This week',
+  'из': 'of',
+  'Открыть программу': 'Open program',
+  сегодня: 'today',
+  Вперёд: 'Forward',
+  'По плану': 'Planned',
+  'Нет тренировок в этот день': 'No workouts on this day',
+  'Начать тренировку': 'Start a workout',
+  'Следующая из программы': 'Next from the program',
+  'Свободная тренировка': 'Free workout',
+  'Упражнения добавите по ходу': 'Add exercises as you go',
+  'Программа не назначена — тренировку из плана запускать пока не из чего.':
+    'No program assigned — there is nothing to start from a plan yet.',
+  План: 'Plan',
+  'В этом дне программы пока нет упражнений': 'This program day has no exercises yet',
+  'Тренировка создана по образцу': 'Workout created from that one',
+  Повторить: 'Repeat',
+
+  /* --- живая тренировка --- */
+  Завершить: 'Finish',
+  'Добавить упражнение': 'Add exercise',
+  'Добавьте первое упражнение': 'Add your first exercise',
+  'Добавить подход': 'Add set',
+  'Тренировка не найдена': 'Workout not found',
+  'На главную': 'Go home',
+  'Укажите вес или повторения': 'Enter weight or reps',
+  'Личный рекорд': 'Personal record',
+  'Тренировка завершена': 'Workout finished',
+  'Тренировка отменена — ни одного подхода': 'Workout discarded — no sets recorded',
+  Заменить: 'Replace',
+  'Заменить упражнение': 'Replace exercise',
+  'Убрать упражнение': 'Remove exercise',
+  'Упражнение заменено': 'Exercise replaced',
+  'как делать': 'how to do it',
+  'прошлый раз': 'last time',
+  цель: 'target',
+  Лучший: 'Best',
+  Последний: 'Last',
+  'Как делать': 'How to do it',
+  'Статистика по подходам': 'Set statistics',
+  Статистика: 'Statistics',
+  'Все подходы отмечены': 'All sets are checked',
+  'Можно сдать отчёт тренеру. Комментарий необязателен.':
+    'You can submit the report. A comment is optional.',
+  'Как прошло: самочувствие, что было тяжело':
+    'How it went: how you felt, what was hard',
+  'Сдать отчёт': 'Submit report',
+  'Отправляю…': 'Sending…',
+  'Отчёт отправлен тренеру': 'Report sent to your trainer',
+  'Нечего отмечать: подходы пустые': 'Nothing to check: the sets are empty',
+  'Снизить вес': 'Lower the weight',
+  'Оставить вес': 'Keep the weight',
+  'Прибавить вес': 'Add weight',
+  'Расчётный максимум': 'Estimated max',
+  'Это упражнение вы ещё не делали.': 'You have not done this exercise yet.',
+  'Видеоотчёт тренеру': 'Video report',
+
+  /* --- дни недели и месяцы: короткие формы, они стоят в узкой сетке --- */
+  пн: 'Mon',
+  вт: 'Tue',
+  ср: 'Wed',
+  чт: 'Thu',
+  пт: 'Fri',
+  сб: 'Sat',
+  вс: 'Sun',
+  январь: 'January',
+  февраль: 'February',
+  март: 'March',
+  апрель: 'April',
+  май: 'May',
+  июнь: 'June',
+  июль: 'July',
+  август: 'August',
+  сентябрь: 'September',
+  октябрь: 'October',
+  ноябрь: 'November',
+  декабрь: 'December',
+}
+
+/**
+ * Множественные числа. Русские формы приходят тройкой, английские — парой,
+ * и правила у них разные: «2 тренировки», но «2 workouts».
+ *
+ * Ключ — первая русская форма: она уже стоит в вызове, и не приходится
+ * заводить рядом второй набор идентификаторов.
+ */
+const PLURAL_EN: Record<string, [string, string]> = {
+  тренировка: ['workout', 'workouts'],
+  подход: ['set', 'sets'],
+  повтор: ['rep', 'reps'],
+  день: ['day', 'days'],
+  неделя: ['week', 'weeks'],
+  задание: ['task', 'tasks'],
+  отчёт: ['report', 'reports'],
+  клиент: ['client', 'clients'],
+  упражнение: ['exercise', 'exercises'],
+  запись: ['entry', 'entries'],
+  'не сдан': ['not submitted', 'not submitted'],
+}
+
+export const pluralEn = (n: number, first: string): string | null => {
+  const forms = PLURAL_EN[first]
+  return forms ? (Math.abs(n) === 1 ? forms[0] : forms[1]) : null
 }
 
 const DICT: Record<Lang, Record<string, string>> = { ru: {}, en: EN }

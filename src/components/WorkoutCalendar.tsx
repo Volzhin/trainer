@@ -14,6 +14,7 @@ import { Sheet } from './Sheet'
 import { formatDuration, plural, startOfDay, totalVolume } from '../lib/calc'
 import { haptics } from '../lib/native'
 import { useApp } from '../store/app'
+import { t } from '../lib/i18n'
 
 const WEEK_DAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
 const MONTHS = [
@@ -116,8 +117,8 @@ export function WorkoutCalendar() {
     const to = new Date(days[days.length - 1])
     const label = (d: Date) => MONTHS[d.getMonth()]
     return from.getMonth() === to.getMonth()
-      ? `${label(from)} ${from.getFullYear()}`
-      : `${label(from)} — ${label(to)}`
+      ? `${t(label(from))} ${from.getFullYear()}`
+      : `${t(label(from))} — ${t(label(to))}`
   }, [days])
 
   const [startOpen, setStartOpen] = useState(false)
@@ -133,7 +134,7 @@ export function WorkoutCalendar() {
     haptics.impact()
     const id = await startSessionFromRoutine(nextRoutine.id)
     if (!id) {
-      toast('В этом дне программы пока нет упражнений')
+      toast(t('В этом дне программы пока нет упражнений'))
       return
     }
     setStartOpen(false)
@@ -151,7 +152,7 @@ export function WorkoutCalendar() {
   const repeat = async (sessionId: string) => {
     haptics.impact()
     const id = await repeatSession(sessionId)
-    toast('Тренировка создана по образцу')
+    toast(t('Тренировка создана по образцу'))
     nav(`/session/${id}`)
   }
 
@@ -168,29 +169,29 @@ export function WorkoutCalendar() {
               setSelected(today)
             }}
           >
-            сегодня
+            {t('сегодня')}
           </button>
         </div>
         <div className="segmented" style={{ flex: '0 0 auto' }}>
           <button className={mode === 'week' ? 'on' : ''} onClick={() => setMode('week')}>
-            Неделя
+            {t('Неделя')}
           </button>
           <button className={mode === 'month' ? 'on' : ''} onClick={() => setMode('month')}>
-            Месяц
+            {t('Месяц')}
           </button>
         </div>
       </div>
 
       <div className="cal-nav">
-        <button className="icon-btn" onClick={() => shift(-1)} aria-label="Назад">
+        <button className="icon-btn" onClick={() => shift(-1)} aria-label={t('Назад')}>
           <IconBack size={16} />
         </button>
         <div className="cal-weekdays">
           {WEEK_DAYS.map((d) => (
-            <span key={d}>{d}</span>
+            <span key={d}>{t(d)}</span>
           ))}
         </div>
-        <button className="icon-btn" onClick={() => shift(1)} aria-label="Вперёд">
+        <button className="icon-btn" onClick={() => shift(1)} aria-label={t('Вперёд')}>
           <IconChevronRight size={16} />
         </button>
       </div>
@@ -216,7 +217,7 @@ export function WorkoutCalendar() {
             >
               <span className="d-num">{new Date(ts).getDate()}</span>
               {mode === 'week' && (
-                <span className="d-wd">{WEEK_DAYS[(new Date(ts).getDay() + 6) % 7]}</span>
+                <span className="d-wd">{t(WEEK_DAYS[(new Date(ts).getDay() + 6) % 7])}</span>
               )}
               {list.length > 0 ? (
                 <span className="d-dot" />
@@ -240,20 +241,20 @@ export function WorkoutCalendar() {
         <div className="cal-empty">
           {plannedToday ? (
             <>
-              <div className="mute-sm">По плану</div>
+              <div className="mute-sm">{t('По плану')}</div>
               <div className="strong" style={{ fontSize: 17, marginTop: 2 }}>
                 {plannedToday.routine.name}
               </div>
             </>
           ) : (
-            <div className="muted">Нет тренировок в этот день</div>
+            <div className="muted">{t('Нет тренировок в этот день')}</div>
           )}
           {selected >= today && (
             <button
               className="btn primary block mt-4"
               onClick={() => setStartOpen(true)}
             >
-              <IconPlay size={17} /> Начать тренировку
+              <IconPlay size={17} /> {t('Начать тренировку')}
             </button>
           )}
         </div>
@@ -343,7 +344,7 @@ export function WorkoutCalendar() {
                 <IconPlay size={18} />
               </span>
               <span className="grow">
-                <span className="title">Следующая из программы</span>
+                <span className="title">{t('Следующая из программы')}</span>
                 <span className="sub">
                   {nextRoutine.name}
                 </span>
@@ -352,7 +353,7 @@ export function WorkoutCalendar() {
             </button>
           ) : (
             <div className="mute-sm">
-              Программа не назначена — тренировку из плана запускать пока не из чего.
+              {t('Программа не назначена — тренировку из плана запускать пока не из чего.')}
             </div>
           )}
 
@@ -361,9 +362,9 @@ export function WorkoutCalendar() {
               <IconDumbbell size={18} />
             </span>
             <span className="grow">
-              <span className="title">Свободная тренировка</span>
+              <span className="title">{t('Свободная тренировка')}</span>
               <span className="sub">
-                Упражнения добавите по ходу
+                {t('Упражнения добавите по ходу')}
               </span>
             </span>
             <IconChevronRight size={16} />

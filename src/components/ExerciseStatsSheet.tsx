@@ -4,6 +4,7 @@ import { currentUserId } from '../db/db'
 import { estimate1RM, formatDate, formatWeight, plural } from '../lib/calc'
 import { LineChart } from './LineChart'
 import { Sheet } from './Sheet'
+import { t } from '../lib/i18n'
 
 /**
  * Статистика по подходам одного упражнения.
@@ -71,16 +72,16 @@ export function ExerciseStatsSheet({
     .filter((p) => p.y > 0)
 
   return (
-    <Sheet open={!!exerciseId} title={name ?? 'Статистика'} onClose={onClose}>
+    <Sheet open={!!exerciseId} title={name ?? t('Статистика')} onClose={onClose}>
       {days == null ? (
         <div className="card skeleton" style={{ height: 140 }} />
       ) : days.length === 0 ? (
-        <div className="empty compact">Это упражнение вы ещё не делали.</div>
+        <div className="empty compact">{t('Это упражнение вы ещё не делали.')}</div>
       ) : (
         <div className="stack">
           {points.length >= 2 && (
             <div className="card">
-              <div className="mute-sm mb-2">Расчётный максимум</div>
+              <div className="mute-sm mb-2">{t('Расчётный максимум')}</div>
               <LineChart data={points} unit=" кг" height={90} />
             </div>
           )}

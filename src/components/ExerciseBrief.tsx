@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { exerciseHistory } from '../db/repo'
 import { formatWeight } from '../lib/calc'
+import { t } from '../lib/i18n'
 
 /**
  * Что человек уже делал в этом упражнении: лучший подход за всю историю и
@@ -25,13 +26,13 @@ export function ExerciseBrief({ exerciseId }: { exerciseId: string }) {
     <div className="ex-brief">
       {best && (
         <div>
-          <div className="cap">Лучший</div>
+          <div className="cap">{t('Лучший')}</div>
           <div className="figures">{short(best.weight_kg, best.reps_completed)}</div>
         </div>
       )}
       {last.length > 0 && (
         <div className="grow" style={{ minWidth: 0 }}>
-          <div className="cap">Последний</div>
+          <div className="cap">{t('Последний')}</div>
           {/* Подходы прошлой тренировки в строку: их редко больше пяти, а
               вертикальным списком они отодвинули бы сами поля ввода. */}
           <div className="figures truncate">

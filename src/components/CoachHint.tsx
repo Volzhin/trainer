@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { coachNoteFor } from '../db/reports'
 import type { Progression } from '../db/db'
+import { t } from '../lib/i18n'
 
 /**
  * Что тренер сказал про это упражнение: разбор техники и что делать с весом.
@@ -30,7 +31,7 @@ export function CoachHint({ exerciseId, clientId }: { exerciseId: string; client
     <div className="quote inset">
       {label && (
         <span className="badge" style={{ color: label.color, borderColor: label.color }}>
-          {label.text}
+          {t(label.text)}
         </span>
       )}
       {/* Комментарий показываем и без рекомендации по весу: «пауза внизу»

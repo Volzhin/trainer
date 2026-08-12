@@ -1,4 +1,5 @@
 import type { ExerciseSet } from '../db/db'
+import { getLang, pluralEn } from './i18n'
 
 /** Оценка одноповторного максимума по формуле Эпли. */
 export function estimate1RM(weight: number, reps: number): number {
@@ -71,6 +72,14 @@ export function formatDateTime(ts: number): string {
 }
 
 export function plural(n: number, forms: [string, string, string]): string {
+  // Английский считает по-другому: одна форма для единицы, вторая для
+  // всего остального. Нет пары в словаре — оставляем русскую: лучше
+  // «2 подхода» посреди английского, чем пустое место.
+  if (getLang() === 'en') {
+    const en = pluralEn(n, forms[0])
+    if (en) return en
+  }
+
   const abs = Math.abs(n) % 100
   const last = abs % 10
   if (abs > 10 && abs < 20) return forms[2]
