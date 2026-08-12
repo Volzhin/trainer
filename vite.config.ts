@@ -31,20 +31,18 @@ export default defineConfig({
         // Справочник больше стандартного лимита — иначе выпадет из офлайн-кеша.
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         navigateFallback: 'index.html',
-        runtimeCaching: [
-          {
-            // Пример фонового POST-очереди для будущего REST API (Workbox Background Sync)
-            urlPattern: /\/api\/.*/,
-            handler: 'NetworkOnly',
-            method: 'POST',
-            options: {
-              backgroundSync: {
-                name: 'trainer-sync-queue',
-                options: { maxRetentionTime: 24 * 60 },
-              },
-            },
-          },
-        ],
+        // Запросы к API подменять страницей нельзя: открытая напрямую ссылка
+        // на файл вернула бы index.html вместо самого файла.
+        navigateFallbackDenylist: [/^\/api\//],
+        /**
+         * Фоновой очереди POST здесь намеренно нет.
+         *
+         * Workbox повторял каждый неудавшийся POST сутки, а приложение
+         * повторяет их само (см. db/sync.ts) — загрузка видео уезжала дважды
+         * и создавала второе вложение. Вдобавок в очередь попадал вход по
+         * паролю: запрос лежал в IndexedDB вместе с паролем и повторялся
+         * потом со стороны Service Worker.
+         */
       },
       devOptions: { enabled: false },
     }),
