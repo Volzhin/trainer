@@ -28,6 +28,14 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,json}'],
+        /**
+         * Английские названия и описания упражнений — почти мегабайт, и
+         * нужны они только тем, кто переключил язык. В предзагрузку не
+         * берём: иначе этот мегабайт скачивает каждый, включая тех, кто
+         * никогда не увидит английский. Офлайн он всё равно доступен —
+         * кладём в кеш при первом обращении, правилом ниже.
+         */
+        globIgnores: ['**/exercises.en.json'],
         // Справочник больше стандартного лимита — иначе выпадет из офлайн-кеша.
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         navigateFallback: 'index.html',
@@ -43,6 +51,17 @@ export default defineConfig({
          * паролю: запрос лежал в IndexedDB вместе с паролем и повторялся
          * потом со стороны Service Worker.
          */
+        runtimeCaching: [
+          {
+            // Английский словарь — тот самый файл из globIgnores выше.
+            urlPattern: /\/data\/exercises\.en\.json$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'exercise-names-en',
+              expiration: { maxEntries: 2 },
+            },
+          },
+        ],
       },
       devOptions: { enabled: false },
     }),

@@ -74,7 +74,7 @@ export function Programs() {
 
   const onCreate = async () => {
     const id = await createProgram(name.trim() || t('Моя программа'))
-    await createRoutine(id, 'День 1')
+    await createRoutine(id, `${t('День')} 1`)
     setName('')
     setCreateOpen(false)
     setTab('mine')
