@@ -28,6 +28,15 @@ const MAX_UPLOAD = 64 * 1024 * 1024
  */
 const OWNER_OR_TRAINER = 'owner = @request.auth.id || owner.trainer = @request.auth.id'
 
+/**
+ * То же самое для таблицы синхронизации, но с одним изъятием: заметки о
+ * клиенте тренер ведёт для себя. Принадлежат они клиенту — иначе тренер не
+ * нашёл бы их среди чужих записей, — и без этого условия клиент вычитывал бы
+ * их обычным обменом и читал бы, что тренер о нём думает.
+ */
+const RECORDS_RULE =
+  '(owner = @request.auth.id && tbl != "trainerNotes") || owner.trainer = @request.auth.id'
+
 async function main() {
   const token = await login()
   const existing = await listCollections(token)
@@ -59,11 +68,11 @@ async function main() {
       'CREATE UNIQUE INDEX `idx_records_owner_tbl_rid` ON `records` (`owner`, `tbl`, `rid`)',
       'CREATE INDEX `idx_records_owner_updated` ON `records` (`owner`, `updated`)',
     ],
-    listRule: OWNER_OR_TRAINER,
-    viewRule: OWNER_OR_TRAINER,
-    createRule: OWNER_OR_TRAINER,
-    updateRule: OWNER_OR_TRAINER,
-    deleteRule: OWNER_OR_TRAINER,
+    listRule: RECORDS_RULE,
+    viewRule: RECORDS_RULE,
+    createRule: RECORDS_RULE,
+    updateRule: RECORDS_RULE,
+    deleteRule: RECORDS_RULE,
   })
 
   await ensure(token, byName, {
@@ -76,7 +85,18 @@ async function main() {
       text('rid', { required: true }),
       text('kind'),
       text('note'),
-      { name: 'file', type: 'file', required: true, maxSelect: 1, maxSize: MAX_UPLOAD },
+      // protected: без него файл отдаётся любому, кто знает ссылку. Правила
+      // выше защищают запись о видео, но не само видео: адрес утекает через
+      // историю браузера и пересылку и работает даже после разрыва связи с
+      // тренером. С флагом ссылка требует одноразового токена (см. fileToken).
+      {
+        name: 'file',
+        type: 'file',
+        required: true,
+        maxSelect: 1,
+        maxSize: MAX_UPLOAD,
+        protected: true,
+      },
     ],
     indexes: ['CREATE INDEX `idx_attachments_owner` ON `attachments` (`owner`, `rid`)'],
     listRule: OWNER_OR_TRAINER,
@@ -139,7 +159,16 @@ async function patchUsers(token, users) {
       'id = @request.auth.id || trainer = @request.auth.id || id = @request.auth.trainer',
     viewRule:
       'id = @request.auth.id || trainer = @request.auth.id || id = @request.auth.trainer',
-    updateRule: 'id = @request.auth.id',
+    // Свой профиль человек правит сам, но не привязку к тренеру: иначе весь
+    // разбор кода приглашения обходится одним PATCH — достаточно знать id
+    // тренера, чтобы попасть к нему в кабинет и получить доступ к его
+    // карточке с почтой. Поле trainer меняет только обработчик /api/redeem:
+    // он пишет запись напрямую, и правила доступа его не касаются.
+    //
+    // Роль под запрет не попадает намеренно: переключение режима — функция
+    // приложения (см. AccountSection), а тренер без клиентов ничего чужого
+    // не получает — доступ даёт поле trainer у клиента, а не своя роль.
+    updateRule: 'id = @request.auth.id && @request.body.trainer:isset = false',
     deleteRule: 'id = @request.auth.id',
     passwordAuth: { enabled: true, identityFields: ['email'] },
   }
