@@ -218,7 +218,7 @@ export function ProgressView({ userId }: { userId: string }) {
               className="list-item"
               onClick={() => nav(`/exercises/${r.exerciseId}`)}
             >
-              <div className="grow truncate">{r.name}</div>
+              <div className="grow truncate">{exName(r.name)}</div>
               <strong className="t-num" style={{ fontSize: 16 }}>
                 {Math.round(r.score)} {t('кг')}
               </strong>
@@ -246,7 +246,7 @@ function PlanCard({ plan, onOpen }: { plan: PlanProgress; onOpen: () => void }) 
       <div className="card">
         <div className="row between">
           <div className="grow">
-            <div style={{ fontWeight: 700, fontSize: 17 }}>{plan.program.name}</div>
+            <div style={{ fontWeight: 700, fontSize: 17 }}>{t(plan.program.name)}</div>
             <div className="mute-sm mt-1">
               {plan.trainerName ? `${t('от тренера')} · ${plan.trainerName}` : t('ваша программа')}
             </div>
@@ -295,7 +295,7 @@ function PlanCard({ plan, onOpen }: { plan: PlanProgress; onOpen: () => void }) 
             {plan.byRoutine.map(({ routine, planned, done }) => (
               <div key={routine.id}>
                 <div className="row between mb-1">
-                  <span className="muted truncate">{routine.name}</span>
+                  <span className="muted truncate">{t(routine.name)}</span>
                   <span className="mute-sm t-num">
                     {done}/{planned || '—'}
                   </span>

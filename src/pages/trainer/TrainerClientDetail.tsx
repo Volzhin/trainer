@@ -572,7 +572,7 @@ function AssignSheet({
                   style={p.id === chosen ? { background: 'var(--accent-soft)' } : undefined}
                 >
                   <span className="grow">
-                    <span className="title">{p.name}</span>
+                    <span className="title">{t(p.name)}</span>
                     <span className="sub">
                       {p.goal} · {count} {plural(count, ['день', 'дня', 'дней'])}
                       {p.author_id === userId ? ` · ${t('моя')}` : ''}

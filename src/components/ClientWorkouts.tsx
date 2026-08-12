@@ -95,7 +95,7 @@ export function ClientWorkouts({
       <div className="card">
         {assigned ? (
           <>
-            <div className="strong">{assigned.program.name}</div>
+            <div className="strong">{t(assigned.program.name)}</div>
             <div className="mute-sm mt-1">
               {assigned.assignment.schedule?.length
                 ? assigned.assignment.schedule

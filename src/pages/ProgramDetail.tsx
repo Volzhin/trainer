@@ -116,7 +116,7 @@ export function ProgramDetail() {
           <IconBack size={18} />
         </button>
         <div className="grow">
-          <h1 className="detail">{program.name}</h1>
+          <h1 className="detail">{t(program.name)}</h1>
           <div className="sub">
             {program.goal} · {program.level}
             {!editable && ` · ${t('программа платформы')}`}
@@ -201,7 +201,7 @@ export function ProgramDetail() {
         return (
           <div key={routine.id} style={{ marginTop: 16 }}>
             <div className="row between mb-2">
-              <div className="strong">{routine.name}</div>
+              <div className="strong">{t(routine.name)}</div>
               <button
                 className="btn sm primary"
                 onClick={async () => {
@@ -575,7 +575,7 @@ function PlanSheet({
                 <span className="metric-icon" style={{ color: 'var(--accent-ink)' }}>
                   {String.fromCharCode(65 + i)}
                 </span>
-                <span className="grow title">{r.name}</span>
+                <span className="grow title">{t(r.name)}</span>
                 <span className="value">
                   {WEEKDAYS.filter((_, wd) => slots[wd] === r.id).map(t).join(', ') || t('не назначен')}
                 </span>

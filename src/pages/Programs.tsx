@@ -166,7 +166,7 @@ export function Programs() {
             <div className="card tap" key={p.id} onClick={() => nav(`/programs/${p.id}`)}>
               <div className="row between">
                 <div className="grow">
-                  <div className="strong" style={{ fontSize: 17 }}>{p.name}</div>
+                  <div className="strong" style={{ fontSize: 17 }}>{t(p.name)}</div>
                   <div className="mute-sm" style={{ marginTop: 3 }}>
                     {fromTrainer
                       ? 'От тренера · '
@@ -220,7 +220,7 @@ export function Programs() {
                     .sort((a, b) => a.day_order - b.day_order)
                     .map((d) => (
                       <div className="row between" key={d.id}>
-                        <span className="truncate">{d.name}</span>
+                        <span className="truncate">{t(d.name)}</span>
                         <button
                           className="btn sm"
                           onClick={async (e) => {

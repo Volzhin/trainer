@@ -4,7 +4,7 @@ import { Sheet } from './Sheet'
 import { ExerciseMedia } from './ExerciseMedia'
 import { ExerciseDescription } from './ExerciseDescription'
 import { t } from '../lib/i18n'
-import { exName } from '../lib/exerciseNames'
+import { exDesc, exName } from '../lib/exerciseNames'
 
 /**
  * Техника упражнения шторкой. Открывается из программы и прямо во время
@@ -40,7 +40,7 @@ export function ExerciseTechniqueSheet({
           </div>
 
           {exercise.description ? (
-            <ExerciseDescription text={exercise.description} />
+            <ExerciseDescription text={exDesc(exercise.description)} />
           ) : (
             <div className="muted">{t('Описание техники не заполнено.')}</div>
           )}
@@ -61,7 +61,7 @@ export function ExerciseTechniqueSheet({
               </div>
               {exercise.restrictions.map((r) => (
                 <div key={r} style={{ fontSize: 14 }}>
-                  {r}
+                  {t(r)}
                 </div>
               ))}
             </div>

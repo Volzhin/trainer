@@ -7,7 +7,7 @@ import { ExerciseMedia } from '../components/ExerciseMedia'
 import { ExerciseDescription } from '../components/ExerciseDescription'
 import { estimate1RM, formatDate, formatWeight } from '../lib/calc'
 import { t } from '../lib/i18n'
-import { exName } from '../lib/exerciseNames'
+import { exDesc, exName } from '../lib/exerciseNames'
 
 export function ExerciseDetail() {
   const { id = '' } = useParams()
@@ -74,10 +74,10 @@ export function ExerciseDetail() {
       <div className="tagline" style={{ marginBottom: 16, marginTop: -6 }}>
         <span className="tag accent">{t(exercise.muscle_group)}</span>
         <span className="tag">{t(exercise.equipment)}</span>
-        {exercise.exercise_type && <span className="tag">{exercise.exercise_type}</span>}
+        {exercise.exercise_type && <span className="tag">{t(exercise.exercise_type)}</span>}
         {(exercise.sports ?? []).map((s) => (
           <span className="tag" key={s}>
-            {s}
+            {t(s)}
           </span>
         ))}
       </div>
@@ -88,7 +88,7 @@ export function ExerciseDetail() {
         <>
           <div className="section-title">{t('Техника выполнения')}</div>
           <div className="card enter">
-            <ExerciseDescription text={exercise.description} />
+            <ExerciseDescription text={exDesc(exercise.description)} />
           </div>
         </>
       )}
@@ -121,7 +121,7 @@ export function ExerciseDetail() {
           </div>
           {exercise.restrictions.map((r) => (
             <div key={r} style={{ fontSize: 14 }}>
-              {r}
+              {t(r)}
             </div>
           ))}
         </div>

@@ -89,7 +89,7 @@ export function Home() {
         <>
           <div className="section-title">{t('Программа от тренера')}</div>
           <div className="card">
-            <div style={{ fontWeight: 700, fontSize: 17 }}>{assigned.program.name}</div>
+            <div style={{ fontWeight: 700, fontSize: 17 }}>{t(assigned.program.name)}</div>
             <div className="mute-sm" style={{ marginTop: 3 }}>
               {assigned.trainer?.name ?? t('Тренер')}
               {assigned.weeksLeft != null &&

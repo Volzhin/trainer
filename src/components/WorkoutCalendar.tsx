@@ -246,7 +246,7 @@ export function WorkoutCalendar() {
             <>
               <div className="mute-sm">{t('По плану')}</div>
               <div className="strong" style={{ fontSize: 17, marginTop: 2 }}>
-                {plannedToday.routine.name}
+                {t(plannedToday.routine.name)}
               </div>
             </>
           ) : (
@@ -320,7 +320,7 @@ export function WorkoutCalendar() {
           <div className="card">
             <div className="row between">
               <div className="grow">
-                <div className="strong">{plan.program.name}</div>
+                <div className="strong">{t(plan.program.name)}</div>
                 <div className="mute-sm" style={{ marginTop: 2 }}>
                   {plan.weeksLeft != null
                     ? `${t('Осталось')} ${plan.weeksLeft} ${plural(plan.weeksLeft, ['неделя', 'недели', 'недель'])}`
@@ -358,7 +358,7 @@ export function WorkoutCalendar() {
                     {i === 0 ? <IconPlay size={18} /> : <IconDumbbell size={18} />}
                   </span>
                   <span className="grow">
-                    <span className="title">{r.name}</span>
+                    <span className="title">{t(r.name)}</span>
                     {i === 0 && <span className="sub">{t('следующая по плану')}</span>}
                   </span>
                   <IconChevronRight size={16} />

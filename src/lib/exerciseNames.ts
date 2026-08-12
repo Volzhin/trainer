@@ -30,3 +30,15 @@ export function exName(name: string | undefined): string {
   if (!name) return ''
   return names?.[name] ?? name
 }
+
+/**
+ * Описание техники на языке интерфейса.
+ *
+ * Описание переводится целиком или никак: русский оригинал честнее, чем
+ * подсказка, где половина строк на одном языке, а половина на другом.
+ * Поэтому в словаре лежат только полностью переведённые тексты.
+ */
+export function exDesc(text: string | undefined): string {
+  if (!text) return ''
+  return names?.['desc:' + text] ?? text
+}
