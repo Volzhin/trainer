@@ -397,7 +397,6 @@ const EN: Record<string, string> = {
   Жир: 'Fat',
   Мышцы: 'Muscle',
   Замеры: 'Measurements',
-  'Сданные замеры': 'Submitted measurements',
   'без цифр': 'no numbers',
 
   /* --- дневник питания --- */

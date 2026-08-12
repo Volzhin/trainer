@@ -148,9 +148,6 @@ export interface BodyMetric {
   muscle_segments?: Record<string, { kg: number; pct?: number; status?: string }>
   fat_segments?: Record<string, { kg: number; pct?: number; status?: string }>
 
-  /** Ответ тренера на замер — клиенту видно, см. WorkoutReport.trainer_comment. */
-  trainer_comment?: string
-
   /** Откуда замер: ручной ввод или импортированный отчёт. */
   source?: 'manual' | 'inbody'
   source_file?: string
@@ -417,12 +414,13 @@ export interface WorkoutReport {
 
 /** Что именно проверено. */
 /**
- * Что именно проверено. Замеры сюда добавлены последними: клиент сдаёт их
- * так же, как тренировку и день питания, и тренер должен видеть, что уже
- * разобрал, а что нет. Ссылка у замера — дата (YYYY-MM-DD): за день их
- * бывает несколько, а разговор всё равно про день.
+ * Что именно проверено.
+ *
+ * Только тренировка и день питания. Замеры, вес, шаги и сон разбору не
+ * подлежат: это измерения, а не отчёт о сделанном. Обсуждать в них нечего
+ * — они просто складываются в статистику, по которой тренер и судит.
  */
-export type ReviewTarget = 'workout' | 'nutrition' | 'body'
+export type ReviewTarget = 'workout' | 'nutrition'
 
 /**
  * Отметка тренера о проверке отчёта. Только факт и время — ничего больше.

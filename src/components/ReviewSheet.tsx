@@ -18,7 +18,7 @@ import { t } from '../lib/i18n'
 
 export type ReviewSubject = {
   target: ReviewTarget
-  /** id отчёта о тренировке либо дата дня питания или замера. */
+  /** id отчёта о тренировке либо дата дня питания. */
   ref: string
   title: string
   subtitle: string
