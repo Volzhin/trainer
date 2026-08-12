@@ -467,17 +467,11 @@ export async function seedIfEmpty() {
     await pruneBuiltInCatalog()
     return
   }
+  await seedCatalog()
 
-  // Каталог целиком приходит из внешней базы: описания, фото и видео техники.
-  const exercises = await importCatalog()
-  await db.exercises.bulkAdd(exercises)
-  invalidateExercises()
-
-  const byName = new Map(exercises.map((e) => [normName(e.name), e.id]))
-  const ts = now()
-
-  await buildCatalogPrograms(byName, ts)
-
+  // Стартовый профиль заводится только при первом запуске: восстановление
+  // каталога к аккаунтам отношения не имеет и лишнего «Гостя» плодить не
+  // должно — он попал бы в переключатель аккаунтов у вошедшего человека.
   const hasProfile = await db.profile.get(LOCAL_USER_ID)
   if (!hasProfile) {
     await db.profile.add({
@@ -488,7 +482,25 @@ export async function seedIfEmpty() {
       default_rest_seconds: 90,
       haptics_enabled: 1,
       sound_enabled: 1,
-      updated_at: ts,
+      updated_at: now(),
     })
   }
+}
+
+/**
+ * Собирает системный каталог заново.
+ *
+ * Отдельно от seedIfEmpty, потому что «пусто ли в базе» и «нужен ли каталог» —
+ * разные вопросы: у человека может не быть ни одного упражнения из справочника
+ * и при этом лежать своё, и тогда проверка по количеству строк говорит «всё на
+ * месте», а восстанавливать всё равно нечего.
+ */
+export async function seedCatalog() {
+  // Каталог целиком приходит из внешней базы: описания, фото и видео техники.
+  const exercises = await importCatalog()
+  await db.exercises.bulkAdd(exercises)
+  invalidateExercises()
+
+  const byName = new Map(exercises.map((e) => [normName(e.name), e.id]))
+  await buildCatalogPrograms(byName, now())
 }

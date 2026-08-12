@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, currentUserId, type Contact, type ContactKind } from '../db/db'
+import { db, currentUserId, deleteManySynced, type Contact, type ContactKind } from '../db/db'
 import { ContactEditor } from '../components/ContactLinks'
 import { Sheet } from '../components/Sheet'
 import { AccountSection } from '../components/AccountSection'
 import { useApp, useProfile } from '../store/app'
 import { isStandalone, ensureNotificationPermission, haptics } from '../lib/native'
-import { seedIfEmpty } from '../db/seed'
+import { seedCatalog } from '../db/seed'
+import { invalidateExercises } from '../db/catalog'
 import { exportHistoryCsv } from '../db/repo'
 import { generateDemoData } from '../db/demo'
 import { MyTrainerCard } from '../components/MyTrainerCard'
@@ -77,24 +78,59 @@ export function Profile() {
     }
   }
 
+  /**
+   * Чистит историю активного аккаунта. Именно его: на устройстве живут ещё
+   * демонстрационный профиль, а у тренера — данные клиентов, и очистка
+   * таблиц целиком стирала всех сразу.
+   */
   const resetAll = async () => {
-    await Promise.all([
-      db.sessions.clear(),
-      db.sets.clear(),
-      db.bodyMetrics.clear(),
-      db.syncQueue.clear(),
-    ])
+    const me = currentUserId()
+    const sessionIds = (await db.sessions.where('user_id').equals(me).primaryKeys()) as string[]
+    const ids = new Set(sessionIds)
+
+    // Через deleteManySynced, а не прямым удалением: иначе история пропадает
+    // здесь, но остаётся у тренера и возвращается на другом устройстве.
+    // Подходам владельца передаём явно — тренировок к моменту выгрузки уже
+    // не будет, а выводится он из них.
+    const setIds = (await db.sets
+      .filter((s) => ids.has(s.workout_session_id))
+      .primaryKeys()) as string[]
+    await deleteManySynced('sets', setIds, me)
+    await deleteManySynced('sessions', sessionIds)
+
+    const metricIds = (await db.bodyMetrics
+      .where('user_id')
+      .equals(me)
+      .primaryKeys()) as string[]
+    await deleteManySynced('bodyMetrics', metricIds)
+
     toast('История очищена')
   }
 
+  /**
+   * Возвращает системный каталог. Своё не трогаем: строка обещает
+   * восстановить каталог, а не удалить собранные вручную программы и
+   * упражнения, которых больше нигде нет.
+   */
   const reseed = async () => {
-    await Promise.all([
-      db.exercises.clear(),
-      db.programs.clear(),
-      db.routines.clear(),
-      db.templateItems.clear(),
-    ])
-    await seedIfEmpty()
+    await db.exercises.filter((e) => e.is_custom !== 1).delete()
+
+    const catalog = await db.programs.where('author_id').equals('system').toArray()
+    for (const program of catalog) {
+      const routines = await db.routines.where('program_id').equals(program.id).toArray()
+      for (const r of routines) {
+        const items = await db.templateItems.where('routine_id').equals(r.id).toArray()
+        await db.templateItems.bulkDelete(items.map((i) => i.id))
+      }
+      await db.routines.bulkDelete(routines.map((r) => r.id))
+    }
+    await db.programs.bulkDelete(catalog.map((p) => p.id))
+
+    // Именно seedCatalog, а не seedIfEmpty: последний считает базу заполненной,
+    // пока в ней есть хоть одна строка, — и при единственном своём упражнении
+    // молча не восстановил бы ничего, оставив человека вовсе без справочника.
+    await seedCatalog()
+    invalidateExercises()
     toast('Каталог восстановлен')
   }
 
@@ -376,6 +412,10 @@ function EditProfileSheet({ open, onClose }: { open: boolean; onClose: () => voi
   if (profile && !loaded) {
     setContacts(profile.contacts ?? [])
     setPreferred(profile.preferred_contact)
+    // Опыт подтягиваем вместе с остальным: он пишется при каждом сохранении,
+    // и без загрузки текущего значения правка имени сбрасывала бы человека
+    // обратно в новички — а от опыта строится уровень программ.
+    if (profile.experience) setExperience(profile.experience)
     setLoaded(true)
   }
 

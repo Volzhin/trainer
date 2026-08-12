@@ -1,6 +1,7 @@
 import {
   db,
-  enqueue,
+  deleteManySynced,
+  deleteSynced,
   uid,
   now,
   currentUserId,
@@ -46,7 +47,6 @@ export async function startEmptySession(title = 'Свободная тренир
     updated_at: now(),
   }
   await db.sessions.add(session)
-  await enqueue('session', session.id, 'create', session)
   return session.id
 }
 
@@ -114,7 +114,6 @@ export async function startSessionFromRoutine(routineId: string): Promise<string
     }
   }
   if (planned.length) await db.sets.bulkAdd(planned)
-  await enqueue('session', sessionId, 'create', session)
   return sessionId
 }
 
@@ -162,7 +161,6 @@ export async function repeatSession(sourceId: string): Promise<string> {
     }))
 
   if (copies.length) await db.sets.bulkAdd(copies)
-  await enqueue('session', sessionId, 'create', session)
   return sessionId
 }
 
@@ -221,7 +219,10 @@ export async function removeExerciseFromSession(sessionId: string, sequenceOrder
     .where('[workout_session_id+sequence_order]')
     .equals([sessionId, sequenceOrder])
     .toArray()
-  await db.sets.bulkDelete(rows.map((r) => r.id))
+  await deleteManySynced(
+    'sets',
+    rows.map((r) => r.id),
+  )
 }
 
 export async function addSetRow(sessionId: string, exerciseId: string, sequenceOrder: number) {
@@ -229,13 +230,17 @@ export async function addSetRow(sessionId: string, exerciseId: string, sequenceO
     .where('[workout_session_id+sequence_order]')
     .equals([sessionId, sequenceOrder])
     .toArray()
-  const last = rows[rows.length - 1]
+  // Порядок выборки задаёт составной ключ, а не номер подхода, поэтому
+  // «последний» ищем явно. И считаем от него, а не от количества строк:
+  // после удаления среднего подхода счёт по длине выдаёт занятый номер.
+  const ordered = [...rows].sort((a, b) => a.set_number - b.set_number)
+  const last = ordered[ordered.length - 1]
   await db.sets.add({
     id: uid(),
     workout_session_id: sessionId,
     exercise_id: exerciseId,
     sequence_order: sequenceOrder,
-    set_number: rows.length + 1,
+    set_number: (last?.set_number ?? 0) + 1,
     weight_kg: last?.weight_kg,
     reps_completed: last?.reps_completed,
     is_pr: 0,
@@ -245,7 +250,7 @@ export async function addSetRow(sessionId: string, exerciseId: string, sequenceO
 }
 
 export async function deleteSetRow(setId: string) {
-  await db.sets.delete(setId)
+  await deleteSynced('sets', setId)
 }
 
 export async function updateSet(setId: string, patch: Partial<ExerciseSet>) {
@@ -262,12 +267,18 @@ export async function completeSet(setId: string): Promise<{ isPR: boolean }> {
 
   let isPR = false
   if (set.weight_kg && set.reps_completed) {
+    // Рекорд считаем по владельцу тренировки, а не по активному аккаунту:
+    // тренер может отметить подход, открыв тренировку клиента.
+    const session = await db.sessions.get(set.workout_session_id)
     const score = estimate1RM(set.weight_kg, set.reps_completed)
-    const best = await bestPreviousScore(set.exercise_id, set.workout_session_id)
+    const best = await bestPreviousScore(
+      set.exercise_id,
+      set.workout_session_id,
+      session?.user_id ?? currentUserId(),
+    )
     isPR = score > best && best > 0
   }
   await db.sets.update(setId, { is_done: 1, is_pr: isPR ? 1 : 0, updated_at: now() })
-  await enqueue('set', setId, 'update', { ...set, is_done: 1 })
   return { isPR }
 }
 
@@ -279,7 +290,11 @@ export async function finishSession(sessionId: string, notes?: string) {
   // Незаполненные подходы не должны попадать в статистику.
   const rows = await db.sets.where('workout_session_id').equals(sessionId).toArray()
   const empty = rows.filter((r) => !r.is_done)
-  if (empty.length) await db.sets.bulkDelete(empty.map((r) => r.id))
+  if (empty.length)
+    await deleteManySynced(
+      'sets',
+      empty.map((r) => r.id),
+    )
 
   const remaining = rows.length - empty.length
   if (remaining === 0) {
@@ -293,20 +308,36 @@ export async function finishSession(sessionId: string, notes?: string) {
     notes,
     updated_at: now(),
   })
-  await enqueue('session', sessionId, 'update', { is_completed: 1 })
   return true
 }
 
 export async function discardSession(sessionId: string) {
+  // Владельца подходов запоминаем, пока тренировка ещё на месте: после её
+  // удаления выводить его будет неоткуда, и удаления подходов не уехали бы.
+  const session = await db.sessions.get(sessionId)
   const rows = await db.sets.where('workout_session_id').equals(sessionId).toArray()
-  await db.sets.bulkDelete(rows.map((r) => r.id))
-  await db.sessions.delete(sessionId)
+  await deleteManySynced(
+    'sets',
+    rows.map((r) => r.id),
+    session?.user_id,
+  )
+  await deleteSynced('sessions', sessionId)
 }
 
 /* ------------------------------- история ------------------------------ */
 
-/** Подходы этого упражнения из последней завершённой тренировки. */
-export async function lastSetsForExercise(exerciseId: string): Promise<ExerciseSet[]> {
+/**
+ * Подходы этого упражнения из последней завершённой тренировки.
+ *
+ * У подхода нет владельца — он висит на тренировке, поэтому отбор идёт по
+ * ней. Без этого отбора в базе, где живут несколько аккаунтов (свой и
+ * демонстрационный, а у тренера ещё и тренировки клиентов), подсказка
+ * «прошлый раз» и предзаполненные веса берутся у случайного человека.
+ */
+export async function lastSetsForExercise(
+  exerciseId: string,
+  userId = currentUserId(),
+): Promise<ExerciseSet[]> {
   const sets = await db.sets.where('exercise_id').equals(exerciseId).toArray()
   const done = sets.filter((s) => s.is_done)
   if (!done.length) return []
@@ -314,7 +345,9 @@ export async function lastSetsForExercise(exerciseId: string): Promise<ExerciseS
   const sessions = await db.sessions.bulkGet([
     ...new Set(done.map((s) => s.workout_session_id)),
   ])
-  const completed = sessions.filter((s): s is WorkoutSession => !!s && s.is_completed === 1)
+  const completed = sessions.filter(
+    (s): s is WorkoutSession => !!s && s.is_completed === 1 && s.user_id === userId,
+  )
   if (!completed.length) return []
 
   const latest = completed.sort((a, b) => b.start_time - a.start_time)[0]
@@ -323,14 +356,22 @@ export async function lastSetsForExercise(exerciseId: string): Promise<ExerciseS
     .sort((a, b) => a.set_number - b.set_number)
 }
 
+/** Лучший результат в этом упражнении до текущей тренировки — по тому же
+ *  человеку: рекорд, побитый чужим подходом, рекордом не является. */
 async function bestPreviousScore(
   exerciseId: string,
   excludeSessionId: string,
+  userId: string,
 ): Promise<number> {
   const sets = await db.sets.where('exercise_id').equals(exerciseId).toArray()
+  const mine = new Set(
+    (await db.sessions.where('user_id').equals(userId).primaryKeys()) as string[],
+  )
+
   let best = 0
   for (const s of sets) {
     if (s.workout_session_id === excludeSessionId) continue
+    if (!mine.has(s.workout_session_id)) continue
     if (!s.is_done || !s.weight_kg || !s.reps_completed) continue
     best = Math.max(best, estimate1RM(s.weight_kg, s.reps_completed))
   }
@@ -446,12 +487,7 @@ export async function saveManualMeasurement(
 }
 
 export async function deleteBodyMetric(id: string) {
-  const row = await db.bodyMetrics.get(id)
-  await db.bodyMetrics.delete(id)
-  // След удаления остаётся только в очереди: строки уже нет, и обход таблиц
-  // её не найдёт. Без этого замер жил на сервере дальше и возвращался на
-  // другом устройстве — человек удалял его снова и снова.
-  if (row) await enqueue('bodyMetrics', id, 'delete', row)
+  await deleteSynced('bodyMetrics', id)
 }
 
 /**
@@ -462,8 +498,10 @@ export async function deleteBodyMetric(id: string) {
 export async function deleteAllBodyMetrics(userId = currentUserId()) {
   const rows = await db.bodyMetrics.where('user_id').equals(userId).toArray()
   if (!rows.length) return 0
-  await db.bodyMetrics.bulkDelete(rows.map((r) => r.id))
-  for (const row of rows) await enqueue('bodyMetrics', row.id, 'delete', row)
+  await deleteManySynced(
+    'bodyMetrics',
+    rows.map((r) => r.id),
+  )
   return rows.length
 }
 
@@ -558,8 +596,14 @@ export async function addTemplateItem(routineId: string, exerciseId: string) {
 }
 
 /** Экспорт истории в CSV — данные пользователя не заперты в приложении. */
-export async function exportHistoryCsv(): Promise<string> {
-  const sessions = await db.sessions.where('is_completed').equals(1).sortBy('start_time')
+export async function exportHistoryCsv(userId = currentUserId()): Promise<string> {
+  // Только свои тренировки: в базе тренера лежат ещё и клиентские, и «моя
+  // история» уехала бы в файл вперемешку с чужой.
+  const sessions = await db.sessions
+    .where('user_id')
+    .equals(userId)
+    .and((s) => s.is_completed === 1)
+    .sortBy('start_time')
   const exercises = await db.exercises.toArray()
   const exMap = new Map(exercises.map((e) => [e.id, e.name]))
 
@@ -591,11 +635,33 @@ export async function exportHistoryCsv(): Promise<string> {
 }
 
 export async function deleteProgram(programId: string) {
+  // Назначение на удалённую программу остаётся активным и невидимым: карточек
+  // по нему нет, а «свой план» после него уже не поставить — приложение
+  // считает, что человека ведёт тренер. Снимаем вместе с программой.
+  const assignments = await db.assignments.where('program_id').equals(programId).toArray()
+  for (const a of assignments) {
+    if (a.status === 'ACTIVE') {
+      await db.assignments.update(a.id, { status: 'CANCELLED', updated_at: now() })
+    }
+  }
+
+  // Владелец дней и упражнений выводится из программы — запоминаем его, пока
+  // она ещё есть: удаляется она последней, но выгрузка идёт уже после.
+  const owner = (await db.programs.get(programId))?.client_id
+
   const routines = await db.routines.where('program_id').equals(programId).toArray()
   for (const r of routines) {
     const items = await db.templateItems.where('routine_id').equals(r.id).toArray()
-    await db.templateItems.bulkDelete(items.map((i) => i.id))
+    await deleteManySynced(
+      'templateItems',
+      items.map((i) => i.id),
+      owner,
+    )
   }
-  await db.routines.bulkDelete(routines.map((r) => r.id))
-  await db.programs.delete(programId)
+  await deleteManySynced(
+    'routines',
+    routines.map((r) => r.id),
+    owner,
+  )
+  await deleteSynced('programs', programId)
 }

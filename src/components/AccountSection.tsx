@@ -185,12 +185,9 @@ export function AccountSection() {
  * бы неполным.
  */
 async function wipeLocal(userId: string) {
-  const owned = ['sessions', 'bodyMetrics', 'foodLogs'] as const
-  for (const name of owned) {
-    await db.table(name).where('user_id').equals(userId).delete()
-  }
-
-  // Подходы висят на тренировках, а не на пользователе — чистим по ссылке.
+  // Подходы висят на тренировках, а не на пользователе, поэтому их ключи
+  // собираем до удаления самих тренировок — потом их уже не найти, и
+  // подходы оставались бы в базе навсегда.
   const sessionIds = new Set(
     (await db.sessions.where('user_id').equals(userId).primaryKeys()) as string[],
   )
@@ -198,6 +195,35 @@ async function wipeLocal(userId: string) {
     await db.sets.filter((s) => sessionIds.has(s.workout_session_id)).delete()
   }
 
+  const owned = [
+    'sessions',
+    'bodyMetrics',
+    'foodLogs',
+    'workoutReports',
+    'nutritionDays',
+    'dailyActivity',
+    'attachments',
+  ] as const
+  for (const name of owned) {
+    await db.table(name).where('user_id').equals(userId).delete()
+  }
+
+  // Отчётность и переписка привязаны к паре, а не к владельцу.
+  await db.chat.filter((m) => m.client_id === userId || m.trainer_id === userId).delete()
+  await db.tasks.filter((t) => t.client_id === userId || t.trainer_id === userId).delete()
+  await db.reviews.filter((r) => r.client_id === userId || r.trainer_id === userId).delete()
+  await db.reportReplies
+    .filter((r) => r.client_id === userId || r.trainer_id === userId)
+    .delete()
+  await db.nutritionTargets
+    .filter((t) => t.client_id === userId || t.trainer_id === userId)
+    .delete()
+  await db.coachTargets
+    .filter((t) => t.client_id === userId || t.trainer_id === userId)
+    .delete()
+
+  await db.invites.filter((i) => i.trainer_id === userId || i.used_by === userId).delete()
+  await db.foods.filter((f) => f.source === 'manual' && f.creator_id === userId).delete()
   await db.links.filter((l) => l.client_id === userId || l.trainer_id === userId).delete()
   await db.assignments.filter((a) => a.client_id === userId || a.trainer_id === userId).delete()
   await db.feedback.filter((f) => f.client_id === userId || f.trainer_id === userId).delete()
@@ -207,7 +233,21 @@ async function wipeLocal(userId: string) {
   await db.programs.filter((p) => p.author_id === userId || p.client_id === userId).delete()
   await db.nutritionProfile.delete(userId)
   await db.profile.delete(userId)
-  await db.syncQueue.clear()
+
+  // Из очереди снимаем только своё. Она общая на устройство и стала
+  // единственным следом удалений: очистка целиком отменяла бы накопленные
+  // офлайн-удаления других аккаунтов, и те вернулись бы при первом обмене.
+  await db.syncQueue
+    .filter((q) => {
+      const row = q.payload as Record<string, unknown> | undefined
+      return (
+        q.owner === userId ||
+        row?.user_id === userId ||
+        row?.client_id === userId ||
+        row?.trainer_id === userId
+      )
+    })
+    .delete()
 
   if (currentUserId() === userId) {
     await db.appState.delete('state')

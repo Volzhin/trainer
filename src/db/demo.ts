@@ -9,7 +9,7 @@ import {
 } from './db'
 import { estimate1RM, startOfDay } from '../lib/calc'
 import { deriveComposition } from '../lib/anthropometry'
-import { addFeedback, addTrainerNote, assignProgram, createAccount } from './coach'
+import { addFeedback, addTrainerNote, assignProgram, createAccount, linkId } from './coach'
 
 /**
  * Генераторы демонстрационных данных: история тренировок для клиента и
@@ -396,7 +396,9 @@ export async function seedTrainerDemo(trainerId = currentUserId()) {
 
     const ts = now()
     await db.links.add({
-      id: uid(),
+      // Идентификатор связи выводится из пары (см. linkId): со случайным
+      // обмен с сервером завёл бы вторую строку про тех же двоих.
+      id: linkId(trainerId, clientId),
       trainer_id: trainerId,
       client_id: clientId,
       status: 'ACTIVE',

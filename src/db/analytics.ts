@@ -146,13 +146,18 @@ export async function loadProgress(
     const finish = assignment.end_at ? Math.min(today, assignment.end_at - DAY) : today
     const plannedByRoutine = new Map<string, number>()
     let planned = 0
-    for (let d = begin; d <= finish; d += DAY) {
+    // Календарными сутками, а не ровно 24 часами: в день перевода часов шаг
+    // в миллисекундах промахивается мимо полуночи и день недели съезжает.
+    for (let d = begin; d <= finish;) {
       const wd = (new Date(d).getDay() + 6) % 7
       for (const slot of schedule) {
         if (slot.weekday !== wd) continue
         planned++
         plannedByRoutine.set(slot.routine_id, (plannedByRoutine.get(slot.routine_id) ?? 0) + 1)
       }
+      const next = new Date(d)
+      next.setDate(next.getDate() + 1)
+      d = next.getTime()
     }
     // Расписания может не быть у старых назначений — тогда план из недельной цели.
     if (!schedule.length && assignment.weekly_target) {
@@ -160,8 +165,16 @@ export async function loadProgress(
       planned = weeks * assignment.weekly_target
     }
 
+    // В выполнение плана идут только тренировки по этой программе и не
+    // раньше её назначения: свободные тренировки и всё, что было до старта,
+    // к плану отношения не имеют — с ними выполнение переваливало за 100%.
+    const routineIds = new Set(routines.map((r) => r.id))
+    const byPlan = sessions.filter(
+      (s) => s.routine_id && routineIds.has(s.routine_id) && s.start_time >= begin,
+    )
+
     const doneByRoutine = new Map<string, number>()
-    for (const s of sessions) {
+    for (const s of byPlan) {
       if (!s.routine_id) continue
       doneByRoutine.set(s.routine_id, (doneByRoutine.get(s.routine_id) ?? 0) + 1)
     }
@@ -175,14 +188,14 @@ export async function loadProgress(
       trainerName: trainer?.name,
       weekdays,
       planned,
-      done: sessions.length,
-      adherence: planned ? Math.round((sessions.length / planned) * 100) : 0,
+      done: byPlan.length,
+      adherence: planned ? Math.min(100, Math.round((byPlan.length / planned) * 100)) : 0,
       byRoutine: routines.map((routine) => ({
         routine,
         planned: plannedByRoutine.get(routine.id) ?? 0,
         done: doneByRoutine.get(routine.id) ?? 0,
       })),
-      doneThisWeek: sessions.filter((s) => s.start_time >= thisWeek).length,
+      doneThisWeek: byPlan.filter((s) => s.start_time >= thisWeek).length,
       weeklyTarget: schedule.length || assignment.weekly_target,
     }
   }
