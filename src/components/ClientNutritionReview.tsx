@@ -18,6 +18,7 @@ import { ReportCalendar, type ReportState } from './ReportCalendar'
 import { ReviewSheet, toDaySubject, type ReviewSubject } from './ReviewSheet'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
 
 /** Глубина ленты активности: дальше двух недель разбирать уже поздно. */
 const WINDOW_DAYS = 14
@@ -64,7 +65,7 @@ export function ClientNutritionReview({ clientId }: { clientId: string }) {
 
   return (
     <div className="mt-4">
-      <div className="section-title">Дневник по дням</div>
+      <div className="section-title">{t('Дневник по дням')}</div>
       <div className="card">
         <ReportCalendar
           states={states}
@@ -74,11 +75,11 @@ export function ClientNutritionReview({ clientId }: { clientId: string }) {
           }}
         />
         <div className="mute-sm mt-3">
-          Нажмите на день, чтобы прочитать отчёт и ответить клиенту.
+          {t('Нажмите на день, чтобы прочитать отчёт и ответить клиенту.')}
         </div>
       </div>
 
-      <div className="section-title">Цели на неделю</div>
+      <div className="section-title">{t('Цели на неделю')}</div>
       <div className="card">
         {targets ? (
           <>
@@ -95,14 +96,14 @@ export function ClientNutritionReview({ clientId }: { clientId: string }) {
             </div>
             {targets.note && <div className="mute-sm quote mt-2">{targets.note}</div>}
             <button className="btn sm block mt-3" onClick={() => setTargetsOpen(true)}>
-              Обновить цели
+              {t('Обновить цели')}
             </button>
           </>
         ) : (
           <>
-            <div className="muted">Цели на эту неделю не выданы.</div>
+            <div className="muted">{t('Цели на эту неделю не выданы.')}</div>
             <button className="btn primary block mt-4" onClick={() => setTargetsOpen(true)}>
-              Выдать цели
+              {t('Выдать цели')}
             </button>
           </>
         )}
@@ -118,7 +119,7 @@ export function ClientNutritionReview({ clientId }: { clientId: string }) {
         clientId={clientId}
         trainerId={userId}
         onClose={() => setReviewing(null)}
-        onDone={() => toast('Отчёт разобран')}
+        onDone={() => toast(t('Отчёт разобран'))}
       />
 
       <TargetsSheet
@@ -127,7 +128,7 @@ export function ClientNutritionReview({ clientId }: { clientId: string }) {
         trainerId={userId}
         current={targets ?? undefined}
         onClose={() => setTargetsOpen(false)}
-        onDone={() => toast('Цели выданы')}
+        onDone={() => toast(t('Цели выданы'))}
       />
     </div>
   )

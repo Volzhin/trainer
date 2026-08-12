@@ -16,6 +16,7 @@ import { IconChat, IconPlus, IconRecord, IconTrash, IconUsers } from '../../comp
 import { plural } from '../../lib/calc'
 import { useApp, useProfile } from '../../store/app'
 import { haptics } from '../../lib/native'
+import { t } from '../../lib/i18n'
 
 /** Клиент считается «выпавшим», если не тренировался больше недели. */
 const STALE_DAYS = 7
@@ -88,7 +89,7 @@ export function TrainerClients() {
     <div className="screen">
       <div className="header">
         <div>
-          <h1>Клиенты</h1>
+          <h1>{t('Клиенты')}</h1>
           <div className="sub">
             {profile?.name}
             {profile?.specialization ? ` · ${profile.specialization}` : ''}
@@ -97,7 +98,7 @@ export function TrainerClients() {
         <button
           className="icon-btn"
           onClick={() => setInviteOpen(true)}
-          aria-label="Пригласить"
+          aria-label={t('Пригласить')}
           disabled={pro === false}
         >
           <IconPlus size={18} />
@@ -109,13 +110,13 @@ export function TrainerClients() {
           Пока подписка не прочитана (undefined), молчим. */}
       {pro === false && (
         <div className="card" style={{ borderColor: 'var(--accent)' }}>
-          <div className="strong">Подписка не оформлена</div>
+          <div className="strong">{t('Подписка не оформлена')}</div>
           <div className="mute-sm mt-1">
             Набирать клиентов и назначать программы можно только с подпиской. Те, кто уже с
             вами, никуда не денутся — их история и переписка на месте.
           </div>
           <button className="btn primary block mt-3" onClick={() => nav('/trainer/profile')}>
-            Оформить подписку
+            {t('Оформить подписку')}
           </button>
         </div>
       )}
@@ -123,17 +124,17 @@ export function TrainerClients() {
       <div className="stat-grid">
         <div className="stat">
           <div className="value">{stats.total}</div>
-          <div className="label">клиентов</div>
+          <div className="label">{t('клиентов')}</div>
         </div>
         <div className="stat">
           <div className="value" style={{ color: stats.stale ? 'var(--danger)' : undefined }}>
             {stats.stale}
           </div>
-          <div className="label">выпали из графика</div>
+          <div className="label">{t('выпали из графика')}</div>
         </div>
         <div className="stat">
           <div className="value">{stats.onTrack}</div>
-          <div className="label">выполнили план недели</div>
+          <div className="label">{t('выполнили план недели')}</div>
         </div>
         <div className="stat">
           <div className="value">
@@ -144,11 +145,11 @@ export function TrainerClients() {
               </span>
             )}
           </div>
-          <div className="label">рекордов за 2 недели</div>
+          <div className="label">{t('рекордов за 2 недели')}</div>
         </div>
       </div>
 
-      <div className="section-title">Список</div>
+      <div className="section-title">{t('Список')}</div>
 
       {loading ? (
         <div className="stack">
@@ -160,14 +161,14 @@ export function TrainerClients() {
           <div className="big">
             <IconUsers size={34} />
           </div>
-          Пока нет клиентов.
+          {t('Пока нет клиентов.')}
           <br />
           {pro === false
-            ? 'Набор клиентов открывается с подпиской.'
-            : 'Выпустите код приглашения и передайте его клиенту.'}
+            ? t('Набор клиентов открывается с подпиской.')
+            : t('Выпустите код приглашения и передайте его клиенту.')}
           {pro !== false && (
             <button className="btn primary block mt-4" onClick={() => setInviteOpen(true)}>
-              Пригласить клиента
+              {t('Пригласить клиента')}
             </button>
           )}
         </div>
@@ -208,10 +209,10 @@ export function TrainerClients() {
                     style={{ color: stale ? 'var(--danger)' : undefined }}
                   >
                     {c.daysSinceLast == null
-                      ? 'ещё не тренировался'
+                      ? t('ещё не тренировался')
                       : c.daysSinceLast === 0
-                        ? 'тренировался сегодня'
-                        : `${c.daysSinceLast} ${plural(c.daysSinceLast, ['день', 'дня', 'дней'])} без тренировок`}
+                        ? t('тренировался сегодня')
+                        : `${c.daysSinceLast} ${plural(c.daysSinceLast, ['день', 'дня', 'дней'])} ${t('без тренировок')}`}
                   </div>
                 </div>
 
@@ -239,13 +240,13 @@ export function TrainerClients() {
                   не говорит, чей сейчас ход. */}
               <div className="mt-3">
                 <WeekLine
-                  label="тренировок выполнено"
+                  label={t('тренировок выполнено')}
                   done={status?.get(c.client.id)?.sessionsDone ?? c.sessionsThisWeek}
                   total={status?.get(c.client.id)?.sessionsTarget ?? null}
                   stage={status?.get(c.client.id)?.workouts ?? 'none'}
                 />
                 <WeekLine
-                  label="дней по питанию сдано"
+                  label={t('дней по питанию сдано')}
                   done={status?.get(c.client.id)?.nutritionDays ?? 0}
                   total={7}
                   stage={status?.get(c.client.id)?.nutrition ?? 'none'}
@@ -276,7 +277,7 @@ export function TrainerClients() {
                     nav(`/trainer/clients/${c.client.id}?assign=1`)
                   }}
                 >
-                  <IconPlus size={15} /> Назначить программу
+                  <IconPlus size={15} /> {t('Назначить программу')}
                 </button>
               )}
             </div>
@@ -382,14 +383,14 @@ function InviteSheet({
   const copy = async (code: string) => {
     try {
       await navigator.clipboard.writeText(code)
-      onToast('Код скопирован')
+      onToast(t('Код скопирован'))
     } catch {
       onToast(`Код: ${code}`)
     }
   }
 
   return (
-    <Sheet open={open} title="Пригласить клиента" onClose={onClose}>
+    <Sheet open={open} title={t('Пригласить клиента')} onClose={onClose}>
       <div className="stack">
         <div className="muted">
           Передайте код клиенту — он вводит его в своём профиле в разделе «Тренер». Код
@@ -397,25 +398,25 @@ function InviteSheet({
         </div>
 
         <button className="btn primary block" disabled={busy} onClick={generate}>
-          {busy ? 'Создаю…' : 'Выпустить новый код'}
+          {busy ? t('Создаю…') : t('Выпустить новый код')}
         </button>
 
-        {(invites ?? []).length > 0 && <div className="section-title">Активные коды</div>}
+        {(invites ?? []).length > 0 && <div className="section-title">{t('Активные коды')}</div>}
         {(invites ?? []).map((i) => (
           <div className="list-item" key={i.code}>
             <div className="grow">
               <div style={{ fontWeight: 700, letterSpacing: 2, fontSize: 20 }}>{i.code}</div>
               <div className="mute-sm">
-                действует до {new Date(i.expires_at).toLocaleDateString('ru-RU')}
+                {t('действует до')} {new Date(i.expires_at).toLocaleDateString('ru-RU')}
               </div>
             </div>
             <button className="btn sm" onClick={() => copy(i.code)}>
-              Скопировать
+              {t('Скопировать')}
             </button>
             <button
               className="icon-btn"
               onClick={() => revokeInvite(i.code)}
-              aria-label="Отозвать"
+              aria-label={t('Отозвать')}
             >
               <IconTrash size={16} />
             </button>

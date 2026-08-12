@@ -18,6 +18,7 @@ import { IconCheck, IconPlus, IconTrash } from './Icons'
 import { Toggle } from './Toggle'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
 
 /**
  * Что у тренера в работе по клиенту: очередь разбора и задания.
@@ -57,7 +58,7 @@ export function ClientReports({ clientId }: { clientId: string }) {
     seenDays === undefined ||
     tasks === undefined
 
-  if (loading) return <div className="empty">Загрузка…</div>
+  if (loading) return <div className="empty">{t('Загрузка…')}</div>
 
   const submittedWorkouts = reports.filter((r) => r.status === 'submitted')
 
@@ -79,8 +80,8 @@ export function ClientReports({ clientId }: { clientId: string }) {
    * жёлтая клетка означает «здесь ещё есть работа», и гасить её, пока
    * что-то не разобрано, нельзя.
    */
-  const openTasks = tasks.filter((t) => t.status === 'open')
-  const doneTasks = tasks.filter((t) => t.status === 'done')
+  const openTasks = tasks.filter((x) => x.status === 'open')
+  const doneTasks = tasks.filter((x) => x.status === 'done')
 
   return (
     <div className="mt-4">
@@ -89,17 +90,17 @@ export function ClientReports({ clientId }: { clientId: string }) {
           <div className="value" style={{ color: pending.length ? 'var(--warn)' : undefined }}>
             {pending.length}
           </div>
-          <div className="label">ждут разбора</div>
+          <div className="label">{t('ждут разбора')}</div>
         </div>
         <div className="stat">
           <div className="value">{openTasks.length}</div>
-          <div className="label">заданий не выполнено</div>
+          <div className="label">{t('заданий не выполнено')}</div>
         </div>
       </div>
 
-      <div className="section-title">Ждут разбора</div>
+      <div className="section-title">{t('Ждут разбора')}</div>
       {queue.length === 0 ? (
-        <div className="empty compact">Клиент пока ничего не сдавал.</div>
+        <div className="empty compact">{t('Клиент пока ничего не сдавал.')}</div>
       ) : (
         <div>
           {queue.map((s) => (
@@ -123,38 +124,38 @@ export function ClientReports({ clientId }: { clientId: string }) {
                   разобран
                 </span>
               ) : (
-                <span className="badge pro">новый</span>
+                <span className="badge pro">{t('новый')}</span>
               )}
             </button>
           ))}
         </div>
       )}
 
-      <div className="section-title">Задания</div>
+      <div className="section-title">{t('Задания')}</div>
       {openTasks.length === 0 && doneTasks.length === 0 ? (
-        <div className="empty compact">Заданий нет.</div>
+        <div className="empty compact">{t('Заданий нет.')}</div>
       ) : (
         <Group>
-          {[...openTasks, ...doneTasks].map((t) => (
+          {[...openTasks, ...doneTasks].map((task) => (
             <Row
-              key={t.id}
-              title={t.title}
+              key={task.id}
+              title={task.title}
               sub={
-                t.status === 'done'
-                  ? t.answer
-                    ? `Выполнено · ${t.answer}`
-                    : 'Выполнено'
-                  : t.required === 1
-                    ? 'Обязательное · не выполнено'
-                    : 'Не выполнено'
+                task.status === 'done'
+                  ? task.answer
+                    ? `${t('Выполнено')} · ${task.answer}`
+                    : t('Выполнено')
+                  : task.required === 1
+                    ? t('Обязательное · не выполнено')
+                    : t('Не выполнено')
               }
-              value={t.status === 'done' ? <IconCheck size={16} /> : undefined}
+              value={task.status === 'done' ? <IconCheck size={16} /> : undefined}
             />
           ))}
         </Group>
       )}
       <button className="btn block mt-3" onClick={() => setTaskOpen(true)}>
-        <IconPlus size={16} /> Выдать задание
+        <IconPlus size={16} /> {t('Выдать задание')}
       </button>
 
       <ReviewSheet
@@ -162,7 +163,7 @@ export function ClientReports({ clientId }: { clientId: string }) {
         clientId={clientId}
         trainerId={userId}
         onClose={() => setReviewing(null)}
-        onDone={() => toast('Отчёт разобран')}
+        onDone={() => toast(t('Отчёт разобран'))}
       />
       <TaskSheet
         open={taskOpen}
@@ -221,7 +222,7 @@ function TaskSheet({
   }
 
   return (
-    <Sheet open={open} title="Задание клиенту" onClose={onClose}>
+    <Sheet open={open} title={t('Задание клиенту')} onClose={onClose}>
       <div className="stack">
         {/* Заготовки сверху: чаще всего задание не сочиняют заново, а берут
             уже сформулированное. Нажатие подставляет текст в поля, а не
@@ -229,7 +230,7 @@ function TaskSheet({
             конкретного человека. */}
         {(templates ?? []).length > 0 && (
           <>
-            <div className="mute-sm">Из заготовок</div>
+            <div className="mute-sm">{t('Из заготовок')}</div>
             <div className="group">
               {(templates ?? []).map((t) => (
                 <div className="group-row" key={t.id}>
@@ -258,35 +259,35 @@ function TaskSheet({
         )}
 
         <div className="field">
-          <label>Что сделать</label>
+          <label>{t('Что сделать')}</label>
           <input
             className="input"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Например: прислать видео приседа"
+            placeholder={t('Например: прислать видео приседа')}
           />
         </div>
         <div className="field">
-          <label>Подробности</label>
+          <label>{t('Подробности')}</label>
           <textarea
             className="textarea"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Зачем это нужно и как сделать"
+            placeholder={t('Зачем это нужно и как сделать')}
           />
         </div>
 
         <div className="row between">
-          <span className="muted">Сохранить как заготовку</span>
+          <span className="muted">{t('Сохранить как заготовку')}</span>
           <Toggle
-            label="Сохранить как заготовку"
+            label={t('Сохранить как заготовку')}
             value={asTemplate}
             onChange={setAsTemplate}
           />
         </div>
 
         <button className="btn primary block" disabled={busy || !title.trim()} onClick={save}>
-          Выдать задание
+          {t('Выдать задание')}
         </button>
       </div>
     </Sheet>

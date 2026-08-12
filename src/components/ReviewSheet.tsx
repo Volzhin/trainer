@@ -5,6 +5,7 @@ import { formatDate } from '../lib/calc'
 import { Sheet } from './Sheet'
 import { SATIETY_LABELS } from './NutritionDayReport'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
 
 /**
  * Разбор одного отчёта — тренировки или дня питания.
@@ -92,19 +93,19 @@ export function ReviewSheet({
 
       {subject.comment && (
         <div className="card mt-3">
-          <div className="mute-sm">Что написал клиент</div>
+          <div className="mute-sm">{t('Что написал клиент')}</div>
           <div className="mt-1">{subject.comment}</div>
         </div>
       )}
 
       <div className="stack mt-4">
         <div className="field">
-          <label>Ответ клиенту</label>
+          <label>{t('Ответ клиенту')}</label>
           <textarea
             className="textarea"
             value={reply}
             onChange={(e) => setReply(e.target.value)}
-            placeholder="Что получилось, что меняем к следующему разу"
+            placeholder={t('Что получилось, что меняем к следующему разу')}
           />
         </div>
         {/* Отметка о проверке ставится и без ответа: пустой ответ — это

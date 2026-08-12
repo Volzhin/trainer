@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { localDate } from '../lib/tdee'
+import { t } from '../lib/i18n'
 
 /**
  * Календарь сданных отчётов в кабинете тренера.
@@ -61,18 +62,18 @@ export function ReportCalendar({
       <div className="row between mb-3">
         <div className="row" style={{ gap: 12 }}>
           <span className="row mute-sm" style={{ gap: 5 }}>
-            <i className="report-key submitted" /> сдан
+            <i className="report-key submitted" /> {t('сдан')}
           </span>
           <span className="row mute-sm" style={{ gap: 5 }}>
-            <i className="report-key reviewed" /> проверен
+            <i className="report-key reviewed" /> {t('проверен')}
           </span>
         </div>
         <div className="segmented" style={{ flex: '0 0 auto' }}>
           <button className={mode === 'week' ? 'on' : ''} onClick={() => setMode('week')}>
-            7 дней
+            {t('7 дней')}
           </button>
           <button className={mode === 'month' ? 'on' : ''} onClick={() => setMode('month')}>
-            Месяц
+            {t('Месяц')}
           </button>
         </div>
       </div>
@@ -80,7 +81,7 @@ export function ReportCalendar({
       {mode === 'month' && (
         <div className="cal-weekdays mb-2">
           {WEEK_DAYS.map((d) => (
-            <span key={d}>{d}</span>
+            <span key={d}>{t(d)}</span>
           ))}
         </div>
       )}
@@ -111,7 +112,7 @@ export function ReportCalendar({
             >
               <span className="d-num">{new Date(ts).getDate()}</span>
               {mode === 'week' && (
-                <span className="d-wd">{WEEK_DAYS[(new Date(ts).getDay() + 6) % 7]}</span>
+                <span className="d-wd">{t(WEEK_DAYS[(new Date(ts).getDay() + 6) % 7])}</span>
               )}
             </button>
           )

@@ -10,6 +10,7 @@ import { plural } from '../lib/calc'
 import { ReportCalendar, type ReportState } from './ReportCalendar'
 import { ExerciseRow } from './ProgressView'
 import { SessionReview } from './SessionReview'
+import { t } from '../lib/i18n'
 
 const WEEKDAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
 
@@ -67,7 +68,7 @@ export function ClientWorkouts({
     return map
   }, [reports, seen, sessions])
 
-  if (!reports || !seen || !sessions || !report) return <div className="empty">Загрузка…</div>
+  if (!reports || !seen || !sessions || !report) return <div className="empty">{t('Загрузка…')}</div>
 
   const openDay = (date: string) => {
     const hit = (reports ?? []).find((r) => {
@@ -83,12 +84,12 @@ export function ClientWorkouts({
 
   return (
     <div className="mt-4">
-      <div className="section-title">Сданные тренировки</div>
+      <div className="section-title">{t('Сданные тренировки')}</div>
       <div className="card">
         <ReportCalendar states={byDate} onPick={openDay} />
       </div>
 
-      <div className="section-title">Программа</div>
+      <div className="section-title">{t('Программа')}</div>
       <div className="card">
         {assigned ? (
           <>
@@ -109,30 +110,30 @@ export function ClientWorkouts({
                 className="btn sm grow"
                 onClick={() => nav(`/programs/${assigned.program.id}`)}
               >
-                Открыть
+                {t('Открыть')}
               </button>
               <button className="btn sm grow" onClick={onAssign}>
-                Заменить
+                {t('Заменить')}
               </button>
             </div>
           </>
         ) : (
           <>
-            <div className="strong">Программа не назначена</div>
+            <div className="strong">{t('Программа не назначена')}</div>
             <div className="mute-sm mt-1">
               Клиент не увидит план тренировок, пока вы не назначите программу.
             </div>
             <button className="btn primary block mt-3" onClick={onAssign}>
-              Назначить программу
+              {t('Назначить программу')}
             </button>
           </>
         )}
       </div>
 
-      <div className="section-title">Куда уходит нагрузка</div>
+      <div className="section-title">{t('Куда уходит нагрузка')}</div>
       <div className="card">
         {report.muscles.length === 0 ? (
-          <div className="mute-sm">За четыре недели подходов не записано.</div>
+          <div className="mute-sm">{t('За четыре недели подходов не записано.')}</div>
         ) : (
           <div className="stack">
             {report.muscles.slice(0, 8).map((m) => {
@@ -156,13 +157,13 @@ export function ClientWorkouts({
       </div>
 
       <div className="section-title">
-        {inProgram.length ? 'Упражнения программы' : 'Упражнения'}
+        {inProgram.length ? t('Упражнения программы') : t('Упражнения')}
       </div>
       <div className="mute-sm mb-3">
         Рабочий вес в последней тренировке и изменение расчётного максимума за четыре недели.
       </div>
       {shownExercises.length === 0 ? (
-        <div className="empty compact">За четыре недели подходов не записано</div>
+        <div className="empty compact">{t('За четыре недели подходов не записано')}</div>
       ) : (
         <div className="stack tight">
           {shownExercises.map((e) => (

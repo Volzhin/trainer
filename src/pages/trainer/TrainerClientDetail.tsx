@@ -22,6 +22,7 @@ import { ClientWorkouts } from '../../components/ClientWorkouts'
 import { IconBack, IconCheck } from '../../components/Icons'
 import { formatDate, plural, startOfDay } from '../../lib/calc'
 import { useApp } from '../../store/app'
+import { t } from '../../lib/i18n'
 
 /**
  * Разделы карточки клиента. Порядок из пункта 5.1 спецификации: профиль,
@@ -90,7 +91,7 @@ export function TrainerClientDetail() {
         <div className="grow">
           <h1 className="detail">{client.name}</h1>
           <div className="sub">
-            {client.experience ?? 'опыт не указан'}
+            {client.experience ?? t('опыт не указан')}
             {client.height_cm ? ` · ${client.height_cm} см` : ''}
           </div>
         </div>
@@ -108,20 +109,20 @@ export function TrainerClientDetail() {
               if (params.get('tab')) setParams({}, { replace: true })
             }}
           >
-            {label}
+            {t(label)}
           </button>
         ))}
       </div>
 
       {tab === 'overview' && (
         <>
-          <div className="section-title">Режим работы</div>
+          <div className="section-title">{t('Режим работы')}</div>
           <div className="card">
             <div className="chips">
               {(
                 [
-                  ['online', 'Онлайн'],
-                  ['offline', 'Очно'],
+                  ['online', t('Онлайн')],
+                  ['offline', t('Очно')],
                 ] as const
               ).map(([value, label]) => (
                 <button
@@ -145,28 +146,28 @@ export function TrainerClientDetail() {
             </div>
           </div>
 
-          <div className="section-title">Оплата</div>
+          <div className="section-title">{t('Оплата')}</div>
           <PaymentCard link={link ?? null} onToast={toast} />
 
           {/* Что выдано, но не сделано или не разобрано — единственное на
               экране, что требует действия прямо сейчас. */}
-          <div className="section-title">Требует внимания</div>
+          <div className="section-title">{t('Требует внимания')}</div>
           <OutstandingCard clientId={id} onOpenReports={() => setTab('reports')} />
 
-          <div className="section-title">Неделя</div>
+          <div className="section-title">{t('Неделя')}</div>
           <WeekCard clientId={id} />
 
-          <div className="section-title">Связь с клиентом</div>
+          <div className="section-title">{t('Связь с клиентом')}</div>
           <div className="card">
             <ContactLinks
               profile={client}
-              title="Написать"
+              title={t('Написать')}
               emptyHint="Клиент не указал, где с ним связаться. Попросите заполнить это в профиле."
             />
           </div>
 
           <button className="btn ghost danger block mt-5" onClick={unlink}>
-            Прекратить работу с клиентом
+            {t('Прекратить работу с клиентом')}
           </button>
           <div className="mute-sm text-center mt-2">
             История тренировок останется у клиента, вы потеряете к ней доступ.
@@ -248,7 +249,7 @@ function WeekCard({ clientId }: { clientId: string }) {
   return (
     <div className="card">
       <div className="row between">
-        <span className="muted">Тренировки</span>
+        <span className="muted">{t('Тренировки')}</span>
         <span className="figures strong" style={{ color: done ? 'var(--ok)' : undefined }}>
           {week.sessionsTarget == null
             ? `${week.sessionsDone}`
@@ -260,7 +261,7 @@ function WeekCard({ clientId }: { clientId: string }) {
       )}
 
       <div className="row between mt-3">
-        <span className="muted">Дней с дневником питания</span>
+        <span className="muted">{t('дней по питанию сдано')}</span>
         <span className="figures strong">{week.nutritionDays} / 7</span>
       </div>
       <div className="mute-sm mt-1">Считается с понедельника.</div>
@@ -290,9 +291,9 @@ function OutstandingCard({
     return <div className="card skeleton" style={{ height: 84 }} />
   }
 
-  const open = tasks.filter((t) => t.status === 'open')
+  const open = tasks.filter((x) => x.status === 'open')
   if (open.length === 0 && pending === 0) {
-    return <div className="card mute-sm">Всё закрыто: заданий не висит, отчёты разобраны.</div>
+    return <div className="card mute-sm">{t('Всё закрыто: заданий не висит, отчёты разобраны.')}</div>
   }
 
   return (
@@ -305,7 +306,7 @@ function OutstandingCard({
           <div className="mute-sm mt-1">
             {open
               .slice(0, 3)
-              .map((t) => t.title)
+              .map((x) => x.title)
               .join(' · ')}
             {open.length > 3 ? ` и ещё ${open.length - 3}` : ''}
           </div>
@@ -322,7 +323,7 @@ function OutstandingCard({
       )}
 
       <button className="btn sm block mt-3" onClick={onOpenReports}>
-        Открыть отчёты
+        {t('Ждут разбора')}
       </button>
     </div>
   )
@@ -378,7 +379,7 @@ function PaymentCard({
     <div className="card">
       <div className="row" style={{ gap: 8 }}>
         <div className="field grow">
-          <label htmlFor="paid-at">Оплачено</label>
+          <label htmlFor="paid-at">{t('Оплачено')}</label>
           <input
             id="paid-at"
             className="input"
@@ -389,7 +390,7 @@ function PaymentCard({
           />
         </div>
         <div className="field grow">
-          <label htmlFor="next-payment">Следующая оплата</label>
+          <label htmlFor="next-payment">{t('Следующая оплата')}</label>
           <input
             id="next-payment"
             className="input"

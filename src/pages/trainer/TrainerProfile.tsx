@@ -8,6 +8,7 @@ import { Sheet } from '../../components/Sheet'
 import { haptics } from '../../lib/native'
 import { IconSettings } from '../../components/Icons'
 import { useApp, useProfile } from '../../store/app'
+import { t } from '../../lib/i18n'
 
 export function TrainerProfile() {
   const nav = useNavigate()
@@ -44,15 +45,15 @@ export function TrainerProfile() {
     <div className="screen">
       <div className="header">
         <div>
-          <h1>Профиль</h1>
-          <div className="sub">Кабинет тренера</div>
+          <h1>{t('Профиль')}</h1>
+          <div className="sub">{t('Кабинет тренера')}</div>
         </div>
         <div className="row" style={{ gap: 8 }}>
           <span className="badge pro">ТРЕНЕР</span>
           <button
             className="icon-btn"
             onClick={() => nav('/settings')}
-            aria-label="Настройки"
+            aria-label={t('Настройки')}
           >
             <IconSettings size={18} />
           </button>
@@ -67,11 +68,11 @@ export function TrainerProfile() {
           <div className="grow">
             <div className="strong">{profile?.name}</div>
             <div className="mute-sm">
-              {profile?.specialization ?? 'Специализация не указана'}
+              {profile?.specialization ?? t('Специализация не указана')}
             </div>
           </div>
           <button className="btn sm" onClick={() => setEditOpen(true)}>
-            Изменить
+            {t('Изменить')}
           </button>
         </div>
         {profile?.bio && (
@@ -85,13 +86,13 @@ export function TrainerProfile() {
           на нём зарабатывает. Состояние показано всегда, а не только когда
           что-то упёрлось: тренер должен знать, что подписка кончилась, до
           того, как не сможет позвать клиента. */}
-      <div className="section-title">Подписка</div>
+      <div className="section-title">{t('Подписка')}</div>
       <div className={`card${isPro ? '' : ' mt-0'}`} style={isPro ? undefined : { borderColor: 'var(--accent)' }}>
         {isPro ? (
           <>
             <div className="row between">
               <div className="grow">
-                <div className="strong">Подписка активна</div>
+                <div className="strong">{t('Подписка активна')}</div>
                 <div className="mute-sm mt-1">
                   Набор клиентов, ведение и назначение программ — без ограничений.
                 </div>
@@ -99,12 +100,12 @@ export function TrainerProfile() {
               <span className="badge pro">PRO</span>
             </div>
             <button className="btn ghost danger block mt-3" onClick={togglePlan}>
-              Отключить подписку
+              {t('Отключить подписку')}
             </button>
           </>
         ) : (
           <>
-            <div className="strong">Подписка не оформлена</div>
+            <div className="strong">{t('Подписка не оформлена')}</div>
             <div className="mute-sm mt-1">
               Без неё нельзя выпускать коды приглашения, назначать программы и собирать
               персональные планы. Уже набранные клиенты и их история остаются на месте —
@@ -117,10 +118,10 @@ export function TrainerProfile() {
         )}
       </div>
 
-      <div className="section-title">Практика</div>
+      <div className="section-title">{t('Практика')}</div>
       <div className="card stack">
         <div className="row between">
-          <span className="muted">Клиентов</span>
+          <span className="muted">{t('клиентов')}</span>
           <strong>{counts?.clients ?? 0}</strong>
         </div>
         <div className="row between">
