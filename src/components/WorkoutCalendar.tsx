@@ -313,7 +313,7 @@ export function WorkoutCalendar() {
 
       {plan && (
         <>
-          <div className="section-title">План</div>
+          <div className="section-title">{t('План')}</div>
           <div className="card">
             <div className="row between">
               <div className="grow">
@@ -336,7 +336,7 @@ export function WorkoutCalendar() {
           что запустить, и человек не знал заранее, получит он свой план или
           пустую тренировку. Пункт из программы появляется только с
           назначенной программой — предлагать несуществующее нечестно. */}
-      <Sheet open={startOpen} title="Начать тренировку" onClose={() => setStartOpen(false)}>
+      <Sheet open={startOpen} title={t('Начать тренировку')} onClose={() => setStartOpen(false)}>
         <div className="stack">
           {nextRoutine ? (
             <button className="list-item" onClick={startProgram}>

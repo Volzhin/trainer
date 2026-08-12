@@ -155,7 +155,7 @@ export function Settings() {
   return (
     <div className="screen">
       <div className="header">
-        <button className="icon-btn" onClick={() => nav(-1)} aria-label="Назад">
+        <button className="icon-btn" onClick={() => nav(-1)} aria-label={t('Назад')}>
           <IconBack size={18} />
         </button>
         <div className="grow">
@@ -195,15 +195,6 @@ export function Settings() {
               </button>
             ))}
           </div>
-          {/* Про неполноту говорим прямо. Обнаружить её самому, наткнувшись
-              на русский экран после переключения, неприятнее, чем прочитать
-              об этом заранее. */}
-          {lang === 'en' && (
-            <div className="mute-sm mt-2">
-              Translation is in progress: menus and settings are English, the rest is still
-              Russian.
-            </div>
-          )}
         </div>
       </Group>
 
@@ -228,14 +219,14 @@ export function Settings() {
           </Row>
           <Row title={t('Вибрация')} sub={t('Отклик при подтверждении подхода')}>
             <Toggle
-              label="Вибрация"
+              label={t('Вибрация')}
               value={profile?.haptics_enabled === 1}
               onChange={(v) => patch({ haptics_enabled: v ? 1 : 0 })}
             />
           </Row>
           <Row title={t('Звук таймера')} sub={t('Сигнал в конце отдыха')}>
             <Toggle
-              label="Звук таймера"
+              label={t('Звук таймера')}
               value={profile?.sound_enabled === 1}
               onChange={(v) => patch({ sound_enabled: v ? 1 : 0 })}
             />

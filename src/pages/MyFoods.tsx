@@ -8,6 +8,7 @@ import { Sheet } from '../components/Sheet'
 import { IconBack, IconPlus, IconTrash } from '../components/Icons'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
 
 /**
  * Свои продукты: домашние блюда и товары, которых нет во внешней базе.
@@ -38,12 +39,12 @@ export function MyFoods() {
   return (
     <div className="screen">
       <div className="header">
-        <button className="icon-btn" onClick={() => nav(-1)} aria-label="Назад">
+        <button className="icon-btn" onClick={() => nav(-1)} aria-label={t('Назад')}>
           <IconBack size={18} />
         </button>
         <div className="grow">
-          <h1 className="detail">Мои продукты</h1>
-          <div className="sub">Своя база — она всегда точнее общей</div>
+          <h1 className="detail">{t('Мои продукты')}</h1>
+          <div className="sub">{t('Своя база — она всегда точнее общей')}</div>
         </div>
       </div>
 
@@ -79,7 +80,7 @@ export function MyFoods() {
                 </button>
                 <button
                   className="icon-btn"
-                  aria-label="Удалить"
+                  aria-label={t('Удалить')}
                   onClick={async () => {
                     await deleteCustomFood(f.id)
                     haptics.impact()
@@ -99,7 +100,7 @@ export function MyFoods() {
         продукта не меняют прошлые дни.
       </div>
 
-      <Sheet open={creating} title="Новый продукт" onClose={() => setCreating(false)}>
+      <Sheet open={creating} title={t('Новый продукт')} onClose={() => setCreating(false)}>
         {creating && (
           <CustomFoodForm
             onCancel={() => setCreating(false)}
@@ -114,7 +115,7 @@ export function MyFoods() {
         )}
       </Sheet>
 
-      <Sheet open={!!editing} title="Продукт" onClose={() => setEditing(null)}>
+      <Sheet open={!!editing} title={t('Продукт')} onClose={() => setEditing(null)}>
         {editing && (
           <CustomFoodForm
             initial={editing}

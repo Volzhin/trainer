@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FoodItem } from '../db/db'
 import type { CustomFoodInput } from '../db/nutrition'
+import { t } from '../lib/i18n'
 
 /**
  * Форма своего продукта. Пользовательские продукты — не запасной выход,
@@ -92,28 +93,28 @@ export function CustomFoodForm({
   return (
     <div className="stack">
       <div className="field">
-        <label>Название</label>
+        <label>{t('Название')}</label>
         <input
           className="input"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Борщ домашний"
+          placeholder={t('Борщ домашний')}
           autoFocus
         />
       </div>
 
       <div className="field">
-        <label>Бренд или уточнение</label>
+        <label>{t('Бренд или уточнение')}</label>
         <input
           className="input"
           value={brand}
           onChange={(e) => setBrand(e.target.value)}
-          placeholder="необязательно"
+          placeholder={t('необязательно')}
         />
       </div>
 
       <div className="field">
-        <label>Считаем на 100</label>
+        <label>{t('Считаем на 100')}</label>
         <div className="segmented">
           <button className={unit === 'г' ? 'on' : ''} onClick={() => setUnit('г')}>
             граммов
@@ -125,9 +126,9 @@ export function CustomFoodForm({
       </div>
 
       <div className="row" style={{ gap: 8 }}>
-        <Num label="Белки, г" value={protein} onChange={setProtein} />
-        <Num label="Жиры, г" value={fat} onChange={setFat} />
-        <Num label="Углеводы, г" value={carbs} onChange={setCarbs} />
+        <Num label={t('Белки, г')} value={protein} onChange={setProtein} />
+        <Num label={t('Жиры, г')} value={fat} onChange={setFat} />
+        <Num label={t('Углеводы, г')} value={carbs} onChange={setCarbs} />
       </div>
 
       <div className="field">
@@ -165,25 +166,25 @@ export function CustomFoodForm({
             inputMode="decimal"
             value={serving}
             onChange={(e) => setServing(e.target.value)}
-            placeholder="необязательно"
+            placeholder={t('необязательно')}
           />
         </div>
         <div className="field grow">
-          <label>Название порции</label>
+          <label>{t('Название порции')}</label>
           <input
             className="input"
             value={servingLabel}
             onChange={(e) => setServingLabel(e.target.value)}
-            placeholder="тарелка"
+            placeholder={t('тарелка')}
           />
         </div>
       </div>
 
       {more ? (
         <div className="row" style={{ gap: 8 }}>
-          <Num label="Клетчатка" value={fiber} onChange={setFiber} />
-          <Num label="Сахар" value={sugar} onChange={setSugar} />
-          <Num label="Натрий, мг" value={sodium} onChange={setSodium} />
+          <Num label={t('Клетчатка')} value={fiber} onChange={setFiber} />
+          <Num label={t('Сахар')} value={sugar} onChange={setSugar} />
+          <Num label={t('Натрий, мг')} value={sodium} onChange={setSodium} />
         </div>
       ) : (
         <button className="btn ghost sm block" onClick={() => setMore(true)}>

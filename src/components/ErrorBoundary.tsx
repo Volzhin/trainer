@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react'
+import { t } from '../lib/i18n'
 
 /**
  * Перехватчик ошибок отрисовки. Без него любая исключительная ситуация
@@ -19,7 +20,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
     return (
       <div className="screen">
         <div className="header">
-          <h1 className="detail">Что-то сломалось</h1>
+          <h1 className="detail">{t('Что-то сломалось')}</h1>
         </div>
         <div className="card">
           <div className="muted">

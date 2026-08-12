@@ -254,7 +254,7 @@ export function Programs() {
               className="input"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Например: Верх / Низ"
+              placeholder={t('Например: Верх / Низ')}
               autoFocus
             />
           </div>

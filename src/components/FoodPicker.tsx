@@ -8,6 +8,7 @@ import { Sheet } from './Sheet'
 import { IconSearch } from './Icons'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
 
 /**
  * Выбор продукта.
@@ -161,13 +162,13 @@ export function FoodPicker({
           {preview && (
             <div className="group">
               <div className="group-row">
-                <span className="grow title">Калории</span>
+                <span className="grow title">{t('Калории')}</span>
                 <span className="value figures">
                   {preview.kcal} ккал
                 </span>
               </div>
               <div className="group-row">
-                <span className="grow title">Белки · Жиры · Углеводы</span>
+                <span className="grow title">{t('Белки · Жиры · Углеводы')}</span>
                 <span className="value figures">
                   {preview.protein} · {preview.fat} · {preview.carbs} г
                 </span>
@@ -203,7 +204,7 @@ export function FoodPicker({
             <IconSearch />
             <input
               className="input"
-              placeholder="Название продукта"
+              placeholder={t('Название продукта')}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               autoFocus
@@ -221,7 +222,7 @@ export function FoodPicker({
 
           {mine.length > 0 && (
             <>
-              <div className="section-title">Мои продукты</div>
+              <div className="section-title">{t('Мои продукты')}</div>
               <div className="group">
                 {mine.map((f) => (
                   <FoodRow key={f.id} food={f} onPick={pick} />

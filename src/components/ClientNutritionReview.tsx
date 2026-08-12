@@ -61,7 +61,7 @@ export function ClientNutritionReview({ clientId }: { clientId: string }) {
     return map
   }, [days, seen])
 
-  if (!days || !seen) return <div className="empty">Загрузка…</div>
+  if (!days || !seen) return <div className="empty">{t('Загрузка…')}</div>
 
   return (
     <div className="mt-4">
@@ -150,7 +150,7 @@ function ActivityList({
 }) {
   const withData = rows.filter((r) => r.steps || r.sleep_minutes)
   if (withData.length === 0) {
-    return <div className="empty compact">Клиент не вводил шаги и сон. Это ручной ввод.</div>
+    return <div className="empty compact">{t('Клиент не вводил шаги и сон. Это ручной ввод.')}</div>
   }
 
   const steps = withData.filter((r) => r.steps).map((r) => r.steps as number)
@@ -163,11 +163,11 @@ function ActivityList({
         <div className="metrics">
           <div className="metric">
             <div className="num">{steps.length ? avg(steps) : '—'}</div>
-            <div className="cap">шагов в среднем</div>
+            <div className="cap">{t('шагов в среднем')}</div>
           </div>
           <div className="metric">
             <div className="num">{sleep.length ? sleepLabel(avg(sleep)) : '—'}</div>
-            <div className="cap">сна в среднем</div>
+            <div className="cap">{t('сна в среднем')}</div>
           </div>
         </div>
         <div className="mute-sm mt-3">
@@ -218,15 +218,15 @@ function WeeklyStatsBlock({ clientId, open }: { clientId: string; open: boolean 
 
   return (
     <div className="card">
-      <div className="mute-sm mb-2">Вес за две недели</div>
+      <div className="mute-sm mb-2">{t('Вес за две недели')}</div>
       {stats.weightPoints.length >= 2 ? (
         <LineChart data={stats.weightPoints} unit=" кг" height={90} />
       ) : (
-        <div className="mute-sm">Взвешиваний за две недели меньше двух — графика нет.</div>
+        <div className="mute-sm">{t('Взвешиваний за две недели меньше двух — графика нет.')}</div>
       )}
 
       <div className="row between mt-3">
-        <span className="mute-sm">Среднее: прошлая → эта неделя</span>
+        <span className="mute-sm">{t('Среднее: прошлая → эта неделя')}</span>
         <span className="figures strong">
           {stats.weightAvgPrev == null || stats.weightAvgLast == null
             ? '—'
@@ -234,7 +234,7 @@ function WeeklyStatsBlock({ clientId, open }: { clientId: string; open: boolean 
         </span>
       </div>
       <div className="row between mt-1">
-        <span className="mute-sm">Разница по среднему</span>
+        <span className="mute-sm">{t('Разница по среднему')}</span>
         <span
           className="figures strong"
           style={{
@@ -252,7 +252,7 @@ function WeeklyStatsBlock({ clientId, open }: { clientId: string; open: boolean 
         </span>
       </div>
 
-      <div className="mute-sm mt-4 mb-2">Процент жира по замерам</div>
+      <div className="mute-sm mt-4 mb-2">{t('Процент жира по замерам')}</div>
       <div className="stat-grid three">
         {fatRow.map(([label, value]) => (
           <div className="stat" key={label}>
@@ -262,22 +262,22 @@ function WeeklyStatsBlock({ clientId, open }: { clientId: string; open: boolean 
         ))}
       </div>
 
-      <div className="mute-sm mt-4 mb-2">В среднем за неделю</div>
+      <div className="mute-sm mt-4 mb-2">{t('В среднем за неделю')}</div>
       <div className="group">
         <div className="group-row">
-          <span className="grow title">Шаги</span>
+          <span className="grow title">{t('Шаги')}</span>
           <span className="value figures">
             {stats.avgSteps == null ? '—' : stats.avgSteps}
           </span>
         </div>
         <div className="group-row">
-          <span className="grow title">Сон</span>
+          <span className="grow title">{t('Сон')}</span>
           <span className="value figures">
             {sleepLabel(stats.avgSleepMinutes ?? undefined)}
           </span>
         </div>
         <div className="group-row">
-          <span className="grow title">Сытость</span>
+          <span className="grow title">{t('Сытость')}</span>
           <span className="value figures">
             {stats.avgSatiety == null ? '—' : `${stats.avgSatiety} из 5`}
           </span>
@@ -369,7 +369,7 @@ function TargetsSheet({
   )
 
   return (
-    <Sheet open={open} title="Цели на неделю" onClose={onClose}>
+    <Sheet open={open} title={t('Цели на неделю')} onClose={onClose}>
       <div className="stack">
         {/* Цифры стоят над полями, а не в другом разделе кабинета: цель
             назначают, глядя на то, что происходило, — иначе это угадывание. */}
@@ -391,12 +391,12 @@ function TargetsSheet({
         </div>
 
         <div className="field">
-          <label>Комментарий</label>
+          <label>{t('Комментарий')}</label>
           <textarea
             className="textarea"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="На чём держим фокус на этой неделе"
+            placeholder={t('На чём держим фокус на этой неделе')}
           />
         </div>
 

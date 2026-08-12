@@ -6,6 +6,7 @@ import { attachmentUrl } from '../lib/backend'
 import { IconGallery, IconTrash, IconVideo } from './Icons'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
 
 /** Blob из IndexedDB → временный URL, который освобождаем при размонтировании. */
 function useBlobUrl(blob?: Blob) {
@@ -56,7 +57,7 @@ export function AttachmentPlayer({
           {(attachment.size / 1024 / 1024).toFixed(1)} МБ
         </span>
         {onDelete && (
-          <button className="icon-btn" onClick={onDelete} aria-label="Удалить">
+          <button className="icon-btn" onClick={onDelete} aria-label={t('Удалить')}>
             <IconTrash size={15} />
           </button>
         )}

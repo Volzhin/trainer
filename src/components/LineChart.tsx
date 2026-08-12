@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t } from '../lib/i18n'
 
 /**
  * cells — показания точки по столбцам. Столбцы у всех рядов одинаковые по
@@ -39,7 +40,7 @@ export function LineChart({
   const [active, setActive] = useState<number | null>(null)
 
   if (data.length === 0) {
-    return <div className="empty">Недостаточно данных</div>
+    return <div className="empty">{t('Недостаточно данных')}</div>
   }
 
   const w = 320
@@ -338,11 +339,11 @@ export function LineChart({
         <div className="chart-legend">
           <span className="chart-legend-item">
             <i className="chart-swatch" style={{ background: color }} />
-            {label} <span className="mute-sm">слева</span>
+            {label} <span className="mute-sm">{t('слева')}</span>
           </span>
           <span className="chart-legend-item">
             <i className="chart-swatch" style={{ background: secondColor }} data-dashed />
-            {second.label} <span className="mute-sm">справа</span>
+            {second.label} <span className="mute-sm">{t('справа')}</span>
           </span>
         </div>
       )}

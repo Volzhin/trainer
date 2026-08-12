@@ -4,6 +4,7 @@ import { db, type NutritionDay } from '../db/db'
 import { setSatiety, submitNutritionDay } from '../db/reports'
 import { useApp, useTrainerLink } from '../store/app'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
 
 /** 5 — сытый, 1 — очень голодный. Формулировки живут здесь одни на всех. */
 export const SATIETY_LABELS: Record<number, string> = {
@@ -77,13 +78,13 @@ export function NutritionDayReport({ date }: { date: string }) {
           <div
             className="mute-sm quote mb-4"
           >
-            <div>Ответ тренера</div>
+            <div>{t('Ответ тренера')}</div>
             <div style={{ color: 'var(--text)', marginTop: 4 }}>{day.trainer_comment}</div>
           </div>
         )}
 
         <div className="field">
-          <label>Насколько были сыты</label>
+          <label>{t('Насколько были сыты')}</label>
           <div className="chips">
             {([1, 2, 3, 4, 5] as const).map((v) => (
               <button
@@ -101,12 +102,12 @@ export function NutritionDayReport({ date }: { date: string }) {
         </div>
 
         <div className="field mt-3">
-          <label>Комментарий</label>
+          <label>{t('Комментарий')}</label>
           <textarea
             className="textarea"
             value={comment}
             onChange={(e) => setDraft({ satiety, comment: e.target.value })}
-            placeholder="Что мешало держаться плана, что съели сверх нормы"
+            placeholder={t('Что мешало держаться плана, что съели сверх нормы')}
           />
         </div>
 

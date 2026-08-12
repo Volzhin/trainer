@@ -5,6 +5,7 @@ import { leaveDemoMode } from '../db/account'
 import { stopSync, syncNow } from '../db/sync'
 import { useApp } from '../store/app'
 import { Sheet } from './Sheet'
+import { t } from '../lib/i18n'
 
 /**
  * Аккаунт: вход, режим работы и удаление.
@@ -25,7 +26,7 @@ export function AccountSection() {
   if (!user) {
     return (
       <>
-        <div className="section-title">Аккаунт</div>
+        <div className="section-title">{t('Аккаунт')}</div>
         <button
           className="group-row"
           onClick={() => {
@@ -34,7 +35,7 @@ export function AccountSection() {
           }}
         >
           <span className="grow">
-            <span className="title">Войти или зарегистрироваться</span>
+            <span className="title">{t('Войти или зарегистрироваться')}</span>
             <span className="sub">
               Сейчас данные лежат только на этом устройстве
             </span>
@@ -83,7 +84,7 @@ export function AccountSection() {
 
   return (
     <>
-      <div className="section-title">Аккаунт</div>
+      <div className="section-title">{t('Аккаунт')}</div>
       <div className="group">
         <button className="group-row" onClick={sync} disabled={busy}>
           <span className="grow">
@@ -96,7 +97,7 @@ export function AccountSection() {
 
         <button className="group-row" onClick={exit}>
           <span className="grow">
-            <span className="title">Выйти</span>
+            <span className="title">{t('Выйти')}</span>
             <span className="sub">
               Данные останутся на сервере
             </span>
@@ -105,7 +106,7 @@ export function AccountSection() {
 
         <button className="group-row danger" onClick={() => setConfirmOpen(true)}>
           <span className="grow">
-            <span className="title">Удалить аккаунт</span>
+            <span className="title">{t('Удалить аккаунт')}</span>
             <span className="sub">
               Безвозвратно, вместе со всеми данными
             </span>
@@ -113,7 +114,7 @@ export function AccountSection() {
         </button>
       </div>
 
-      <Sheet open={confirmOpen} title="Удалить аккаунт" onClose={() => setConfirmOpen(false)}>
+      <Sheet open={confirmOpen} title={t('Удалить аккаунт')} onClose={() => setConfirmOpen(false)}>
         <div className="stack">
           <div className="card">
             Удалим всё: тренировки, замеры, питание, программы и связь с
@@ -121,21 +122,21 @@ export function AccountSection() {
             вашего аккаунта у нас не остаётся.
           </div>
           <div className="field">
-            <label>Введите слово «удалить», чтобы подтвердить</label>
+            <label>{t('Введите слово «удалить», чтобы подтвердить')}</label>
             <input
               className="input"
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
               autoCapitalize="none"
-              placeholder="удалить"
+              placeholder={t('удалить')}
             />
           </div>
           <button
             className="btn danger block"
-            disabled={confirmText.trim().toLowerCase() !== 'удалить' || busy}
+            disabled={confirmText.trim().toLowerCase() !== t('удалить') || busy}
             onClick={remove}
           >
-            {busy ? 'Удаляю…' : 'Удалить навсегда'}
+            {busy ? t('Удаляю…') : t('Удалить навсегда')}
           </button>
           <button className="btn block" onClick={() => setConfirmOpen(false)}>
             Отмена

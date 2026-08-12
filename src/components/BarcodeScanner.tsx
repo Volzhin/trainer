@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Sheet } from './Sheet'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
 
 /**
  * Сканер штрихкодов камерой.
@@ -96,7 +97,7 @@ export function BarcodeScanner({
   }, [open, onDetected])
 
   return (
-    <Sheet open={open} title="Штрихкод" onClose={onClose}>
+    <Sheet open={open} title={t('Штрихкод')} onClose={onClose}>
       <div className="stack">
         {!error && (
           <div className="scanner">
@@ -110,7 +111,7 @@ export function BarcodeScanner({
         </div>
 
         <div className="field">
-          <label>Или введите цифры под кодом</label>
+          <label>{t('Или введите цифры под кодом')}</label>
           <input
             className="input"
             inputMode="numeric"

@@ -208,7 +208,7 @@ export function ProgressView({ userId }: { userId: string }) {
         Расчётный максимум на одно повторение — по формуле Эпли из лучшего подхода.
       </div>
       {report.records.length === 0 ? (
-        <div className="empty compact">Завершите первую тренировку</div>
+        <div className="empty compact">{t('Завершите первую тренировку')}</div>
       ) : (
         <div className="stack tight">
           {report.records.map((r) => (
@@ -268,7 +268,7 @@ function PlanCard({ plan, onOpen }: { plan: PlanProgress; onOpen: () => void }) 
         )}
 
         <div className="row between mt-4 mb-2">
-          <span className="mute-sm">Сделано по плану</span>
+          <span className="mute-sm">{t('Сделано по плану')}</span>
           <span className="mute-sm t-num">
             {plan.done} из {plan.planned}
           </span>

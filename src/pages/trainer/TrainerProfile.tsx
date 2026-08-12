@@ -49,7 +49,7 @@ export function TrainerProfile() {
           <div className="sub">{t('Кабинет тренера')}</div>
         </div>
         <div className="row" style={{ gap: 8 }}>
-          <span className="badge pro">ТРЕНЕР</span>
+          <span className="badge pro">{t('ТРЕНЕР')}</span>
           <button
             className="icon-btn"
             onClick={() => nav('/settings')}
@@ -125,25 +125,25 @@ export function TrainerProfile() {
           <strong>{counts?.clients ?? 0}</strong>
         </div>
         <div className="row between">
-          <span className="muted">Активных назначений</span>
+          <span className="muted">{t('Активных назначений')}</span>
           <strong>{counts?.assignments ?? 0}</strong>
         </div>
         <div className="row between">
-          <span className="muted">Своих программ</span>
+          <span className="muted">{t('Своих программ')}</span>
           <strong>{counts?.programs ?? 0}</strong>
         </div>
       </div>
 
 
-      <Sheet open={editOpen} title="Профиль тренера" onClose={() => setEditOpen(false)}>
+      <Sheet open={editOpen} title={t('Профиль тренера')} onClose={() => setEditOpen(false)}>
         <TrainerForm onDone={() => setEditOpen(false)} />
       </Sheet>
 
-      <Sheet open={payOpen} title="Подписка тренера" onClose={() => setPayOpen(false)}>
+      <Sheet open={payOpen} title={t('Подписка тренера')} onClose={() => setPayOpen(false)}>
         <div className="stack">
           <div className="card">
             <div className="row between">
-              <span>Месяц</span>
+              <span>{t('Месяц')}</span>
               <strong>499 ₽</strong>
             </div>
             <div className="row between mt-2">
@@ -216,7 +216,7 @@ function TrainerForm({ onDone }: { onDone: () => void }) {
   return (
     <div className="stack">
       <div className="field">
-        <label>Имя</label>
+        <label>{t('Имя')}</label>
         <input
           className="input"
           value={name}
@@ -225,7 +225,7 @@ function TrainerForm({ onDone }: { onDone: () => void }) {
         />
       </div>
       <div className="field">
-        <label>Специализация</label>
+        <label>{t('Специализация')}</label>
         <input
           className="input"
           value={spec}
@@ -234,7 +234,7 @@ function TrainerForm({ onDone }: { onDone: () => void }) {
         />
       </div>
       <div className="field">
-        <label>О себе</label>
+        <label>{t('О себе')}</label>
         <textarea
           className="textarea"
           value={bio}
@@ -243,7 +243,7 @@ function TrainerForm({ onDone }: { onDone: () => void }) {
         />
       </div>
       <div className="divider" />
-      <div className="field-group-title">Где с вами связаться</div>
+      <div className="field-group-title">{t('Где с вами связаться')}</div>
       <div className="mute-sm mb-3">
         Клиент увидит эти ссылки в карточке тренера и напишет вам в один тап.
       </div>

@@ -6,6 +6,7 @@ import { LineChart } from '../components/LineChart'
 import { ExerciseMedia } from '../components/ExerciseMedia'
 import { ExerciseDescription } from '../components/ExerciseDescription'
 import { estimate1RM, formatDate, formatWeight } from '../lib/calc'
+import { t } from '../lib/i18n'
 
 export function ExerciseDetail() {
   const { id = '' } = useParams()
@@ -45,7 +46,7 @@ export function ExerciseDetail() {
   }, [id])
 
   if (!exercise) {
-    return <div className="screen">Загрузка…</div>
+    return <div className="screen">{t('Загрузка…')}</div>
   }
 
   const chart = (history ?? []).map((h) => ({ x: h.date, y: h.best }))
@@ -54,7 +55,7 @@ export function ExerciseDetail() {
   return (
     <div className="screen">
       <div className="header">
-        <button className="icon-btn" onClick={() => nav(-1)} aria-label="Назад">
+        <button className="icon-btn" onClick={() => nav(-1)} aria-label={t('Назад')}>
           <IconBack size={18} />
         </button>
         <div className="grow">
@@ -77,7 +78,7 @@ export function ExerciseDetail() {
 
       {exercise.description && (
         <>
-          <div className="section-title">Техника выполнения</div>
+          <div className="section-title">{t('Техника выполнения')}</div>
           <div className="card enter">
             <ExerciseDescription text={exercise.description} />
           </div>
@@ -87,19 +88,19 @@ export function ExerciseDetail() {
       <div className="group mt-3">
         {exercise.secondary && exercise.secondary.length > 0 && (
           <div className="group-row">
-            <span className="grow title">Ещё работают</span>
+            <span className="grow title">{t('Ещё работают')}</span>
             <span className="value">{exercise.secondary.join(', ')}</span>
           </div>
         )}
         {exercise.equipment_all && exercise.equipment_all.length > 0 && (
           <div className="group-row">
-            <span className="grow title">Инвентарь</span>
+            <span className="grow title">{t('Инвентарь')}</span>
             <span className="value">{exercise.equipment_all.join(', ')}</span>
           </div>
         )}
         {exercise.alt_names && exercise.alt_names.length > 0 && (
           <div className="group-row">
-            <span className="grow title">Другие названия</span>
+            <span className="grow title">{t('Другие названия')}</span>
             <span className="value">{exercise.alt_names.join(', ')}</span>
           </div>
         )}
@@ -118,20 +119,20 @@ export function ExerciseDetail() {
         </div>
       )}
 
-      <div className="section-title">Прогресс 1ПМ</div>
+      <div className="section-title">{t('Прогресс 1ПМ')}</div>
       <div className="card">
         {chart.length > 0 && (
           <div className="row between mb-1">
-            <span className="muted">Расчётный максимум</span>
+            <span className="muted">{t('Расчётный максимум')}</span>
             <strong>{Math.round(pr)} кг</strong>
           </div>
         )}
         <LineChart data={chart} unit=" кг" />
       </div>
 
-      <div className="section-title">История</div>
+      <div className="section-title">{t('История')}</div>
       {(history ?? []).length === 0 ? (
-        <div className="empty">Ещё не выполняли это упражнение</div>
+        <div className="empty">{t('Ещё не выполняли это упражнение')}</div>
       ) : (
         [...(history ?? [])].reverse().map((h, i) => (
           <div className="list-item" key={i}>
@@ -146,7 +147,7 @@ export function ExerciseDetail() {
               <div className="strong">
                 {formatWeight(Math.round(h.best * 10) / 10)}
               </div>
-              <div className="mute-sm">1ПМ</div>
+              <div className="mute-sm">{t('1ПМ')}</div>
             </div>
           </div>
         ))

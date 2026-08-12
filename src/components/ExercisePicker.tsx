@@ -5,6 +5,7 @@ import { useExercises } from '../db/catalog'
 import { Sheet } from './Sheet'
 import { IconSearch } from './Icons'
 import { loadFacets, matchesQuery } from '../lib/facets'
+import { t } from '../lib/i18n'
 
 type Props = {
   open: boolean
@@ -45,7 +46,7 @@ export function ExercisePicker({
         <IconSearch />
         <input
           className="input"
-          placeholder="Поиск по названию"
+          placeholder={t('Поиск по названию')}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           autoFocus
@@ -64,7 +65,7 @@ export function ExercisePicker({
         ))}
       </div>
 
-      {list.length === 0 && <div className="empty">Ничего не нашлось</div>}
+      {list.length === 0 && <div className="empty">{t('Ничего не нашлось')}</div>}
 
       {list.map((ex) => (
         <button

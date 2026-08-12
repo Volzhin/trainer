@@ -1,6 +1,7 @@
 import { useApp, useRestLeft } from '../store/app'
 import { formatClock } from '../lib/calc'
 import { IconClose } from './Icons'
+import { t } from '../lib/i18n'
 
 export function RestTimer() {
   const { rest, addRest, stopRest } = useApp()
@@ -22,7 +23,7 @@ export function RestTimer() {
               <button className="btn sm" onClick={() => addRest(15)}>
                 +15
               </button>
-              <button className="icon-btn" onClick={stopRest} aria-label="Пропустить отдых">
+              <button className="icon-btn" onClick={stopRest} aria-label={t('Пропустить отдых')}>
                 <IconClose size={18} />
               </button>
             </div>

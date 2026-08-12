@@ -72,7 +72,7 @@ export function ProgramDetail() {
 
   const volumeTotal = volume.reduce((a, v) => a + v.sets, 0)
 
-  if (!program) return <div className="screen">Загрузка…</div>
+  if (!program) return <div className="screen">{t('Загрузка…')}</div>
 
   const editable = program.author_id === currentUserId()
   // Планирует человек себе, поэтому чужую персональную программу — ту, что
@@ -93,7 +93,7 @@ export function ProgramDetail() {
   return (
     <div className="screen">
       <div className="header">
-        <button className="icon-btn" onClick={() => nav(-1)} aria-label="Назад">
+        <button className="icon-btn" onClick={() => nav(-1)} aria-label={t('Назад')}>
           <IconBack size={18} />
         </button>
         <div className="grow">
@@ -111,7 +111,7 @@ export function ProgramDetail() {
         <div className="card" style={{ borderColor: 'var(--accent)' }}>
           <div className="row between">
             <div className="grow">
-              <div className="mute-sm">Программа для клиента</div>
+              <div className="mute-sm">{t('Программа для клиента')}</div>
               <div className="strong" style={{ marginTop: 2 }}>{clientName ?? '—'}</div>
             </div>
             <button
@@ -479,10 +479,10 @@ function PlanSheet({
   }
 
   return (
-    <Sheet open={open} title="Запланировать программу" onClose={onClose}>
+    <Sheet open={open} title={t('Запланировать программу')} onClose={onClose}>
       <div className="stack">
         <div className="field">
-          <label>Дни недели</label>
+          <label>{t('Дни недели')}</label>
           <div className="weekday-row">
             {WEEKDAYS.map((label, wd) => {
               const mark = markOf(slots[wd])
@@ -522,7 +522,7 @@ function PlanSheet({
         )}
 
         <div className="field">
-          <label>Сколько недель</label>
+          <label>{t('Сколько недель')}</label>
           <div className="segmented">
             {[4, 6, 8, 12].map((v) => (
               <button key={v} className={weeks === v ? 'on' : ''} onClick={() => setWeeks(v)}>

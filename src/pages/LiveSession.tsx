@@ -401,8 +401,8 @@ export function LiveSession() {
 
             <div className="set-grid head">
               <div className="num">#</div>
-              <div style={{ textAlign: 'center' }}>кг</div>
-              <div style={{ textAlign: 'center' }}>повт.</div>
+              <div style={{ textAlign: 'center' }}>{t('кг')}</div>
+              <div style={{ textAlign: 'center' }}>{t('повт.')}</div>
               {/* Общая галочка: отметить всё упражнение разом. Подходы часто
                   делают по плану и отмечают в конце — тыкать в каждую
                   строку по очереди значит повторять одно действие пять раз.
@@ -502,7 +502,7 @@ export function LiveSession() {
 
       <Sheet
         open={finishOpen}
-        title="Завершить тренировку"
+        title={t('Завершить тренировку')}
         onClose={() => {
           setFinishOpen(false)
           setFrozenElapsed(null)
@@ -511,11 +511,11 @@ export function LiveSession() {
         <div className="stat-grid mb-4">
           <div className="stat">
             <div className="value">{formatDuration(frozenElapsed ?? 0)}</div>
-            <div className="label">длительность</div>
+            <div className="label">{t('длительность')}</div>
           </div>
           <div className="stat">
             <div className="value">{Math.round(volume)} кг</div>
-            <div className="label">тоннаж</div>
+            <div className="label">{t('тоннаж')}</div>
           </div>
         </div>
         {/* Видеоотчёт собирается здесь, а не по ходу тренировки: снимать и
@@ -545,10 +545,10 @@ export function LiveSession() {
         )}
 
         <div className="field" style={{ marginTop: 16, marginBottom: 16 }}>
-          <label>Заметка к тренировке</label>
+          <label>{t('Заметка к тренировке')}</label>
           <textarea
             className="textarea"
-            placeholder="Самочувствие, техника, что поменять в следующий раз"
+            placeholder={t('Самочувствие, техника, что поменять в следующий раз')}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
@@ -646,7 +646,7 @@ function SetRow({
         <button
           className="num"
           onDoubleClick={onDelete}
-          title="Двойной клик — удалить подход"
+          title={t('Двойной клик — удалить подход')}
           style={{ background: 'none' }}
         >
           {index + 1}
@@ -678,7 +678,7 @@ function SetRow({
             commitReps(reps)
             onToggle()
           }}
-          aria-label="Подход выполнен"
+          aria-label={t('Подход выполнен')}
         >
           <IconCheck size={18} />
         </button>

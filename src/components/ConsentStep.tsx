@@ -8,6 +8,7 @@ import {
 } from '../lib/consents'
 import { Sheet } from './Sheet'
 import { IconBack, IconCheck } from './Icons'
+import { t } from '../lib/i18n'
 
 /**
  * Подписание оферты и согласия на обработку данных.
@@ -43,7 +44,7 @@ export function ConsentStep({
 
       {CONSENTS_ARE_PLACEHOLDER && (
         <div className="card" style={{ borderColor: 'var(--warn)' }}>
-          <div className="strong">Черновик документов</div>
+          <div className="strong">{t('Черновик документов')}</div>
           <div className="mute-sm mt-1">
             Окончательные тексты ещё не переданы. До этого подписи считаются техническими и
             юридической силы не имеют.

@@ -71,7 +71,7 @@ export function TrainerClientDetail() {
     [userId, id],
   )
 
-  if (!detail) return <div className="screen">Загрузка…</div>
+  if (!detail) return <div className="screen">{t('Загрузка…')}</div>
 
   const { client, weightPoints } = detail
 
@@ -85,7 +85,7 @@ export function TrainerClientDetail() {
   return (
     <div className="screen">
       <div className="header">
-        <button className="icon-btn" onClick={() => nav(-1)} aria-label="Назад">
+        <button className="icon-btn" onClick={() => nav(-1)} aria-label={t('Назад')}>
           <IconBack size={18} />
         </button>
         <div className="grow">
@@ -181,7 +181,7 @@ export function TrainerClientDetail() {
               на него вместе с процентом жира и обхватами — из них и
               складывается ответ, уходит ли вес туда, куда нужно. Отдельно
               от них цифра веса не значит почти ничего. */}
-          <div className="section-title">Вес</div>
+          <div className="section-title">{t('Вес')}</div>
           <div className="card">
             {weightPoints.length < 2 ? (
               <div className="mute-sm">
@@ -257,14 +257,14 @@ function WeekCard({ clientId }: { clientId: string }) {
         </span>
       </div>
       {week.sessionsTarget == null && (
-        <div className="mute-sm mt-1">Программа не назначена — плана на неделю нет.</div>
+        <div className="mute-sm mt-1">{t('Программа не назначена — плана на неделю нет.')}</div>
       )}
 
       <div className="row between mt-3">
         <span className="muted">{t('дней по питанию сдано')}</span>
         <span className="figures strong">{week.nutritionDays} / 7</span>
       </div>
-      <div className="mute-sm mt-1">Считается с понедельника.</div>
+      <div className="mute-sm mt-1">{t('Считается с понедельника.')}</div>
     </div>
   )
 }
@@ -318,7 +318,7 @@ function OutstandingCard({
           <div className="strong" style={{ color: 'var(--warn)' }}>
             {pending} {plural(pending, ['отчёт', 'отчёта', 'отчётов'])} ждёт разбора
           </div>
-          <div className="mute-sm mt-1">Это ваш ход — клиент уже сдал.</div>
+          <div className="mute-sm mt-1">{t('Это ваш ход — клиент уже сдал.')}</div>
         </div>
       )}
 
@@ -355,7 +355,7 @@ function PaymentCard({
 }) {
   const [busy, setBusy] = useState(false)
 
-  if (!link) return <div className="card mute-sm">Связь с клиентом не найдена.</div>
+  if (!link) return <div className="card mute-sm">{t('Связь с клиентом не найдена.')}</div>
 
   const save = async (input: { paidAt?: number; nextPaymentAt?: number }) => {
     setBusy(true)
@@ -577,7 +577,7 @@ function AssignSheet({
           </div>
 
           <div className="field">
-            <label>Дни недели</label>
+            <label>{t('Дни недели')}</label>
             {/* Нажатие перебирает дни программы: так расписание собирается
                 одним пальцем, без выпадающих списков на каждый день. */}
             <div className="weekday-row">
@@ -619,7 +619,7 @@ function AssignSheet({
           )}
 
           <div className="field">
-            <label>Сколько недель</label>
+            <label>{t('Сколько недель')}</label>
             <div className="segmented">
               {[4, 6, 8, 12].map((v) => (
                 <button key={v} className={weeks === v ? 'on' : ''} onClick={() => setWeeks(v)}>
@@ -630,12 +630,12 @@ function AssignSheet({
           </div>
 
           <div className="field">
-            <label>Комментарий клиенту</label>
+            <label>{t('Комментарий клиенту')}</label>
             <textarea
               className="textarea"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Например: первые две недели работаем в лёгком темпе"
+              placeholder={t('Например: первые две недели работаем в лёгком темпе')}
             />
           </div>
 
@@ -654,7 +654,7 @@ function AssignSheet({
             потом назначьте на дни недели.
           </div>
           <div className="field">
-            <label>Название</label>
+            <label>{t('Название')}</label>
             <input
               className="input"
               value={newName}

@@ -18,6 +18,7 @@ import { formatDateTime, formatDuration, formatWeight, plural, totalVolume } fro
 import { estimate1RM } from '../lib/calc'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
 
 /**
  * Разбор тренировки глазами тренера: что реально было сделано по подходам,
@@ -90,7 +91,7 @@ export function SessionReview({
 
       {session.notes && (
         <div className="card mb-3">
-          <div className="mute-sm">Заметка клиента</div>
+          <div className="mute-sm">{t('Заметка клиента')}</div>
           <div className="mt-1">{session.notes}</div>
         </div>
       )}
@@ -151,7 +152,7 @@ export function SessionReview({
 
       {(comments ?? []).filter((c) => !c.exercise_id).length > 0 && (
         <>
-          <div className="section-title">Общие комментарии</div>
+          <div className="section-title">{t('Общие комментарии')}</div>
           {(comments ?? [])
             .filter((c) => !c.exercise_id)
             .map((c) => (
@@ -169,12 +170,12 @@ export function SessionReview({
         </>
       )}
 
-      <div className="section-title">Итог по тренировке</div>
+      <div className="section-title">{t('Итог по тренировке')}</div>
       <textarea
         className="textarea"
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="Общий комментарий: самочувствие, нагрузка, что меняем"
+        placeholder={t('Общий комментарий: самочувствие, нагрузка, что меняем')}
       />
       <button
         className="btn primary block mt-3"
@@ -266,7 +267,7 @@ function ExerciseReview({
           техники, потому что решение о весе тренер принимает, глядя на то
           же видео и те же подходы. */}
       <div className="mt-3">
-        <div className="mute-sm mb-1">Вес в следующий раз</div>
+        <div className="mute-sm mb-1">{t('Вес в следующий раз')}</div>
         <div className="segmented">
           {(
             [
@@ -296,7 +297,7 @@ function ExerciseReview({
             style={{ minHeight: 64 }}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Что поправить в технике"
+            placeholder={t('Что поправить в технике')}
             autoFocus
           />
           <div className="row" style={{ gap: 8 }}>

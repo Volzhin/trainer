@@ -4,6 +4,7 @@ import type { BodyMetric } from '../db/db'
 import { listBodyMetrics } from '../db/repo'
 import { formatDate } from '../lib/calc'
 import { BODY_C } from './BodyCompositionView'
+import { t } from '../lib/i18n'
 
 /**
  * Компактная сводка состава тела: полоска долей + три ключевых числа
@@ -59,7 +60,7 @@ export function BodyCompositionCard({
       >
         <div className="row between">
           <div className="grow">
-            <div className="strong">Анализ тела</div>
+            <div className="strong">{t('Анализ тела')}</div>
             <div className="mute-sm" style={{ marginTop: 3 }}>
               {subject === 'client'
                 ? 'Замеров InBody нет — можно загрузить отчёт клиента'
@@ -95,7 +96,7 @@ export function BodyCompositionCard({
     <button className="card tap" style={{ width: '100%', textAlign: 'left' }} onClick={onOpen}>
       <div className="row between">
         <div className="grow">
-          <div className="strong">Анализ тела</div>
+          <div className="strong">{t('Анализ тела')}</div>
           <div className="mute-sm" style={{ marginTop: 1 }}>
             Замер от {formatDate(latest.logged_at)}
           </div>
@@ -132,14 +133,14 @@ export function BodyCompositionCard({
 
       <div className="metrics mt-3">
         <Stat
-          label="Вес"
+          label={t('Вес')}
           unit="кг"
           now={latest.weight_kg}
           was={previous?.weight_kg}
           better="down"
         />
         <Stat
-          label="Жир"
+          label={t('Жир')}
           unit="%"
           now={latest.body_fat_pct}
           was={previous?.body_fat_pct}
@@ -147,7 +148,7 @@ export function BodyCompositionCard({
           color={BODY_C.fat}
         />
         <Stat
-          label="Мышцы"
+          label={t('Мышцы')}
           unit="кг"
           now={latest.skeletal_muscle_kg}
           was={previous?.skeletal_muscle_kg}

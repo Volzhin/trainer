@@ -678,7 +678,7 @@ export function BodyCompositionView({
                   <IcoTarget size={20} />
                 </span>
                 <span className="grow">
-                  <span className="title">Оптимальный вес</span>
+                  <span className="title">{t('Оптимальный вес')}</span>
                   <span className="sub">
                     По росту и балансу мышц, жира и воды
                   </span>
@@ -692,7 +692,7 @@ export function BodyCompositionView({
                   <IcoApple size={20} />
                 </span>
                 <span className="grow">
-                  <span className="title">Приём калорий</span>
+                  <span className="title">{t('Приём калорий')}</span>
                   <span className="sub">
                     Ежедневный
                   </span>
@@ -708,19 +708,19 @@ export function BodyCompositionView({
                 </div>
                 <div className="metrics">
                   <div className="metric">
-                    <div className="cap">Белки</div>
+                    <div className="cap">{t('Белки')}</div>
                     <div className="num" style={{ fontSize: 18, color: 'var(--c-protein)' }}>
                       {macros.protein} г
                     </div>
                   </div>
                   <div className="metric">
-                    <div className="cap">Жиры</div>
+                    <div className="cap">{t('Жиры')}</div>
                     <div className="num" style={{ fontSize: 18, color: 'var(--c-fat)' }}>
                       {macros.fat} г
                     </div>
                   </div>
                   <div className="metric">
-                    <div className="cap">Углеводы</div>
+                    <div className="cap">{t('Углеводы')}</div>
                     <div className="num" style={{ fontSize: 18, color: 'var(--c-muscle)' }}>
                       {macros.carbs} г
                     </div>
@@ -873,7 +873,7 @@ export function BodyCompositionView({
 
       <Sheet
         open={historyOpen}
-        title="Замеры"
+        title={t('Замеры')}
         onClose={() => {
           setHistoryOpen(false)
           setConfirmWipe(false)
@@ -900,7 +900,7 @@ export function BodyCompositionView({
                   await deleteBodyMetric(m.id)
                   toast('Замер удалён')
                 }}
-                aria-label="Удалить"
+                aria-label={t('Удалить')}
               >
                 <IconTrash size={15} />
               </button>
@@ -973,9 +973,9 @@ function NormScale({
   return (
     <div className="norm-scale">
       <div className="norm-scale-heads">
-        <span className={status === 'low' ? 'on' : undefined}>Ниже нормы</span>
-        <span className={status === 'normal' ? 'on' : undefined}>Норма</span>
-        <span className={status === 'high' ? 'on' : undefined}>Выше нормы</span>
+        <span className={status === 'low' ? 'on' : undefined}>{t('Ниже нормы')}</span>
+        <span className={status === 'normal' ? 'on' : undefined}>{t('Норма')}</span>
+        <span className={status === 'high' ? 'on' : undefined}>{t('Выше нормы')}</span>
       </div>
       <div className="norm-scale-bar">
         <i className="norm-scale-fill" style={{ width: `${pos * 100}%`, background: color }} />
@@ -1030,7 +1030,7 @@ function MetricInfoSheet({
           {value != null && norm ? (
             <NormScale value={value} norm={norm} unit={row.unit} status={status} />
           ) : (
-            <div className="mute-sm">Границы нормы в отчёте не указаны.</div>
+            <div className="mute-sm">{t('Границы нормы в отчёте не указаны.')}</div>
           )}
 
           {info && (
@@ -1280,10 +1280,10 @@ export function ManualMeasurementSheet({
   const shown = rows.filter(([, v]) => v)
 
   return (
-    <Sheet open={open} title="Замер вручную" onClose={onClose}>
+    <Sheet open={open} title={t('Замер вручную')} onClose={onClose}>
       <div className="stack">
         <div className="field">
-          <label>Дата</label>
+          <label>{t('Дата')}</label>
           <input
             className="input"
             type="date"
@@ -1295,7 +1295,7 @@ export function ManualMeasurementSheet({
 
         <div className="row" style={{ gap: 8 }}>
           <div className="field grow">
-            <label>Вес, кг</label>
+            <label>{t('Вес, кг')}</label>
             <input
               className="input"
               inputMode="decimal"
@@ -1305,7 +1305,7 @@ export function ManualMeasurementSheet({
             />
           </div>
           <div className="field grow">
-            <label>Рост, см</label>
+            <label>{t('Рост, см')}</label>
             <input
               className="input"
               inputMode="numeric"
@@ -1316,7 +1316,7 @@ export function ManualMeasurementSheet({
           </div>
         </div>
 
-        <div className="section-title">Обхваты, см</div>
+        <div className="section-title">{t('Обхваты, см')}</div>
         <div className="group">
           {girthFields.map((f) => (
             <div className="group-row" key={f.key}>
@@ -1358,7 +1358,7 @@ export function ManualMeasurementSheet({
 
         {shown.length > 0 && (
           <>
-            <div className="section-title">Расчёт по обхватам</div>
+            <div className="section-title">{t('Расчёт по обхватам')}</div>
             <div className="group">
               {shown.map(([label, value]) => (
                 <div className="group-row" key={label}>
@@ -1377,7 +1377,7 @@ export function ManualMeasurementSheet({
         )}
 
         <div className="field">
-          <label>Свой процент жира, если знаете</label>
+          <label>{t('Свой процент жира, если знаете')}</label>
           <input
             className="input"
             inputMode="decimal"

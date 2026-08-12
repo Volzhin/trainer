@@ -50,7 +50,7 @@ export function Reports() {
   if (bond === undefined) {
     return (
       <div className="screen">
-        <div className="empty">Загрузка…</div>
+        <div className="empty">{t('Загрузка…')}</div>
       </div>
     )
   }
@@ -117,7 +117,7 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
       </div>
 
       {loading ? (
-        <div className="empty">Загрузка…</div>
+        <div className="empty">{t('Загрузка…')}</div>
       ) : (
         <>
           {tasks.length > 0 && (
@@ -311,10 +311,10 @@ function ReportRow({
       {submitted ? (
         <span className="badge">
           <IconCheck size={11} />
-          сдан
+          {t('сдан')}
         </span>
       ) : (
-        <span className="badge">не сдан</span>
+        <span className="badge">{t('не сдан')}</span>
       )}
       <IconChevronRight size={16} />
     </button>
@@ -544,7 +544,7 @@ function TrainerReply({ text }: { text?: string }) {
   if (!text) return null
   return (
     <div className="card mt-3">
-      <div className="mute-sm">Ответ тренера</div>
+      <div className="mute-sm">{t('Ответ тренера')}</div>
       <div className="mt-1">{text}</div>
     </div>
   )
@@ -589,12 +589,12 @@ function WorkoutReportSheet({
 
       <div className="stack mt-4">
         <div className="field">
-          <label>Как прошла тренировка</label>
+          <label>{t('Как прошла тренировка')}</label>
           <textarea
             className="textarea"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder="Самочувствие, что было тяжело, что болело"
+            placeholder={t('Самочувствие, что было тяжело, что болело')}
           />
         </div>
         <button className="btn primary block" disabled={busy} onClick={send}>

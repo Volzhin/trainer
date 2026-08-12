@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Exercise } from '../db/db'
 import { IconPlay } from './Icons'
+import { t } from '../lib/i18n'
 
 /**
  * Демонстрация техники. Приоритет — прямой видеофайл: он играет во
@@ -52,7 +53,7 @@ export function ExerciseMedia({ exercise }: { exercise: Exercise }) {
       {clip_url ? (
         <button
           onClick={() => setPlaying(true)}
-          aria-label="Смотреть технику"
+          aria-label={t('Смотреть технику')}
           style={playButton}
         >
           <IconPlay size={20} />

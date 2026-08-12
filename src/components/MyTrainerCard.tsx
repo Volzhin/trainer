@@ -7,6 +7,7 @@ import { ConsentStep } from './ConsentStep'
 import { Sheet } from './Sheet'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
 
 /** Блок «Мой тренер» в профиле клиента: привязка по коду и отвязка. */
 export function MyTrainerCard() {
@@ -51,7 +52,7 @@ export function MyTrainerCard() {
 
   return (
     <>
-      <div className="section-title">Тренер</div>
+      <div className="section-title">{t('Тренер')}</div>
       <div className="card">
         {bond ? (
           <>
@@ -67,7 +68,7 @@ export function MyTrainerCard() {
             <div className="mt-4">
               <ContactLinks
                 profile={bond.trainer}
-                title="Написать"
+                title={t('Написать')}
                 emptyHint="Тренер ещё не указал, где с ним связаться."
               />
             </div>
@@ -106,7 +107,7 @@ export function MyTrainerCard() {
         {step === 'code' ? (
           <div className="stack">
             <div className="field">
-              <label>Код приглашения</label>
+              <label>{t('Код приглашения')}</label>
               <input
                 className="input"
                 value={code}
