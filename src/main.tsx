@@ -12,10 +12,46 @@ import { restoreSession } from './db/account'
 import { applyAccent, applyTheme, getAccentPref, getThemePref, loadActiveUser } from './db/db'
 import './index.css'
 
-// Service worker есть не везде (например, при раздаче одним файлом) —
-// приложение должно запускаться и без него.
+/*
+ * Обновление приложения.
+ *
+ * autoUpdate ставит новую версию сам, но уже открытая вкладка продолжает
+ * работать на старом коде: service worker не может подменить то, что
+ * браузер уже выполнил. А проверку он делает только при регистрации, то
+ * есть при загрузке страницы. Приложение держат открытым сутками — и
+ * человек всё это время видит вчерашнюю версию, не понимая, почему
+ * обещанного нет.
+ *
+ * Поэтому спрашиваем сами: при возвращении на вкладку и раз в десять
+ * минут. Когда новая версия встала у руля, перезагружаем страницу —
+ * данные лежат в IndexedDB и переживают это без потерь.
+ *
+ * Service worker есть не везде (например, при раздаче одним файлом) —
+ * приложение должно запускаться и без него.
+ */
 try {
-  registerSW({ immediate: true })
+  const update = registerSW({ immediate: true })
+
+  if ('serviceWorker' in navigator) {
+    // Смена контроллера означает, что новая версия активировалась.
+    // Перезагрузку делаем один раз: без флага браузер может зациклиться.
+    let reloading = false
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloading) return
+      reloading = true
+      location.reload()
+    })
+  }
+
+  const check = () => {
+    // Проверка сама по себе ничего не ломает: если версия та же, ничего и
+    // не произойдёт.
+    void update(true).catch(() => {})
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') check()
+  })
+  setInterval(check, 10 * 60_000)
 } catch {
   /* офлайн-кеш недоступен, данные всё равно лежат в IndexedDB */
 }
