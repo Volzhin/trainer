@@ -37,7 +37,7 @@ export function AccountSection() {
           <span className="grow">
             <span className="title">{t('Войти или зарегистрироваться')}</span>
             <span className="sub">
-              Сейчас данные лежат только на этом устройстве
+              {t('Сейчас данные лежат только на этом устройстве')}
             </span>
           </span>
         </button>
@@ -53,8 +53,8 @@ export function AccountSection() {
     setBusy(false)
     toast(
       res
-        ? `Отправлено ${res.pushed}, получено ${res.pulled}`
-        : 'Нет связи с сервером — попробуем позже',
+        ? `${t('Отправлено')} ${res.pushed}, ${t('получено')} ${res.pulled}`
+        : t('Нет связи с сервером — попробуем позже'),
     )
   }
 
@@ -77,7 +77,7 @@ export function AccountSection() {
       leaveDemoMode()
       location.reload()
     } catch {
-      toast('Не удалось удалить аккаунт')
+      toast(t('Не удалось удалить аккаунт'))
       setBusy(false)
     }
   }
@@ -90,7 +90,7 @@ export function AccountSection() {
           <span className="grow">
             <span className="title">{user.email}</span>
             <span className="sub">
-              {busy ? 'Синхронизация…' : 'Нажмите, чтобы синхронизировать сейчас'}
+              {busy ? t('Синхронизация…') : t('Нажмите, чтобы синхронизировать сейчас')}
             </span>
           </span>
         </button>
@@ -99,7 +99,7 @@ export function AccountSection() {
           <span className="grow">
             <span className="title">{t('Выйти')}</span>
             <span className="sub">
-              Данные останутся на сервере
+              {t('Данные останутся на сервере')}
             </span>
           </span>
         </button>
@@ -108,7 +108,7 @@ export function AccountSection() {
           <span className="grow">
             <span className="title">{t('Удалить аккаунт')}</span>
             <span className="sub">
-              Безвозвратно, вместе со всеми данными
+              {t('Безвозвратно, вместе со всеми данными')}
             </span>
           </span>
         </button>
@@ -117,9 +117,9 @@ export function AccountSection() {
       <Sheet open={confirmOpen} title={t('Удалить аккаунт')} onClose={() => setConfirmOpen(false)}>
         <div className="stack">
           <div className="card">
-            Удалим всё: тренировки, замеры, питание, программы и связь с
-            {isTrainer ? ' клиентами' : ' тренером'}. Восстановить будет нечем — резервной копии
-            вашего аккаунта у нас не остаётся.
+            {t('Удалим всё: тренировки, замеры, питание, программы и связь с')}
+            {isTrainer ? ` ${t('клиентами')}` : ` ${t('тренером')}`}.{' '}
+            {t('Восстановить будет нечем — резервной копии вашего аккаунта у нас не остаётся.')}
           </div>
           <div className="field">
             <label>{t('Введите слово «удалить», чтобы подтвердить')}</label>
@@ -139,7 +139,7 @@ export function AccountSection() {
             {busy ? t('Удаляю…') : t('Удалить навсегда')}
           </button>
           <button className="btn block" onClick={() => setConfirmOpen(false)}>
-            Отмена
+            {t('Отмена')}
           </button>
         </div>
       </Sheet>

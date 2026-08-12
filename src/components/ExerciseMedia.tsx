@@ -46,7 +46,7 @@ export function ExerciseMedia({ exercise }: { exercise: Exercise }) {
         <div
           style={{ ...frame, display: 'grid', placeItems: 'center', color: 'var(--text-3)' }}
         >
-          Нет превью
+          {t('Нет превью')}
         </div>
       )}
 

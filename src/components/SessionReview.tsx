@@ -73,7 +73,7 @@ export function SessionReview({
     try {
       await addFeedback({ clientId, sessionId: session.id, text, trainerId: userId })
       haptics.success()
-      toast('Комментарий отправлен клиенту')
+      toast(t('Комментарий отправлен клиенту'))
       setText('')
       onClose()
     } finally {
@@ -86,7 +86,7 @@ export function SessionReview({
       <div className="mute-sm mb-3">
         {formatDateTime(session.start_time)} ·{' '}
         {formatDuration((session.end_time ?? session.start_time) - session.start_time)} ·{' '}
-        {Math.round(totalVolume(sets ?? []))} кг
+        {Math.round(totalVolume(sets ?? []))} {t('кг')}
       </div>
 
       {session.notes && (
@@ -111,11 +111,11 @@ export function SessionReview({
             <div className="ex-head">
               <div className="grow">
                 <div className="truncate strong">
-                  {ex?.name ?? 'Упражнение'}
+                  {ex?.name ?? t('Упражнение')}
                 </div>
                 <div className="mute-sm">
                   {sorted.length} {plural(sorted.length, ['подход', 'подхода', 'подходов'])}
-                  {top > 0 && ` · лучший 1ПМ ≈ ${Math.round(top)} кг`}
+                  {top > 0 && ` · ${t('лучший 1ПМ')} ≈ ${Math.round(top)} ${t('кг')}`}
                 </div>
               </div>
             </div>
@@ -126,8 +126,8 @@ export function SessionReview({
                 style={{ gridTemplateColumns: '30px 1fr 1fr 52px' }}
               >
                 <div className="num">{s.set_number}</div>
-                <div style={{ textAlign: 'center' }}>{formatWeight(s.weight_kg)} кг</div>
-                <div style={{ textAlign: 'center' }}>{s.reps_completed ?? '—'} повт.</div>
+                <div style={{ textAlign: 'center' }}>{formatWeight(s.weight_kg)} {t('кг')}</div>
+                <div style={{ textAlign: 'center' }}>{s.reps_completed ?? '—'} {t('повт.')}</div>
                 <div style={{ textAlign: 'right' }}>
                   {s.is_pr === 1 && (
                     <span className="badge pr">
@@ -163,7 +163,7 @@ export function SessionReview({
                 {c.text}
                 <div className="mute-sm">
                   {formatDateTime(c.created_at)}
-                  {c.is_read === 1 ? ' · прочитано' : ' · не прочитано'}
+                  {c.is_read === 1 ? ` · ${t('прочитано')}` : ` · ${t('не прочитано')}`}
                 </div>
               </div>
             ))}
@@ -182,7 +182,7 @@ export function SessionReview({
         disabled={busy || !text.trim()}
         onClick={send}
       >
-        Отправить клиенту
+        {t('Отправить клиенту')}
       </button>
     </Sheet>
   )
@@ -229,14 +229,14 @@ function ExerciseReview({
       trainerId: userId,
     })
     haptics.selection()
-    toast('Рекомендация по весу отправлена')
+    toast(t('Рекомендация по весу отправлена'))
   }
 
   const send = async () => {
     if (!text.trim()) return
     await addFeedback({ clientId, sessionId, exerciseId, text, trainerId: userId })
     haptics.success()
-    toast('Разбор отправлен')
+    toast(t('Разбор отправлен'))
     setText('')
     setOpen(false)
   }
@@ -257,7 +257,7 @@ function ExerciseReview({
           {c.text}
           {c.is_read === 0 && (
             <span className="badge" style={{ marginLeft: 8 }}>
-              не прочитано
+              {t('не прочитано')}
             </span>
           )}
         </div>
@@ -302,17 +302,17 @@ function ExerciseReview({
           />
           <div className="row" style={{ gap: 8 }}>
             <button className="btn sm grow" onClick={() => setOpen(false)}>
-              Отмена
+              {t('Отмена')}
             </button>
             <button className="btn sm primary grow" disabled={!text.trim()} onClick={send}>
-              Отправить
+              {t('Отправить')}
             </button>
           </div>
         </div>
       ) : (
         <button className="btn sm block mt-2" onClick={() => setOpen(true)}>
           <IconChat size={15} />
-          {videos.length ? 'Разобрать технику' : 'Комментарий к упражнению'}
+          {videos.length ? t('Разобрать технику') : t('Комментарий к упражнению')}
         </button>
       )}
     </div>

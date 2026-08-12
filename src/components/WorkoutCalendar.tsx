@@ -286,7 +286,7 @@ export function WorkoutCalendar() {
                     </div>
                     <div className="mute-sm" style={{ marginTop: 3 }}>
                       {sets.length} {plural(sets.length, ['подход', 'подхода', 'подходов'])} ·{' '}
-                      {Math.round(totalVolume(sets))} кг ·{' '}
+                      {Math.round(totalVolume(sets))} {t('кг')} ·{' '}
                       {formatDuration((s.end_time ?? s.start_time) - s.start_time)}
                     </div>
                   </div>
@@ -306,7 +306,7 @@ export function WorkoutCalendar() {
                     void repeat(s.id)
                   }}
                 >
-                  <IconRepeat size={15} /> Повторить эту тренировку
+                  <IconRepeat size={15} /> {t('Повторить эту тренировку')}
                 </span>
               </button>
             )
@@ -323,8 +323,8 @@ export function WorkoutCalendar() {
                 <div className="strong">{plan.program.name}</div>
                 <div className="mute-sm" style={{ marginTop: 2 }}>
                   {plan.weeksLeft != null
-                    ? `Осталось ${plan.weeksLeft} ${plural(plan.weeksLeft, ['неделя', 'недели', 'недель'])}`
-                    : 'План на неделю'}
+                    ? `${t('Осталось')} ${plan.weeksLeft} ${plural(plan.weeksLeft, ['неделя', 'недели', 'недель'])}`
+                    : t('План на неделю')}
                 </div>
               </div>
               <span className="badge pro">

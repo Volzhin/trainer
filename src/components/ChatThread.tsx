@@ -107,7 +107,7 @@ export function ChatThread({
           onClick={send}
           aria-label={t('Отправить')}
         >
-          Отправить
+          {t('Отправить')}
         </button>
       </div>
     </div>

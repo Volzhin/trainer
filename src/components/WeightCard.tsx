@@ -44,7 +44,7 @@ export function WeightCard({ userId }: { userId: string }) {
                 <div className="t-num" style={{ fontSize: 28 }}>
                   {formatWeight(latest.y)}{' '}
                   <span className="mute-sm" style={{ fontSize: 14 }}>
-                    кг
+                    {t('кг')}
                   </span>
                 </div>
                 <div className="mute-sm mt-1">{formatDate(latest.x)}</div>

@@ -24,7 +24,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
         </div>
         <div className="card">
           <div className="muted">
-            Экран не удалось построить. Данные на устройстве не пострадали.
+            {t('Экран не удалось построить. Данные на устройстве не пострадали.')}
           </div>
           <div
             className="mute-sm"
@@ -37,13 +37,13 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
           className="btn primary block mt-4"
           onClick={() => this.setState({ error: null })}
         >
-          Попробовать снова
+          {t('Попробовать снова')}
         </button>
         <button
           className="btn block mt-2"
           onClick={() => location.reload()}
         >
-          Перезагрузить приложение
+          {t('Перезагрузить приложение')}
         </button>
       </div>
     )

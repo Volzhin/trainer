@@ -64,7 +64,7 @@ export function NutritionDayReport({ date }: { date: string }) {
       await submitNutritionDay(date, comment)
       haptics.success()
       setDraft(null)
-      toast(submitted ? 'День обновлён' : 'День сдан тренеру')
+      toast(submitted ? t('День обновлён') : t('День сдан тренеру'))
     } finally {
       setBusy(false)
     }
@@ -73,9 +73,9 @@ export function NutritionDayReport({ date }: { date: string }) {
   return (
     <>
       <div className="section-title">
-        Отчёт тренеру
+        {t('Отчёт тренеру')}
         <span style={{ float: 'right' }}>
-          <span className="badge">{submitted ? 'сдан' : 'не сдан'}</span>
+          <span className="badge">{submitted ? t('сдан') : t('не сдан')}</span>
         </span>
       </div>
 
@@ -101,7 +101,7 @@ export function NutritionDayReport({ date }: { date: string }) {
                   setDraft({ satiety: v, comment })
                 }}
               >
-                {SATIETY_LABELS[v]}
+                {t(SATIETY_LABELS[v])}
               </button>
             ))}
           </div>
@@ -122,7 +122,7 @@ export function NutritionDayReport({ date }: { date: string }) {
           disabled={busy}
           onClick={send}
         >
-          {submitted ? 'Обновить отчёт' : 'Сдать день тренеру'}
+          {submitted ? t('Обновить отчёт') : t('Сдать день тренеру')}
         </button>
       </div>
     </>

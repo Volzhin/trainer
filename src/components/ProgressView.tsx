@@ -124,7 +124,7 @@ export function ProgressView({ userId }: { userId: string }) {
             <div className="t-body-strong">{t('Программа не назначена')}</div>
             <div className="mute-sm mt-1">
               {t(
-                'С программой прогресс считается по плану: видно, какие тренировки вы пропустили и какие упражнения растут, а какие стоят.',
+                t('С программой прогресс считается по плану: видно, какие тренировки вы пропустили и какие упражнения растут, а какие стоят.'),
               )}
             </div>
             <button className="btn block mt-3" onClick={() => nav('/programs')}>
@@ -138,7 +138,7 @@ export function ProgressView({ userId }: { userId: string }) {
         {report.plan && onlyProgram ? t('Упражнения программы') : t('Упражнения')}
       </div>
       <div className="mute-sm mb-3">
-        Рабочий вес в последней тренировке и изменение расчётного максимума за {periodLabel}.
+        {t('Рабочий вес в последней тренировке и изменение расчётного максимума за')} {periodLabel}.
       </div>
 
       {report.plan && (
@@ -173,7 +173,7 @@ export function ProgressView({ userId }: { userId: string }) {
           labels={report.weekly.map((w) => w.label)}
         />
         <div className="mute-sm mt-2 text-center">
-          Вес × повторения за неделю. Всего за {periodLabel} — {formatTonnage(report.volume)}
+          {t('Вес × повторения за неделю. Всего за')} {periodLabel} — {formatTonnage(report.volume)}
         </div>
       </div>
 
@@ -205,7 +205,7 @@ export function ProgressView({ userId }: { userId: string }) {
 
       <div className="section-title">{t('Личные рекорды')}</div>
       <div className="mute-sm mb-3">
-        Расчётный максимум на одно повторение — по формуле Эпли из лучшего подхода.
+        {t('Расчётный максимум на одно повторение — по формуле Эпли из лучшего подхода.')}
       </div>
       {report.records.length === 0 ? (
         <div className="empty compact">{t('Завершите первую тренировку')}</div>
@@ -219,7 +219,7 @@ export function ProgressView({ userId }: { userId: string }) {
             >
               <div className="grow truncate">{r.name}</div>
               <strong className="t-num" style={{ fontSize: 16 }}>
-                {Math.round(r.score)} кг
+                {Math.round(r.score)} {t('кг')}
               </strong>
               <span className="chevron">›</span>
             </button>
@@ -247,7 +247,7 @@ function PlanCard({ plan, onOpen }: { plan: PlanProgress; onOpen: () => void }) 
           <div className="grow">
             <div style={{ fontWeight: 700, fontSize: 17 }}>{plan.program.name}</div>
             <div className="mute-sm mt-1">
-              {plan.trainerName ? `от тренера · ${plan.trainerName}` : 'ваша программа'}
+              {plan.trainerName ? `${t('от тренера')} · ${plan.trainerName}` : t('ваша программа')}
             </div>
           </div>
           <span className={`tag${pct >= 80 ? ' accent' : ''}`}>{pct}%</span>
@@ -270,7 +270,7 @@ function PlanCard({ plan, onOpen }: { plan: PlanProgress; onOpen: () => void }) 
         <div className="row between mt-4 mb-2">
           <span className="mute-sm">{t('Сделано по плану')}</span>
           <span className="mute-sm t-num">
-            {plan.done} из {plan.planned}
+            {plan.done} {t('из')} {plan.planned}
           </span>
         </div>
         <div className="bar">
@@ -283,10 +283,10 @@ function PlanCard({ plan, onOpen }: { plan: PlanProgress; onOpen: () => void }) 
         </div>
         <div className="mute-sm mt-2">
           {missed === 0
-            ? 'План выполняется полностью.'
-            : `Пропущено ${missed} ${plural(missed, ['тренировка', 'тренировки', 'тренировок'])} из плана.`}
-          {' На этой неделе — '}
-          {plan.doneThisWeek} из {plan.weeklyTarget}.
+            ? t('План выполняется полностью.')
+            : `${t('Пропущено')} ${missed} ${plural(missed, ['тренировка', 'тренировки', 'тренировок'])} ${t('из плана.')}`}
+          {` ${t('На этой неделе')} — `}
+          {plan.doneThisWeek} {t('из')} {plan.weeklyTarget}.
         </div>
 
         {plan.byRoutine.length > 0 && (
@@ -314,7 +314,7 @@ function PlanCard({ plan, onOpen }: { plan: PlanProgress; onOpen: () => void }) 
         )}
 
         <button className="btn sm block mt-4" onClick={onOpen}>
-          Открыть программу
+          {t('Открыть программу')}
         </button>
       </div>
     </>
@@ -338,8 +338,8 @@ export function ExerciseRow({ row, onOpen }: { row: ExerciseProgress; onOpen: ()
         <div className="mute-sm truncate mt-1">
           {untouched
             ? row.routineNames.length
-              ? `${row.routineNames.join(' · ')} — ещё не выполнялось`
-              : 'ещё не выполнялось'
+              ? `${row.routineNames.join(' · ')} — ${t('ещё не выполнялось')}`
+              : t('ещё не выполнялось')
             : [
                 lastDate && formatDate(lastDate),
                 `${sessions} ${plural(sessions, ['тренировка', 'тренировки', 'тренировок'])}`,
@@ -354,7 +354,7 @@ export function ExerciseRow({ row, onOpen }: { row: ExerciseProgress; onOpen: ()
 
       <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
         <div className="t-num" style={{ fontSize: 15 }}>
-          {lastWeight != null ? `${formatWeight(lastWeight)} кг` : '—'}
+          {lastWeight != null ? `${formatWeight(lastWeight)} ${t('кг')}` : '—'}
           {lastReps ? <span className="mute-sm"> × {lastReps}</span> : null}
         </div>
         {deltaKg != null && deltaKg !== 0 && (
@@ -365,7 +365,7 @@ export function ExerciseRow({ row, onOpen }: { row: ExerciseProgress; onOpen: ()
               color: deltaKg > 0 ? 'var(--ok)' : 'var(--danger)',
             }}
           >
-            {deltaKg > 0 ? '↑' : '↓'} {Math.abs(deltaKg)} кг
+            {deltaKg > 0 ? '↑' : '↓'} {Math.abs(deltaKg)} {t('кг')}
           </div>
         )}
       </div>

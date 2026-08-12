@@ -92,20 +92,20 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
             )}
             <div className="row" style={{ gap: 8 }}>
               <button className="btn grow" onClick={() => setCreating(null)}>
-                Отмена
+                {t('Отмена')}
               </button>
               <button className="btn primary grow" onClick={create}>
-                Создать
+                {t('Создать')}
               </button>
             </div>
           </div>
         ) : (
           <div className="row" style={{ gap: 8 }}>
             <button className="btn grow" onClick={() => setCreating('CLIENT')}>
-              Новый клиент
+              {t('Новый клиент')}
             </button>
             <button className="btn grow" onClick={() => setCreating('TRAINER')}>
-              Новый тренер
+              {t('Новый тренер')}
             </button>
           </div>
         )}

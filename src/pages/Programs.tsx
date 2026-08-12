@@ -73,7 +73,7 @@ export function Programs() {
   const myCount = (programs ?? []).filter(isMine).length
 
   const onCreate = async () => {
-    const id = await createProgram(name.trim() || 'Моя программа')
+    const id = await createProgram(name.trim() || t('Моя программа'))
     await createRoutine(id, 'День 1')
     setName('')
     setCreateOpen(false)
@@ -128,7 +128,7 @@ export function Programs() {
               className={`chip${goal === g ? ' active' : ''}`}
               onClick={() => setGoal(g)}
             >
-              {g}
+              {t(g)}
             </button>
           ))}
         </div>
@@ -150,7 +150,7 @@ export function Programs() {
                 ? t('Программа от тренера скоро появится')
                 : tab === 'mine'
                   ? t(
-                      'Здесь появятся программы от тренера и отмеченные звёздочкой в каталоге. Свою можно собрать кнопкой «+».',
+                      t('Здесь появятся программы от тренера и отмеченные звёздочкой в каталоге. Свою можно собрать кнопкой «+».'),
                     )
                   : t('В этой категории пусто')}
             </div>
@@ -199,9 +199,9 @@ export function Programs() {
                         e.stopPropagation()
                         haptics.selection()
                         const added = await toggleFavoriteProgram(p.id)
-                        toast(added ? 'Добавлено в мои программы' : 'Убрано из моих программ')
+                        toast(added ? t('Добавлено в мои программы') : t('Убрано из моих программ'))
                       }}
-                      aria-label={starred ? 'Убрать из моих' : 'Добавить в мои'}
+                      aria-label={starred ? t('Убрать из моих') : t('Добавить в мои')}
                       aria-pressed={starred}
                     >
                       <IconStar size={17} filled={starred} />
@@ -228,7 +228,7 @@ export function Programs() {
                             haptics.impact()
                             const sid = await startSessionFromRoutine(d.id)
                             if (!sid) {
-                              toast('В этом дне пока нет упражнений')
+                              toast(t('В этом дне пока нет упражнений'))
                               return
                             }
                             nav(`/session/${sid}`)

@@ -429,7 +429,7 @@ function ActivityCard({ date, userId }: { date: string; userId: string }) {
       userId,
     })
     haptics.success()
-    toast('Записано')
+    toast(t('Записано'))
   }
 
   return (
@@ -467,7 +467,7 @@ function ActivityCard({ date, userId }: { date: string; userId: string }) {
         </div>
       ) : (
         <div className="mute-sm mt-3">
-          Вводится вручную — приложению в браузере шаги и сон не отдаёт ни одна система.
+          {t('Вводится вручную — приложению в браузере шаги и сон не отдаёт ни одна система.')}
         </div>
       )}
 
@@ -476,7 +476,7 @@ function ActivityCard({ date, userId }: { date: string; userId: string }) {
         disabled={!dirty || !valid}
         onClick={save}
       >
-        Сохранить
+        {t('Сохранить')}
       </button>
     </div>
   )
@@ -486,9 +486,9 @@ function ActivityCard({ date, userId }: { date: string; userId: string }) {
 
 /** Куда ведёт задание, если выполняется оно не текстом, а в другом разделе. */
 const TASK_ROUTE: Partial<Record<ClientTask['kind'], { to: string; label: string }>> = {
-  intake: { to: '/profile', label: 'Открыть профиль' },
-  measurements: { to: '/body', label: 'Открыть замеры' },
-  inbody: { to: '/body', label: 'Загрузить InBody' },
+  intake: { to: '/profile', label: t('Открыть профиль') },
+  measurements: { to: '/body', label: t('Открыть замеры') },
+  inbody: { to: '/body', label: t('Загрузить InBody') },
 }
 
 function TaskSheet({ task, onClose }: { task: ClientTask | null; onClose: () => void }) {
@@ -511,7 +511,7 @@ function TaskSheet({ task, onClose }: { task: ClientTask | null; onClose: () => 
     try {
       await completeTask(task.id, answer)
       haptics.success()
-      toast('Задание выполнено')
+      toast(t('Задание выполнено'))
       onClose()
     } finally {
       setBusy(false)
@@ -524,13 +524,13 @@ function TaskSheet({ task, onClose }: { task: ClientTask | null; onClose: () => 
 
       <div className="stack mt-4">
         <div className="field">
-          <label>{needsText ? 'Ваш ответ' : 'Комментарий тренеру, если нужен'}</label>
+          <label>{needsText ? t('Ваш ответ') : t('Комментарий тренеру, если нужен')}</label>
           <textarea
             className="textarea"
             style={needsText ? { minHeight: 160 } : undefined}
             value={answer}
             onChange={(e) => setAnswer(e.target.value)}
-            placeholder={needsText ? 'Пишите как есть — это для вас и для тренера' : ''}
+            placeholder={needsText ? t('Пишите как есть — это для вас и для тренера') : ''}
           />
         </div>
 
@@ -551,7 +551,7 @@ function TaskSheet({ task, onClose }: { task: ClientTask | null; onClose: () => 
           disabled={busy || (needsText && !answer.trim())}
           onClick={done}
         >
-          Готово
+          {t('Готово')}
         </button>
       </div>
     </Sheet>
@@ -594,7 +594,7 @@ function WorkoutReportSheet({
     try {
       await submitWorkoutReport(session.id, comment)
       haptics.success()
-      toast(submitted ? 'Отчёт обновлён' : 'Отчёт сдан')
+      toast(submitted ? t('Отчёт обновлён') : t('Отчёт сдан'))
       onClose()
     } finally {
       setBusy(false)
@@ -618,7 +618,7 @@ function WorkoutReportSheet({
           />
         </div>
         <button className="btn primary block" disabled={busy} onClick={send}>
-          {submitted ? 'Обновить отчёт' : 'Сдать тренировку'}
+          {submitted ? t('Обновить отчёт') : t('Сдать тренировку')}
         </button>
       </div>
     </Sheet>

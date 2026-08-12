@@ -229,7 +229,7 @@ function cellsFor(m: BodyMetric, key: keyof BodyMetric, unit: string): (string |
   const abs = unit ? `${round1(v)} ${unit}` : String(round1(v))
 
   if (key === 'body_fat_pct') {
-    return [`${round1(v)} %`, m.body_fat_kg != null ? `${round1(m.body_fat_kg)} кг` : null]
+    return [`${round1(v)} %`, m.body_fat_kg != null ? `${round1(m.body_fat_kg)} ${t('кг')}` : null]
   }
   if (AS_SHARE.includes(key)) {
     return [m.weight_kg ? `${round1((v / m.weight_kg) * 100)} %` : null, abs]
@@ -374,7 +374,7 @@ export function BodyCompositionView({
       try {
         parsed.push({ fileName: file.name, report: await parseInBodyPdf(file) })
       } catch (e) {
-        const error = e instanceof Error ? e.message : 'Не удалось разобрать PDF'
+        const error = e instanceof Error ? t(e.message) : t('Не удалось разобрать PDF')
         parsed.push({ fileName: file.name, error })
       }
       setProgress((prev) => (prev ? { ...prev, done: prev.done + 1 } : prev))
@@ -388,8 +388,8 @@ export function BodyCompositionView({
       // Разбирать нечего — показываем причину, а не пустой лист подтверждения.
       toast(
         parsed.length === 1
-          ? (parsed[0].error ?? 'Не удалось разобрать PDF')
-          : 'Ни один файл разобрать не удалось',
+          ? (parsed[0].error ?? t('Не удалось разобрать PDF'))
+          : t('Ни один файл разобрать не удалось'),
       )
     }
 
@@ -420,9 +420,9 @@ export function BodyCompositionView({
     setBusy(false)
     setPending(null)
     if (ordered.length === 1) {
-      toast(replaced ? 'Замер за эту дату обновлён' : 'Замер добавлен')
+      toast(replaced ? t('Замер за эту дату обновлён') : t('Замер добавлен'))
     } else {
-      const parts = [added && `добавлено ${added}`, replaced && `обновлено ${replaced}`]
+      const parts = [added && `${t('добавлено')} ${added}`, replaced && `${t('обновлено')} ${replaced}`]
       toast(parts.filter(Boolean).join(', '))
     }
   }
@@ -517,20 +517,20 @@ export function BodyCompositionView({
 
       <div className="row between" style={{ margin: '4px 0 10px' }}>
         <div className="mute-sm">
-          {latest ? `Замер от ${formatDate(latest.logged_at)}` : 'Замеров пока нет'}
+          {latest ? `${t('Замер от')} ${formatDate(latest.logged_at)}` : t('Замеров пока нет')}
         </div>
         {scans.length > 1 && (
           <button className="btn sm" onClick={() => setHistoryOpen(true)}>
-            Все замеры · {scans.length}
+            {t('Все замеры')} · {scans.length}
           </button>
         )}
       </div>
 
       {!latest && (
         <div className="card mb-3">
-          <div className="strong">{texts.emptyTitle}</div>
+          <div className="strong">{t(texts.emptyTitle)}</div>
           <div className="muted mt-1">
-            {texts.emptyHint}
+            {t(texts.emptyHint)}
           </div>
         </div>
       )}
@@ -539,14 +539,14 @@ export function BodyCompositionView({
         <div className="card">
           <BodyDonut
             parts={donutParts}
-            centerLabel="Вес"
-            centerValue={`${composed.weight_kg ?? '—'} кг`}
-            status={weightStatus ? STATUS_TEXT[weightStatus] : undefined}
+            centerLabel={t('Вес')}
+            centerValue={`${composed.weight_kg ?? '—'} ${t('кг')}`}
+            status={weightStatus ? t(STATUS_TEXT[weightStatus]) : undefined}
             statusKind={weightStatus}
           />
           {composed !== latest && (
             <div className="mute-sm" style={{ textAlign: 'center', marginTop: 12 }}>
-              Состав по замеру от {formatDate(composed.logged_at)}
+              {t('Состав по замеру от')} {formatDate(composed.logged_at)}
             </div>
           )}
         </div>
@@ -606,10 +606,10 @@ export function BodyCompositionView({
               className={segTab === 'muscle' ? 'on' : ''}
               onClick={() => setSegTab('muscle')}
             >
-              Мышцы
+              {t('Мышцы')}
             </button>
             <button className={segTab === 'fat' ? 'on' : ''} onClick={() => setSegTab('fat')}>
-              Жир
+              {t('Жир')}
             </button>
           </div>
           <div className="card">
@@ -622,7 +622,7 @@ export function BodyCompositionView({
             />
             {segmented !== latest && (
               <div className="mute-sm" style={{ textAlign: 'center', marginTop: 12 }}>
-                По замеру от {formatDate(segmented.logged_at)}
+                {t('По замеру от')} {formatDate(segmented.logged_at)}
               </div>
             )}
           </div>
@@ -642,15 +642,15 @@ export function BodyCompositionView({
                 aria-pressed={trendKeys.includes(r.key)}
                 onClick={() => toggleTrend(r.key)}
               >
-                {r.label}
+                {t(r.label)}
               </button>
             ))}
           </div>
           <div className="card">
             <LineChart
               data={trendPoints}
-              unit={trendRow.unit ? ` ${trendRow.unit}` : ''}
-              label={trendRow.label}
+              unit={trendRow.unit ? ` ${t(trendRow.unit)}` : ''}
+              label={t(trendRow.label)}
               norm={normFor(trendKey)}
               color={color1}
               second={
@@ -658,8 +658,8 @@ export function BodyCompositionView({
                   ? {
                       data: trendPoints2,
                       color: color2,
-                      unit: trendRow2.unit ? ` ${trendRow2.unit}` : '',
-                      label: trendRow2.label,
+                      unit: trendRow2.unit ? ` ${t(trendRow2.unit)}` : '',
+                      label: t(trendRow2.label),
                       norm: normFor(trendKey2),
                     }
                   : undefined
@@ -668,8 +668,8 @@ export function BodyCompositionView({
             {(!trendRow2 || !trendPoints2.length || trendPoints.length === 1) && (
               <div className="mute-sm mt-2">
                 {trendPoints.length === 1
-                  ? 'Нужен ещё один замер, чтобы увидеть тренд'
-                  : 'Нажмите вторую метрику, чтобы сравнить'}
+                  ? t('Нужен ещё один замер, чтобы увидеть тренд')
+                  : t('Нажмите вторую метрику, чтобы сравнить')}
               </div>
             )}
           </div>
@@ -692,10 +692,10 @@ export function BodyCompositionView({
                 <span className="grow">
                   <span className="title">{t('Оптимальный вес')}</span>
                   <span className="sub">
-                    По росту и балансу мышц, жира и воды
+                    {t('По росту и балансу мышц, жира и воды')}
                   </span>
                 </span>
-                <strong>{latest.optimal_weight_kg} кг</strong>
+                <strong>{latest.optimal_weight_kg} {t('кг')}</strong>
               </div>
             )}
             {latest.daily_kcal != null && (
@@ -706,35 +706,35 @@ export function BodyCompositionView({
                 <span className="grow">
                   <span className="title">{t('Приём калорий')}</span>
                   <span className="sub">
-                    Ежедневный
+                    {t('Ежедневный')}
                   </span>
                 </span>
-                <strong>{latest.daily_kcal} ккал</strong>
+                <strong>{latest.daily_kcal} {t('ккал')}</strong>
               </div>
             )}
             {macros && (
               <div className="group-row" style={{ display: 'block' }}>
                 <div className="sub mb-2">
-                  Разбивка по БЖУ · {Math.round(split.protein * 100)} /{' '}
-                  {Math.round(split.fat * 100)} / {Math.round(split.carbs * 100)} % калорий
+                  {t('Разбивка по БЖУ')} · {Math.round(split.protein * 100)} /{' '}
+                  {Math.round(split.fat * 100)} / {Math.round(split.carbs * 100)} % {t('калорий')}
                 </div>
                 <div className="metrics">
                   <div className="metric">
                     <div className="cap">{t('Белки')}</div>
                     <div className="num" style={{ fontSize: 18, color: 'var(--c-protein)' }}>
-                      {macros.protein} г
+                      {macros.protein} {t('г')}
                     </div>
                   </div>
                   <div className="metric">
                     <div className="cap">{t('Жиры')}</div>
                     <div className="num" style={{ fontSize: 18, color: 'var(--c-fat)' }}>
-                      {macros.fat} г
+                      {macros.fat} {t('г')}
                     </div>
                   </div>
                   <div className="metric">
                     <div className="cap">{t('Углеводы')}</div>
                     <div className="num" style={{ fontSize: 18, color: 'var(--c-muscle)' }}>
-                      {macros.carbs} г
+                      {macros.carbs} {t('г')}
                     </div>
                   </div>
                 </div>
@@ -761,7 +761,7 @@ export function BodyCompositionView({
               <Target label={t('Мышцы')} value={0} />
             </div>
             <div className="mute-sm mt-3">
-              Сколько осталось до оптимального веса при сохранении мышечной массы.
+              {t('Сколько осталось до оптимального веса при сохранении мышечной массы.')}
             </div>
           </div>
         </>
@@ -776,14 +776,14 @@ export function BodyCompositionView({
           >
             {busy
               ? progress && progress.total > 1
-                ? `Читаю ${progress.done + 1} из ${progress.total}…`
-                : 'Читаю отчёт…'
+                ? `${t('Читаю')} ${progress.done + 1} ${t('из')} ${progress.total}…`
+                : t('Читаю отчёт…')
               : latest
-                ? texts.uploadMore
-                : texts.uploadFirst}
+                ? t(texts.uploadMore)
+                : t(texts.uploadFirst)}
           </button>
           <button className="btn block mt-2" onClick={() => setManualOpen(true)}>
-            Ввести замер вручную
+            {t('Ввести замер вручную')}
           </button>
         </>
       )}
@@ -792,18 +792,18 @@ export function BodyCompositionView({
         open={manualOpen}
         userId={userId}
         onClose={() => setManualOpen(false)}
-        onSaved={(replaced) => toast(replaced ? 'Замер обновлён' : 'Замер добавлен')}
+        onSaved={(replaced) => toast(replaced ? t('Замер обновлён') : t('Замер добавлен'))}
       />
 
       <Sheet
         open={!!pending}
-        title={single ? 'Данные из отчёта' : `Отчёты · ${pending?.length ?? 0}`}
+        title={single ? t('Данные из отчёта') : `${t('Отчёты')} · ${pending?.length ?? 0}`}
         onClose={() => setPending(null)}
       >
         {single && (
           <div className="stack">
             <div className="muted">
-              Отчёт от {formatDate(single.report.measured_at)}
+              {t('Отчёт от')} {formatDate(single.report.measured_at)}
               {single.report.person ? ` · ${single.report.person}` : ''}
             </div>
             <div className="group">
@@ -815,10 +815,10 @@ export function BodyCompositionView({
               ))}
             </div>
             <button className="btn primary block" disabled={busy} onClick={confirmImport}>
-              {busy ? 'Сохраняю…' : 'Добавить замер'}
+              {busy ? t('Сохраняю…') : t('Добавить замер')}
             </button>
             <div className="mute-sm" style={{ textAlign: 'center' }}>
-              {texts.privacy}
+              {t(texts.privacy)}
             </div>
           </div>
         )}
@@ -840,10 +840,10 @@ export function BodyCompositionView({
                     <span className="sub">
                       {x.error ??
                         [
-                          x.report?.weight_kg != null && `${x.report.weight_kg} кг`,
+                          x.report?.weight_kg != null && `${x.report.weight_kg} ${t('кг')}`,
                           x.report?.skeletal_muscle_kg != null &&
-                            `мышцы ${x.report.skeletal_muscle_kg}`,
-                          x.report?.body_fat_pct != null && `жир ${x.report.body_fat_pct}%`,
+                            `${t('мышцы')} ${x.report.skeletal_muscle_kg}`,
+                          x.report?.body_fat_pct != null && `${t('жир')} ${x.report.body_fat_pct}%`,
                         ]
                           .filter(Boolean)
                           .join(' · ')}
@@ -854,8 +854,8 @@ export function BodyCompositionView({
             </div>
             {failedCount > 0 && (
               <div className="mute-sm">
-                {failedCount} {plural(failedCount, ['файл', 'файла', 'файлов'])} прочитать не
-                удалось — эти пропустим.
+                {failedCount} {plural(failedCount, ['файл', 'файла', 'файлов'])}{' '}
+                {t('прочитать не удалось — эти пропустим.')}
               </div>
             )}
             <button
@@ -863,10 +863,10 @@ export function BodyCompositionView({
               disabled={busy || readyCount === 0}
               onClick={confirmImport}
             >
-              {busy ? 'Сохраняю…' : `Добавить замеры · ${readyCount}`}
+              {busy ? t('Сохраняю…') : `${t('Добавить замеры')} · ${readyCount}`}
             </button>
             <div className="mute-sm" style={{ textAlign: 'center' }}>
-              {texts.privacy}
+              {t(texts.privacy)}
             </div>
           </div>
         )}
@@ -898,9 +898,9 @@ export function BodyCompositionView({
                 <span className="title">{formatDate(m.logged_at)}</span>
                 <span className="sub">
                   {[
-                    m.weight_kg != null && `${m.weight_kg} кг`,
-                    m.skeletal_muscle_kg != null && `мышцы ${m.skeletal_muscle_kg}`,
-                    m.body_fat_pct != null && `жир ${m.body_fat_pct}%`,
+                    m.weight_kg != null && `${m.weight_kg} ${t('кг')}`,
+                    m.skeletal_muscle_kg != null && `${t('мышцы')} ${m.skeletal_muscle_kg}`,
+                    m.body_fat_pct != null && `${t('жир')} ${m.body_fat_pct}%`,
                   ]
                     .filter(Boolean)
                     .join(' · ')}
@@ -910,7 +910,7 @@ export function BodyCompositionView({
                 className="icon-btn"
                 onClick={async () => {
                   await deleteBodyMetric(m.id)
-                  toast('Замер удалён')
+                  toast(t('Замер удалён'))
                 }}
                 aria-label={t('Удалить')}
               >
@@ -939,12 +939,12 @@ export function BodyCompositionView({
               setConfirmWipe(false)
               setHistoryOpen(false)
               haptics.success()
-              toast(`Удалено ${n} ${plural(n, ['замер', 'замера', 'замеров'])}`)
+              toast(`${t('Удалено')} ${n} ${plural(n, ['замер', 'замера', 'замеров'])}`)
             }}
           >
             {confirmWipe
-              ? 'Точно удалить? Вместе с ними исчезнет история веса'
-              : 'Удалить все замеры'}
+              ? t('Точно удалить? Вместе с ними исчезнет история веса')
+              : t('Удалить все замеры')}
           </button>
         )}
       </Sheet>
@@ -1024,7 +1024,7 @@ function MetricInfoSheet({
   const status = statusFor(value, norm)
 
   return (
-    <Sheet open={!!row} title={row?.label ?? ''} onClose={onClose}>
+    <Sheet open={!!row} title={row ? t(row.label) : ''} onClose={onClose}>
       {row && (
         <div className="stack">
           <div className="row between" style={{ alignItems: 'center' }}>
@@ -1034,23 +1034,23 @@ function MetricInfoSheet({
             <span style={{ fontWeight: 700, fontSize: 24, fontVariantNumeric: 'tabular-nums' }}>
               {value == null ? '—' : round1(value)}
               <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-3)' }}>
-                {row.unit ? ` ${row.unit}` : ''}
+                {row.unit ? ` ${t(row.unit)}` : ''}
               </span>
             </span>
           </div>
 
           {value != null && norm ? (
-            <NormScale value={value} norm={norm} unit={row.unit} status={status} />
+            <NormScale value={value} norm={norm} unit={t(row.unit)} status={status} />
           ) : (
             <div className="mute-sm">{t('Границы нормы в отчёте не указаны.')}</div>
           )}
 
           {info && (
             <>
-              <div>{info.what}</div>
+              <div>{t(info.what)}</div>
               <div>
                 <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                  Что влияет на {row.label.toLowerCase()}
+                  {t('Что влияет на')} {t(row.label).toLowerCase()}
                 </div>
                 <ul className="bullets">
                   {info.affects.map((x) => (
@@ -1071,7 +1071,7 @@ function Target({ label, value }: { label: string; value?: number }) {
     <div className="metric">
       <div className="cap">{label}</div>
       <div className="num" style={{ fontSize: 22 }}>
-        {value == null ? '—' : `${value > 0 ? '+' : ''}${value} кг`}
+        {value == null ? '—' : `${value > 0 ? '+' : ''}${value} ${t('кг')}`}
       </div>
     </div>
   )
@@ -1117,10 +1117,10 @@ function MetricRow({
         <row.Icon size={20} />
       </span>
       <span className="grow">
-        <span className="title">{row.label}</span>
+        <span className="title">{t(row.label)}</span>
         {status && (
           <span style={{ display: 'block', marginTop: 3 }}>
-            <span className={`status ${status}`}>{STATUS_TEXT[status]}</span>
+            <span className={`status ${status}`}>{t(STATUS_TEXT[status])}</span>
           </span>
         )}
       </span>
@@ -1128,7 +1128,7 @@ function MetricRow({
         <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
           {shown}
           <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-3)' }}>
-            {row.unit ? ` ${row.unit}` : ''}
+            {row.unit ? ` ${t(row.unit)}` : ''}
           </span>
         </span>
         {diff != null && diff !== 0 && (
@@ -1168,7 +1168,7 @@ export function metricRows(m: Partial<BodyMetric>): [string, string][] {
   ]
   return rows
     .filter(([, , v]) => v != null)
-    .map(([label, unit, v]) => [label, `${v}${unit ? ` ${unit}` : ''}`])
+    .map(([label, unit, v]) => [t(label), `${v}${unit ? ` ${t(unit)}` : ''}`])
 }
 
 /**
@@ -1343,10 +1343,10 @@ export function ManualMeasurementSheet({
           {girthFields.map((f) => (
             <div className="group-row" key={f.key}>
               <span className="grow">
-                <span className="title">{f.label}</span>
+                <span className="title">{t(f.label)}</span>
                 {f.hint && (
                   <span className="sub">
-                    {f.hint}
+                    {t(f.hint)}
                   </span>
                 )}
               </span>
@@ -1369,17 +1369,17 @@ export function ManualMeasurementSheet({
 
         {!heightCm && (
           <div className="mute-sm" style={{ color: 'var(--warn)' }}>
-            Без роста процент жира по обхватам не посчитать — укажите его выше.
+            {t('Без роста процент жира по обхватам не посчитать — укажите его выше.')}
           </div>
         )}
         {heightCm && !neckCm && (
           <div className="mute-sm" style={{ color: 'var(--warn)' }}>
-            Без обхвата шеи процент жира не посчитать — укажите его в настройках профиля.
+            {t('Без обхвата шеи процент жира не посчитать — укажите его в настройках профиля.')}
           </div>
         )}
         {heightCm && sex === 'ж' && !num('hip_cm') && (
           <div className="mute-sm" style={{ color: 'var(--warn)' }}>
-            Для женской формулы нужен обхват таза: без него расчёт занижает жир.
+            {t('Для женской формулы нужен обхват таза: без него расчёт занижает жир.')}
           </div>
         )}
 
@@ -1419,10 +1419,10 @@ export function ManualMeasurementSheet({
           disabled={busy || (!values.weight_kg && derived.bodyFatPct == null)}
           onClick={submit}
         >
-          Сохранить замер
+          {t('Сохранить замер')}
         </button>
         <div className="mute-sm" style={{ textAlign: 'center' }}>
-          Достаточно веса. Обхваты дадут состав тела без весов с биоимпедансом.
+          {t('Достаточно веса. Обхваты дадут состав тела без весов с биоимпедансом.')}
         </div>
       </div>
     </Sheet>

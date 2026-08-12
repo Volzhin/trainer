@@ -103,7 +103,7 @@ export function LiveSession() {
     return new Map(
       items.map((i) => {
         const reps = formatReps(i.target_reps, i.target_reps_max)
-        return [i.exercise_id, reps ? `${i.target_sets} × ${reps}` : `${i.target_sets} подх.`]
+        return [i.exercise_id, reps ? `${i.target_sets} × ${reps}` : `${i.target_sets} ${t('подх.')}`]
       }),
     )
   }, [session?.routine_id])
@@ -293,7 +293,7 @@ export function LiveSession() {
             </div>
             <div className="mute-sm">
               <Stopwatch from={session.start_time} stopped={frozenElapsed} /> · {doneCount}{' '}
-              {plural(doneCount, ['подход', 'подхода', 'подходов'])} · {Math.round(volume)} кг
+              {plural(doneCount, ['подход', 'подхода', 'подходов'])} · {Math.round(volume)} {t('кг')}
             </div>
           </div>
           <button
@@ -363,7 +363,7 @@ export function LiveSession() {
               <button
                 className="icon-btn"
                 onClick={() => setTechniqueFor(block.exercise.id)}
-                aria-label={`Техника: ${block.exercise.name}`}
+                aria-label={`${t('Техника')}: ${block.exercise.name}`}
                 title={t('Как делать')}
               >
                 <IconInfo size={17} />
@@ -371,7 +371,7 @@ export function LiveSession() {
               <button
                 className="icon-btn"
                 onClick={() => setStatsFor(block.exercise)}
-                aria-label={`Статистика: ${block.exercise.name}`}
+                aria-label={`${t('Статистика')}: ${block.exercise.name}`}
                 title={t('Статистика по подходам')}
               >
                 <IconChart size={17} />
@@ -410,7 +410,7 @@ export function LiveSession() {
                   не введено ни веса, ни повторов, нечего. */}
               <button
                 className={`check sm${block.sets.every((x) => x.is_done) ? ' on' : ''}`}
-                aria-label={`Отметить всё: ${block.exercise.name}`}
+                aria-label={`${t('Отметить всё')}: ${block.exercise.name}`}
                 onClick={() => void onToggleBlock(block)}
               >
                 <IconCheck size={15} />
@@ -514,7 +514,7 @@ export function LiveSession() {
             <div className="label">{t('длительность')}</div>
           </div>
           <div className="stat">
-            <div className="value">{Math.round(volume)} кг</div>
+            <div className="value">{Math.round(volume)} {t('кг')}</div>
             <div className="label">{t('тоннаж')}</div>
           </div>
         </div>
@@ -525,8 +525,7 @@ export function LiveSession() {
           <>
             <div className="field-group-title">{t('Видеоотчёт тренеру')}</div>
             <div className="mute-sm mb-3">
-              Необязательно. Можно пропустить и прикрепить позже — тренировка останется в
-              истории.
+              {t('Необязательно. Можно пропустить и прикрепить позже — тренировка останется в истории.')}
             </div>
             <div className="finish-videos">
               {doneBlocks.map((block) => (
@@ -566,21 +565,20 @@ export function LiveSession() {
               borderLeft: '2px solid var(--danger)',
             }}
           >
-            Ни один подход не отмечен галочкой — сохранять нечего, и в календаре тренировка не
-            появится. Отметьте выполненные подходы и завершите снова.
+            {t('Ни один подход не отмечен галочкой — сохранять нечего, и в календаре тренировка не появится. Отметьте выполненные подходы и завершите снова.')}
           </div>
         )}
         <div className="stack">
           <button className="btn success block" onClick={onFinish}>
-            {doneCount === 0 ? 'Выйти без сохранения' : 'Завершить тренировку'}
+            {doneCount === 0 ? t('Выйти без сохранения') : t('Завершить тренировку')}
           </button>
           <button className="btn ghost danger block" onClick={onDiscard}>
-            Отменить тренировку
+            {t('Отменить тренировку')}
           </button>
         </div>
         {doneCount > 0 && (
           <div className="mute-sm" style={{ marginTop: 12, textAlign: 'center' }}>
-            Неотмеченные подходы не попадут в статистику.
+            {t('Неотмеченные подходы не попадут в статистику.')}
           </div>
         )}
       </Sheet>
@@ -687,11 +685,11 @@ function SetRow({
             {set.is_pr === 1 && (
               <span className="badge pr">
                 <IconRecord size={11} />
-                Личный рекорд
+                {t('Личный рекорд')}
               </span>
             )}
             {oneRm > 0 && (
-              <span style={{ marginLeft: set.is_pr ? 8 : 0 }}>1ПМ ≈ {oneRm} кг</span>
+              <span style={{ marginLeft: set.is_pr ? 8 : 0 }}>{t('1ПМ')} ≈ {oneRm} {t('кг')}</span>
             )}
           </div>
         )}

@@ -46,7 +46,7 @@ export function MeasurementEntry({ userId }: { userId: string }) {
       } catch (e) {
         parsed.push({
           fileName: file.name,
-          error: e instanceof Error ? e.message : 'Не удалось разобрать PDF',
+          error: e instanceof Error ? t(e.message) : t('Не удалось разобрать PDF'),
         })
       }
       setProgress((prev) => (prev ? { ...prev, done: prev.done + 1 } : prev))
@@ -59,8 +59,8 @@ export function MeasurementEntry({ userId }: { userId: string }) {
       // Разбирать нечего — показываем причину, а не пустой лист подтверждения.
       toast(
         parsed.length === 1
-          ? (parsed[0].error ?? 'Не удалось разобрать PDF')
-          : 'Ни один файл разобрать не удалось',
+          ? (parsed[0].error ?? t('Не удалось разобрать PDF'))
+          : t('Ни один файл разобрать не удалось'),
       )
     }
 
@@ -91,9 +91,9 @@ export function MeasurementEntry({ userId }: { userId: string }) {
     setBusy(false)
     setPending(null)
     if (ordered.length === 1) {
-      toast(replaced ? 'Замер за эту дату обновлён' : 'Замер добавлен')
+      toast(replaced ? t('Замер за эту дату обновлён') : t('Замер добавлен'))
     } else {
-      const parts = [added && `добавлено ${added}`, replaced && `обновлено ${replaced}`]
+      const parts = [added && `${t('добавлено')} ${added}`, replaced && `${t('обновлено')} ${replaced}`]
       toast(parts.filter(Boolean).join(', '))
     }
   }
@@ -128,8 +128,8 @@ export function MeasurementEntry({ userId }: { userId: string }) {
             <span className="title">
               {busy
                 ? progress && progress.total > 1
-                  ? `Читаю ${progress.done + 1} из ${progress.total}…`
-                  : 'Читаю отчёт…'
+                  ? `${t('Читаю')} ${progress.done + 1} ${t('из')} ${progress.total}…`
+                  : t('Читаю отчёт…')
                 : t('Сдать InBody')}
             </span>
             <span className="sub">{t('PDF из зала — можно выбрать сразу несколько')}</span>
@@ -141,12 +141,12 @@ export function MeasurementEntry({ userId }: { userId: string }) {
         open={manualOpen}
         userId={userId}
         onClose={() => setManualOpen(false)}
-        onSaved={(replaced) => toast(replaced ? 'Замер обновлён' : 'Замер добавлен')}
+        onSaved={(replaced) => toast(replaced ? t('Замер обновлён') : t('Замер добавлен'))}
       />
 
       <Sheet
         open={!!pending}
-        title={single ? 'Данные из отчёта' : `Отчёты · ${pending?.length ?? 0}`}
+        title={single ? t('Данные из отчёта') : `${t('Отчёты')} · ${pending?.length ?? 0}`}
         onClose={() => setPending(null)}
       >
         {single && (
@@ -164,9 +164,9 @@ export function MeasurementEntry({ userId }: { userId: string }) {
               ))}
             </div>
             <button className="btn primary block" disabled={busy} onClick={confirmImport}>
-              {busy ? 'Сохраняю…' : 'Добавить замер'}
+              {busy ? t('Сохраняю…') : t('Добавить замер')}
             </button>
-            <div className="mute-sm text-center">{PRIVACY}</div>
+            <div className="mute-sm text-center">{t(PRIVACY)}</div>
           </div>
         )}
 
@@ -184,8 +184,8 @@ export function MeasurementEntry({ userId }: { userId: string }) {
                     <span className="sub">
                       {x.error ??
                         [
-                          x.report?.weight_kg != null && `${x.report.weight_kg} кг`,
-                          x.report?.body_fat_pct != null && `жир ${x.report.body_fat_pct}%`,
+                          x.report?.weight_kg != null && `${x.report.weight_kg} ${t('кг')}`,
+                          x.report?.body_fat_pct != null && `${t('жир')} ${x.report.body_fat_pct}%`,
                         ]
                           .filter(Boolean)
                           .join(' · ')}
@@ -199,9 +199,9 @@ export function MeasurementEntry({ userId }: { userId: string }) {
               disabled={busy || readyCount === 0}
               onClick={confirmImport}
             >
-              {busy ? 'Сохраняю…' : `Добавить замеры · ${readyCount}`}
+              {busy ? t('Сохраняю…') : `${t('Добавить замеры')} · ${readyCount}`}
             </button>
-            <div className="mute-sm text-center">{PRIVACY}</div>
+            <div className="mute-sm text-center">{t(PRIVACY)}</div>
           </div>
         )}
       </Sheet>

@@ -69,10 +69,10 @@ export function MyTrainerCard() {
     try {
       const name = await redeemInvite(code, userId, consents)
       haptics.success()
-      toast(`Тренер ${name} подключён`)
+      toast(`${t('Тренер')} ${name} ${t('подключён')}`)
       close()
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Не удалось подключить тренера')
+      toast(e instanceof Error ? t(e.message) : t('Не удалось подключить тренера'))
     } finally {
       setBusy(false)
     }
@@ -89,7 +89,7 @@ export function MyTrainerCard() {
   const unlink = async () => {
     if (!bond) return
     await removeLink(bond.link.id)
-    toast('Тренер отключён')
+    toast(t('Тренер отключён'))
   }
 
   return (
@@ -103,7 +103,7 @@ export function MyTrainerCard() {
               <div className="grow">
                 <div className="strong">{bond.trainer.name}</div>
                 <div className="mute-sm">
-                  {bond.trainer.specialization ?? 'Персональный тренер'}
+                  {bond.trainer.specialization ?? t('Персональный тренер')}
                 </div>
               </div>
             </div>
@@ -111,31 +111,29 @@ export function MyTrainerCard() {
               <ContactLinks
                 profile={bond.trainer}
                 title={t('Написать')}
-                emptyHint="Тренер ещё не указал, где с ним связаться."
+                emptyHint={t('Тренер ещё не указал, где с ним связаться.')}
               />
             </div>
             <div className="mute-sm mt-3">
-              Тренер видит вашу историю тренировок, прогресс и замеры тела. Личные настройки
-              приложения и другие тренеры ему недоступны.
+              {t('Тренер видит вашу историю тренировок, прогресс и замеры тела. Личные настройки приложения и другие тренеры ему недоступны.')}
             </div>
             <button
               className="btn ghost danger block mt-3"
               onClick={unlink}
             >
-              Отключить тренера
+              {t('Отключить тренера')}
             </button>
           </>
         ) : (
           <>
             <div className="muted">
-              Есть код от тренера? Введите его — тренер сможет назначать вам программы и
-              комментировать тренировки.
+              {t('Есть код от тренера? Введите его — тренер сможет назначать вам программы и комментировать тренировки.')}
             </div>
             <button
               className="btn primary block mt-3"
               onClick={() => setOpen(true)}
             >
-              Ввести код тренера
+              {t('Ввести код тренера')}
             </button>
           </>
         )}
@@ -143,7 +141,7 @@ export function MyTrainerCard() {
 
       <Sheet
         open={open}
-        title={step === 'code' ? 'Код тренера' : 'Условия работы'}
+        title={step === 'code' ? t('Код тренера') : t('Условия работы')}
         onClose={close}
       >
         {step === 'code' ? (
@@ -173,7 +171,7 @@ export function MyTrainerCard() {
                   setDocs(res.documents ?? [])
                   setStep('consent')
                 } catch (e) {
-                  toast(e instanceof Error ? e.message : t('Код не найден'))
+                  toast(e instanceof Error ? t(e.message) : t('Код не найден'))
                 } finally {
                   setChecking(false)
                 }
@@ -187,7 +185,7 @@ export function MyTrainerCard() {
               <IconCamera size={16} /> {t('Сканировать QR')}
             </button>
             <div className="mute-sm" style={{ textAlign: 'center' }}>
-              Подключая тренера, вы открываете ему доступ к своей истории тренировок.
+              {t('Подключая тренера, вы открываете ему доступ к своей истории тренировок.')}
             </div>
           </div>
         ) : (

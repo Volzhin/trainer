@@ -21,10 +21,10 @@ export function CustomFoodForm({
   initial,
   initialName,
   barcode,
-  submitLabel = 'Сохранить продукт',
+  submitLabel = t('Сохранить продукт'),
   onSubmit,
   onCancel,
-  cancelLabel = 'Назад',
+  cancelLabel = t('Назад'),
 }: {
   /** Заполненный продукт — режим правки. */
   initial?: FoodItem
@@ -117,10 +117,10 @@ export function CustomFoodForm({
         <label>{t('Считаем на 100')}</label>
         <div className="segmented">
           <button className={unit === 'г' ? 'on' : ''} onClick={() => setUnit('г')}>
-            граммов
+            {t('граммов')}
           </button>
           <button className={unit === 'мл' ? 'on' : ''} onClick={() => setUnit('мл')}>
-            миллилитров
+            {t('миллилитров')}
           </button>
         </div>
       </div>
@@ -132,13 +132,13 @@ export function CustomFoodForm({
       </div>
 
       <div className="field">
-        <label>Калории на 100 {unit}</label>
+        <label>{t('Калории на 100')} {t(unit)}</label>
         <input
           className="input"
           inputMode="numeric"
           value={kcal}
           onChange={(e) => setKcal(e.target.value)}
-          placeholder={computedKcal ? `${computedKcal} — посчитаем сами` : '0'}
+          placeholder={computedKcal ? `${computedKcal} — ${t('посчитаем сами')}` : '0'}
         />
         {mismatch ? (
           <div className="mute-sm" style={{ marginTop: 8, color: 'var(--warn)' }}>
@@ -160,7 +160,7 @@ export function CustomFoodForm({
 
       <div className="row" style={{ gap: 8 }}>
         <div className="field grow">
-          <label>Порция, {unit}</label>
+          <label>{t('Порция')}, {t(unit)}</label>
           <input
             className="input"
             inputMode="decimal"
@@ -188,14 +188,14 @@ export function CustomFoodForm({
         </div>
       ) : (
         <button className="btn ghost sm block" onClick={() => setMore(true)}>
-          Клетчатка, сахар, натрий
+          {t('Клетчатка, сахар, натрий')}
         </button>
       )}
 
-      {barcode && <div className="mute-sm">Штрихкод: {barcode}</div>}
+      {barcode && <div className="mute-sm">{t('Штрихкод')}: {barcode}</div>}
 
       <button className="btn primary block" disabled={!valid || busy} onClick={submit}>
-        {busy ? 'Сохраняю…' : submitLabel}
+        {busy ? t('Сохраняю…') : submitLabel}
       </button>
       <button className="btn ghost block" onClick={onCancel}>
         {cancelLabel}

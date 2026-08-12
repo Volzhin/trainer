@@ -48,7 +48,7 @@ export function Home() {
         </div>
         {!online && (
           <span className="offline-pill">
-            <i className="dot" /> оффлайн
+            <i className="dot" /> {t('оффлайн')}
           </span>
         )}
       </div>
@@ -100,7 +100,8 @@ export function Home() {
                 а не только сколько раз. */}
             {assigned.assignment.schedule?.length ? (
               <div className="weekday-row mt-4">
-                {['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'].map((label, wd) => {
+                {['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'].map((rawLabel, wd) => {
+                  const label = t(rawLabel)
                   const on = assigned.assignment.schedule?.some((sl) => sl.weekday === wd)
                   return (
                     <div key={wd} className={`weekday${on ? ' on' : ''}`}>

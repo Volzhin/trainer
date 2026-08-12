@@ -33,8 +33,8 @@ export function ExerciseTechniqueSheet({
           <ExerciseMedia exercise={exercise} />
 
           <div className="tagline" style={{ marginTop: 0 }}>
-            <span className="tag accent">{exercise.muscle_group}</span>
-            <span className="tag">{exercise.equipment}</span>
+            <span className="tag accent">{t(exercise.muscle_group)}</span>
+            <span className="tag">{t(exercise.equipment)}</span>
             {exercise.exercise_type && <span className="tag">{exercise.exercise_type}</span>}
           </div>
 
@@ -56,7 +56,7 @@ export function ExerciseTechniqueSheet({
           {exercise.restrictions && exercise.restrictions.length > 0 && (
             <div className="card" style={{ borderColor: 'var(--warn)' }}>
               <div className="mute-sm" style={{ color: 'var(--warn)', marginBottom: 4 }}>
-                Ограничения
+                {t('Ограничения')}
               </div>
               {exercise.restrictions.map((r) => (
                 <div key={r} style={{ fontSize: 14 }}>

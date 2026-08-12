@@ -8,6 +8,7 @@ import {
   type ThemePref,
 } from '../db/db'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
 
 const ACCENTS: [AccentPref, string][] = [
   ['lime', 'Лаймовый'],
@@ -57,7 +58,7 @@ export function ThemePicker() {
       </div>
 
       <div className="mute-sm" style={{ margin: '12px 0 8px' }}>
-        Акцент
+        {t('Акцент')}
       </div>
       <div className="segmented">
         {ACCENTS.map(([value, label]) => (

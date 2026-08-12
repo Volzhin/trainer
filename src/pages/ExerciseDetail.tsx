@@ -71,8 +71,8 @@ export function ExerciseDetail() {
       </div>
 
       <div className="tagline" style={{ marginBottom: 16, marginTop: -6 }}>
-        <span className="tag accent">{exercise.muscle_group}</span>
-        <span className="tag">{exercise.equipment}</span>
+        <span className="tag accent">{t(exercise.muscle_group)}</span>
+        <span className="tag">{t(exercise.equipment)}</span>
         {exercise.exercise_type && <span className="tag">{exercise.exercise_type}</span>}
         {(exercise.sports ?? []).map((s) => (
           <span className="tag" key={s}>
@@ -116,7 +116,7 @@ export function ExerciseDetail() {
       {exercise.restrictions && exercise.restrictions.length > 0 && (
         <div className="card" style={{ marginTop: 12, borderColor: 'var(--warn)' }}>
           <div className="mute-sm" style={{ color: 'var(--warn)', marginBottom: 4 }}>
-            Ограничения
+            {t('Ограничения')}
           </div>
           {exercise.restrictions.map((r) => (
             <div key={r} style={{ fontSize: 14 }}>

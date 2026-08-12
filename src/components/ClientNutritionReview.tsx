@@ -132,10 +132,10 @@ function TargetsLine({
 }) {
   const parts = targets
     ? [
-        targets.kcal && `${targets.kcal} ккал`,
-        targets.protein && `Б ${targets.protein}`,
-        targets.fat && `Ж ${targets.fat}`,
-        targets.carbs && `У ${targets.carbs}`,
+        targets.kcal && `${targets.kcal} ${t('ккал')}`,
+        targets.protein && `${t('Б')} ${targets.protein}`,
+        targets.fat && `${t('Ж')} ${targets.fat}`,
+        targets.carbs && `${t('У')} ${targets.carbs}`,
         targets.steps && `${targets.steps} ${t('шагов')}`,
       ].filter(Boolean)
     : []
@@ -221,10 +221,10 @@ function NutritionDayFacts({
             {hasManual && (
               <div className="mute-sm mb-1">{t('Из счётчика клиента')}</div>
             )}
-            {row(t('Калории'), Math.round(eaten.kcal), targets?.kcal, ' ккал')}
-            {row(t('Белки'), Math.round(eaten.protein), targets?.protein, ' г')}
-            {row(t('Жиры'), Math.round(eaten.fat), targets?.fat, ' г')}
-            {row(t('Углеводы'), Math.round(eaten.carbs), targets?.carbs, ' г')}
+            {row(t('Калории'), Math.round(eaten.kcal), targets?.kcal, ` ${t('ккал')}`)}
+            {row(t('Белки'), Math.round(eaten.protein), targets?.protein, ` ${t('г')}`)}
+            {row(t('Жиры'), Math.round(eaten.fat), targets?.fat, ` ${t('г')}`)}
+            {row(t('Углеводы'), Math.round(eaten.carbs), targets?.carbs, ` ${t('г')}`)}
           </>
         )
       })()}
@@ -258,7 +258,7 @@ const sleepLabel = (m?: number) => {
   if (!m) return '—'
   const h = Math.floor(m / 60)
   const rest = m % 60
-  return rest ? `${h} ч ${rest} мин` : `${h} ч`
+  return rest ? `${h} ${t('ч')} ${rest} ${t('мин')}` : `${h} ${t('ч')}`
 }
 
 
@@ -280,7 +280,7 @@ function WeeklyStatsBlock({ clientId, open }: { clientId: string; open: boolean 
     <div className="card">
       <div className="mute-sm mb-2">{t('Вес за две недели')}</div>
       {stats.weightPoints.length >= 2 ? (
-        <LineChart data={stats.weightPoints} unit=" кг" height={90} />
+        <LineChart data={stats.weightPoints} unit={` ${t('кг')}`} height={90} />
       ) : (
         <div className="mute-sm">{t('Взвешиваний за две недели меньше двух — графика нет.')}</div>
       )}
@@ -290,7 +290,7 @@ function WeeklyStatsBlock({ clientId, open }: { clientId: string; open: boolean 
         <span className="figures strong">
           {stats.weightAvgPrev == null || stats.weightAvgLast == null
             ? '—'
-            : `${stats.weightAvgPrev} → ${stats.weightAvgLast} кг`}
+            : `${stats.weightAvgPrev} → ${stats.weightAvgLast} ${t('кг')}`}
         </span>
       </div>
       <div className="row between mt-1">
@@ -346,7 +346,7 @@ function WeeklyStatsBlock({ clientId, open }: { clientId: string; open: boolean 
         <div className="group-row">
           <span className="grow title">{t('Сытость')}</span>
           <span className="value figures">
-            {stats.avgSatiety == null ? '—' : `${stats.avgSatiety} из 5`}
+            {stats.avgSatiety == null ? '—' : `${stats.avgSatiety} ${t('из')} 5`}
           </span>
         </div>
       </div>
@@ -553,13 +553,13 @@ function TargetsSheet({
         </div>
 
         <div className="row" style={{ gap: 8 }}>
-          {field('kcal', 'Ккал')}
-          {field('steps', 'Шаги')}
+          {field('kcal', t('Ккал'))}
+          {field('steps', t('Шаги'))}
         </div>
         <div className="row" style={{ gap: 8 }}>
-          {field('protein', 'Белки, г')}
-          {field('fat', 'Жиры, г')}
-          {field('carbs', 'Углеводы, г')}
+          {field('protein', t('Белки, г'))}
+          {field('fat', t('Жиры, г'))}
+          {field('carbs', t('Углеводы, г'))}
         </div>
 
         <div className="field">
@@ -573,7 +573,7 @@ function TargetsSheet({
         </div>
 
         <button className="btn primary block" disabled={busy} onClick={save}>
-          Выдать цели
+          {t('Выдать цели')}
         </button>
       </div>
     </Sheet>

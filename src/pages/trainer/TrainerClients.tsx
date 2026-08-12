@@ -125,8 +125,7 @@ export function TrainerClients() {
         <div className="card" style={{ borderColor: 'var(--accent)' }}>
           <div className="strong">{t('Подписка не оформлена')}</div>
           <div className="mute-sm mt-1">
-            Набирать клиентов и назначать программы можно только с подпиской. Те, кто уже с
-            вами, никуда не денутся — их история и переписка на месте.
+            {t('Набирать клиентов и назначать программы можно только с подпиской. Те, кто уже с вами, никуда не денутся — их история и переписка на месте.')}
           </div>
           <button className="btn primary block mt-3" onClick={() => nav('/trainer/profile')}>
             {t('Оформить подписку')}
@@ -196,7 +195,7 @@ export function TrainerClients() {
                     </span>
                     <span className="row" style={{ gap: 6 }}>
                       {(pending?.get(c.client.id) ?? 0) > 0 && (
-                        <span className="badge pro">{pending?.get(c.client.id)} на разбор</span>
+                        <span className="badge pro">{pending?.get(c.client.id)} {t('на разбор')}</span>
                       )}
                     </span>
                   </div>
@@ -341,7 +340,7 @@ function ChatButton({
       className={`chat-btn${count > 0 ? ' unread' : ''}`}
       onClick={onOpen}
       aria-label={
-        count > 0 ? `Чат с ${name}, непрочитанных: ${count}` : `Написать ${name}`
+        count > 0 ? `${t('Чат с')} ${name}, ${t('непрочитанных')}: ${count}` : `${t('Написать')} ${name}`
       }
     >
       <IconChat size={20} />
@@ -368,9 +367,9 @@ function InviteSheet({
     try {
       const code = await createInvite(userId)
       haptics.success()
-      onToast(`Код ${code} готов — передайте клиенту`)
+      onToast(`${t('Код')} ${code} ${t('готов — передайте клиенту')}`)
     } catch (e) {
-      onToast(e instanceof Error ? e.message : 'Не удалось создать код')
+      onToast(e instanceof Error ? t(e.message) : t('Не удалось создать код'))
     } finally {
       setBusy(false)
     }
@@ -381,7 +380,7 @@ function InviteSheet({
       await navigator.clipboard.writeText(code)
       onToast(t('Код скопирован'))
     } catch {
-      onToast(`Код: ${code}`)
+      onToast(`${t('Код')}: ${code}`)
     }
   }
 
@@ -389,8 +388,7 @@ function InviteSheet({
     <Sheet open={open} title={t('Пригласить клиента')} onClose={onClose}>
       <div className="stack">
         <div className="muted">
-          Передайте код клиенту — он вводит его в своём профиле в разделе «Тренер». Код
-          одноразовый и действует 7 дней.
+          {t('Передайте код клиенту — он вводит его в своём профиле в разделе «Тренер». Код одноразовый и действует 7 дней.')}
         </div>
 
         <button className="btn primary block" disabled={busy} onClick={generate}>

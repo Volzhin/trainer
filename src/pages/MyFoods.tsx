@@ -49,13 +49,12 @@ export function MyFoods() {
       </div>
 
       <button className="btn primary block" onClick={() => setCreating(true)}>
-        <IconPlus size={18} /> Создать продукт
+        <IconPlus size={18} /> {t('Создать продукт')}
       </button>
 
       {(foods ?? []).length === 0 ? (
         <div className="empty mt-4">
-          Пока пусто. Заведите домашнее блюдо или товар, которого нет в базе, — дальше он будет
-          подставляться в дневник в одно нажатие.
+          {t('Пока пусто. Заведите домашнее блюдо или товар, которого нет в базе, — дальше он будет подставляться в дневник в одно нажатие.')}
         </div>
       ) : (
         <div className="group mt-4">
@@ -73,9 +72,9 @@ export function MyFoods() {
                   </span>
                   <span className="sub">
                     {f.brand ? `${f.brand} · ` : ''}
-                    {f.per100.kcal} ккал · Б {f.per100.protein} · Ж {f.per100.fat} · У{' '}
-                    {f.per100.carbs} на 100 {f.unit}
-                    {used > 0 ? ` · в дневнике ${used}` : ''}
+                    {f.per100.kcal} {t('ккал')} · {t('Б')} {f.per100.protein} · {t('Ж')} {f.per100.fat} · {t('У')}{' '}
+                    {f.per100.carbs} {t('на 100')} {t(f.unit)}
+                    {used > 0 ? ` · ${t('в дневнике')} ${used}` : ''}
                   </span>
                 </button>
                 <button
@@ -84,7 +83,7 @@ export function MyFoods() {
                   onClick={async () => {
                     await deleteCustomFood(f.id)
                     haptics.impact()
-                    toast('Продукт удалён — записи в дневнике остались')
+                    toast(t('Продукт удалён — записи в дневнике остались'))
                   }}
                 >
                   <IconTrash size={15} />
@@ -96,19 +95,18 @@ export function MyFoods() {
       )}
 
       <div className="mute-sm mt-3">
-        Записи в дневнике хранят копию состава на момент добавления, поэтому правки и удаление
-        продукта не меняют прошлые дни.
+        {t('Записи в дневнике хранят копию состава на момент добавления, поэтому правки и удаление продукта не меняют прошлые дни.')}
       </div>
 
       <Sheet open={creating} title={t('Новый продукт')} onClose={() => setCreating(false)}>
         {creating && (
           <CustomFoodForm
             onCancel={() => setCreating(false)}
-            cancelLabel="Отмена"
+            cancelLabel={t('Отмена')}
             onSubmit={async (input) => {
               await saveCustomFood(input, userId)
               haptics.success()
-              toast('Продукт сохранён')
+              toast(t('Продукт сохранён'))
               setCreating(false)
             }}
           />
@@ -119,13 +117,13 @@ export function MyFoods() {
         {editing && (
           <CustomFoodForm
             initial={editing}
-            submitLabel="Сохранить изменения"
-            cancelLabel="Отмена"
+            submitLabel={t('Сохранить изменения')}
+            cancelLabel={t('Отмена')}
             onCancel={() => setEditing(null)}
             onSubmit={async (input) => {
               await updateCustomFood(editing.id, input)
               haptics.success()
-              toast('Изменения сохранены')
+              toast(t('Изменения сохранены'))
               setEditing(null)
             }}
           />

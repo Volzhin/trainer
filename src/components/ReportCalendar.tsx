@@ -181,8 +181,8 @@ export function ReportCalendar({
               disabled={!state}
               aria-label={
                 state
-                  ? `${key}: отчёт ${state === 'reviewed' ? 'проверен' : 'сдан'}`
-                  : `${key}: отчёта нет`
+                  ? `${key}: ${t('отчёт')} ${state === 'reviewed' ? t('проверен') : t('сдан')}`
+                  : `${key}: ${t('отчёта нет')}`
               }
               onClick={() => state && onPick?.(key)}
             >

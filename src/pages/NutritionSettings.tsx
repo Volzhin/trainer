@@ -46,7 +46,7 @@ export function NutritionSettings() {
         </button>
         <div className="grow">
           <h1 className="detail">{t('Расчёт питания')}</h1>
-          <div className="sub">{adaptive ? 'По вашим данным' : 'Оценка по формуле'}</div>
+          <div className="sub">{adaptive ? t('По вашим данным') : t('Оценка по формуле')}</div>
         </div>
       </div>
 
@@ -95,7 +95,7 @@ export function NutritionSettings() {
           <div className="card">
             <LineChart data={trend} unit=" ккал" />
             <div className="mute-sm" style={{ textAlign: 'center', marginTop: 8 }}>
-              Как менялся ваш обмен веществ
+              {t('Как менялся ваш обмен веществ')}
             </div>
           </div>
         </>
@@ -119,7 +119,7 @@ export function NutritionSettings() {
             className={plan.profile.goal === g.key ? 'on' : ''}
             onClick={() => patch({ goal: g.key, weekly_change_kg: g.weekly })}
           >
-            {g.label}
+            {t(g.label)}
           </button>
         ))}
       </div>
@@ -162,7 +162,7 @@ export function NutritionSettings() {
               style={active ? { background: 'var(--accent-soft)' } : undefined}
             >
               <span className="grow">
-                <span className="title">{preset.label}</span>
+                <span className="title">{t(preset.label)}</span>
                 <span className="sub">
                   Б {Math.round(preset.split.protein * 100)}% · Ж{' '}
                   {Math.round(preset.split.fat * 100)}% · У{' '}
@@ -190,7 +190,7 @@ export function NutritionSettings() {
                 }
               >
                 <span className="grow">
-                  <span className="title">{a.label}</span>
+                  <span className="title">{t(a.label)}</span>
                   <span className="sub">
                     {a.hint}
                   </span>
@@ -204,7 +204,7 @@ export function NutritionSettings() {
       <div className="section-title">{t('Ручная поправка')}</div>
       <div className="card">
         <div className="muted">
-          Если по своим наблюдениям расход отличается — сместите его вручную.
+          {t('Если по своим наблюдениям расход отличается — сместите его вручную.')}
         </div>
         <div className="segmented mt-3">
           {[-200, -100, 0, 100, 200].map((v) => (
@@ -213,7 +213,7 @@ export function NutritionSettings() {
               className={(plan.profile.manual_offset ?? 0) === v ? 'on' : ''}
               onClick={() => {
                 patch({ manual_offset: v })
-                toast(v === 0 ? 'Поправка снята' : `Поправка ${v > 0 ? '+' : ''}${v} ккал`)
+                toast(v === 0 ? t('Поправка снята') : `Поправка ${v > 0 ? '+' : ''}${v} ккал`)
               }}
             >
               {v > 0 ? `+${v}` : v}
@@ -223,7 +223,7 @@ export function NutritionSettings() {
       </div>
 
       <div className="mute-sm" style={{ marginTop: 20, textAlign: 'center' }}>
-        Данные о продуктах — Open Food Facts, открытая база со штрихкодами.
+        {t('Данные о продуктах — Open Food Facts, открытая база со штрихкодами.')}
       </div>
     </div>
   )

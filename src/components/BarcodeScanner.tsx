@@ -137,7 +137,7 @@ export function BarcodeScanner({
           disabled={manual.length < 8}
           onClick={() => onDetected(manual)}
         >
-          Найти продукт
+          {t('Найти продукт')}
         </button>
       </div>
     </Sheet>

@@ -32,6 +32,7 @@ import { TrainerProfile } from './pages/trainer/TrainerProfile'
 import { useApp, useProfile } from './store/app'
 import { getActiveSession } from './db/repo'
 import { IconPlay, IconRecord } from './components/Icons'
+import { t } from './lib/i18n'
 
 export default function App() {
   const { toasts, userId } = useApp()
@@ -133,7 +134,7 @@ function ActiveSessionBanner() {
             {active.title}
           </div>
           <div style={{ fontSize: 12, opacity: 0.85 }}>
-            Тренировка идёт — нажмите, чтобы вернуться
+            {t('Тренировка идёт — нажмите, чтобы вернуться')}
           </div>
         </div>
       </div>

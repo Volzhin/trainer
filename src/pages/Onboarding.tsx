@@ -111,7 +111,7 @@ export function Onboarding({ onDone }: Props) {
           </div>
           <h2>{t('Как вы будете пользоваться приложением?')}</h2>
           <p className="mb-6">
-            От этого зависят экраны — их можно переключить позже в профиле.
+            {t('От этого зависят экраны — их можно переключить позже в профиле.')}
           </p>
           <div className="actions">
             <button
@@ -150,7 +150,7 @@ export function Onboarding({ onDone }: Props) {
 
       {step === 1 && (
         <div className="body">
-          <h2>{role === 'TRAINER' ? 'Что вы получаете' : 'Что вы получаете'}</h2>
+          <h2>{t('Что вы получаете')}</h2>
           <div className="stack" style={{ marginTop: 24, gap: 18 }}>
             {points.map(([Glyph, title, text]) => (
               <div className="row" key={title} style={{ alignItems: 'flex-start' }}>
@@ -158,8 +158,8 @@ export function Onboarding({ onDone }: Props) {
                   <Glyph size={20} />
                 </span>
                 <span className="grow">
-                  <span className="strong" style={{ display: 'block' }}>{title}</span>
-                  <span className="muted">{text}</span>
+                  <span className="strong" style={{ display: 'block' }}>{t(title)}</span>
+                  <span className="muted">{t(text)}</span>
                 </span>
               </div>
             ))}
@@ -175,8 +175,8 @@ export function Onboarding({ onDone }: Props) {
           <h2>{t('Показать на примере?')}</h2>
           <p>
             {role === 'TRAINER'
-              ? 'Добавим пятерых клиентов с готовой историей — кабинет сразу будет живым, и вы увидите, как он работает. Демо-данные можно удалить в любой момент.'
-              : 'Заполним дневник историей за 10 недель — графики и рекорды сразу будут на месте. Демо-данные можно удалить в любой момент.'}
+              ? t('Добавим пятерых клиентов с готовой историей — кабинет сразу будет живым, и вы увидите, как он работает. Демо-данные можно удалить в любой момент.')
+              : t('Заполним дневник историей за 10 недель — графики и рекорды сразу будут на месте. Демо-данные можно удалить в любой момент.')}
           </p>
         </div>
       )}
@@ -192,19 +192,19 @@ export function Onboarding({ onDone }: Props) {
                 setStep(step + 1)
               }}
             >
-              Далее
+              {t('Далее')}
             </button>
             <button className="btn ghost block" onClick={skip}>
-              Пропустить
+              {t('Пропустить')}
             </button>
           </>
         ) : (
           <>
             <button className="btn primary block" disabled={busy} onClick={() => finish(true)}>
-              {busy ? 'Заполняю…' : 'Заполнить примером'}
+              {busy ? t('Заполняю…') : t('Заполнить примером')}
             </button>
             <button className="btn block" disabled={busy} onClick={() => finish(false)}>
-              Начать с нуля
+              {t('Начать с нуля')}
             </button>
           </>
         )}

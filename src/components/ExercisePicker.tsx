@@ -81,7 +81,7 @@ export function ExercisePicker({
           <div className="grow">
             <div className="truncate">{ex.name}</div>
             <div className="mute-sm">
-              {ex.muscle_group} · {ex.equipment}
+              {t(ex.muscle_group)} · {t(ex.equipment)}
               {ex.is_custom === 1 ? ' · своё' : ''}
             </div>
           </div>

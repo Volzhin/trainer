@@ -77,7 +77,7 @@ export function TrainerClientDetail() {
   const unlink = async () => {
     if (!link) return
     await removeLink(link.id)
-    toast('Работа с клиентом завершена')
+    toast(t('Работа с клиентом завершена'))
     nav('/trainer', { replace: true })
   }
 
@@ -91,7 +91,7 @@ export function TrainerClientDetail() {
           <h1 className="detail">{client.name}</h1>
           <div className="sub">
             {client.experience ?? t('опыт не указан')}
-            {client.height_cm ? ` · ${client.height_cm} см` : ''}
+            {client.height_cm ? ` · ${client.height_cm} ${t('см')}` : ''}
           </div>
         </div>
       </div>
@@ -131,7 +131,7 @@ export function TrainerClientDetail() {
                   onClick={async () => {
                     if (!link || modeOf(link) === value) return
                     await setLinkMode(link.id, value)
-                    toast(value === 'online' ? 'Режим: онлайн' : 'Режим: очно')
+                    toast(value === 'online' ? t('Режим: онлайн') : t('Режим: очно'))
                   }}
                 >
                   {label}
@@ -140,8 +140,8 @@ export function TrainerClientDetail() {
             </div>
             <div className="mute-sm mt-3">
               {modeOf(link) === 'online'
-                ? 'Клиент сдаёт видео-отчёты, вы разбираете технику по записи.'
-                : 'Видео-отчёт не запрашивается — технику вы видите на занятии.'}
+                ? t('Клиент сдаёт видео-отчёты, вы разбираете технику по записи.')
+                : t('Видео-отчёт не запрашивается — технику вы видите на занятии.')}
             </div>
           </div>
 
@@ -166,7 +166,7 @@ export function TrainerClientDetail() {
             <ContactLinks
               profile={client}
               title={t('Написать')}
-              emptyHint="Клиент не указал, где с ним связаться. Попросите заполнить это в профиле."
+              emptyHint={t('Клиент не указал, где с ним связаться. Попросите заполнить это в профиле.')}
             />
           </div>
 
@@ -200,7 +200,7 @@ export function TrainerClientDetail() {
           clientId={id}
           meId={userId}
           meRole="TRAINER"
-          emptyHint="Напишите клиенту — сообщение появится у него в разделе «Чат»."
+          emptyHint={t('Напишите клиенту — сообщение появится у него в разделе «Чат».')}
         />
       )}
 
@@ -217,7 +217,7 @@ export function TrainerClientDetail() {
           setAssignOpen(false)
           if (params.get('assign')) setParams({}, { replace: true })
         }}
-        onDone={() => toast('Программа назначена')}
+        onDone={() => toast(t('Программа назначена'))}
       />
 
 
@@ -377,7 +377,7 @@ function PaymentCard({
         nextPaymentAt: link.next_payment_at,
         ...input,
       })
-      onToast('Даты оплаты сохранены')
+      onToast(t('Даты оплаты сохранены'))
     } finally {
       setBusy(false)
     }
@@ -415,10 +415,10 @@ function PaymentCard({
       </div>
       <div className="mute-sm mt-2" style={{ color: overdue ? 'var(--danger)' : undefined }}>
         {due == null
-          ? 'Дата следующей оплаты не задана — напоминание клиенту не придёт.'
+          ? t('Дата следующей оплаты не задана — напоминание клиенту не придёт.')
           : overdue
-            ? `Оплата просрочена с ${formatDate(due)}.`
-            : `Клиенту напомним за 3 дня — ${formatDate(due - 3 * 86400_000)}.`}
+            ? `${t('Оплата просрочена с')} ${formatDate(due)}.`
+            : `${t('Клиенту напомним за 3 дня —')} ${formatDate(due - 3 * 86400_000)}.`}
       </div>
     </div>
   )
@@ -523,7 +523,7 @@ function AssignSheet({
     } catch (e) {
       // Без подписки назначение не проходит — тренер должен увидеть почему,
       // а не форму, которая ничего не сделала и осталась открытой.
-      toast(e instanceof Error ? e.message : 'Не удалось назначить программу')
+      toast(e instanceof Error ? t(e.message) : t('Не удалось назначить программу'))
     } finally {
       setBusy(false)
     }
@@ -538,24 +538,24 @@ function AssignSheet({
         weeklyTarget: 3,
         trainerId: userId,
       })
-      toast('Программа создана — добавьте упражнения')
+      toast(t('Программа создана — добавьте упражнения'))
       onClose()
       nav(`/programs/${id}`)
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Не удалось создать программу')
+      toast(e instanceof Error ? t(e.message) : t('Не удалось создать программу'))
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <Sheet open={open} title={`Программа для ${clientName}`} onClose={onClose}>
+    <Sheet open={open} title={`${t('Программа для')} ${clientName}`} onClose={onClose}>
       <div className="segmented mb-4">
         <button className={mode === 'ready' ? 'on' : ''} onClick={() => setMode('ready')}>
-          Готовая
+          {t('Готовая')}
         </button>
         <button className={mode === 'new' ? 'on' : ''} onClick={() => setMode('new')}>
-          Своя с нуля
+          {t('Своя с нуля')}
         </button>
       </div>
 
@@ -575,7 +575,7 @@ function AssignSheet({
                     <span className="title">{p.name}</span>
                     <span className="sub">
                       {p.goal} · {count} {plural(count, ['день', 'дня', 'дней'])}
-                      {p.author_id === userId ? ' · моя' : ''}
+                      {p.author_id === userId ? ` · ${t('моя')}` : ''}
                     </span>
                   </span>
                   {p.id === chosen && (
@@ -593,7 +593,8 @@ function AssignSheet({
             {/* Нажатие перебирает дни программы: так расписание собирается
                 одним пальцем, без выпадающих списков на каждый день. */}
             <div className="weekday-row">
-              {WEEKDAYS.map((label, wd) => {
+              {WEEKDAYS.map((rawLabel, wd) => {
+                const label = t(rawLabel)
                 const mark = shortName(slots[wd])
                 return (
                   <button
@@ -609,8 +610,8 @@ function AssignSheet({
             </div>
             <div className="mute-sm mt-2">
               {schedule.length
-                ? `${schedule.length} ${plural(schedule.length, ['тренировка', 'тренировки', 'тренировок'])} в неделю`
-                : 'Выберите хотя бы один день'}
+                ? `${schedule.length} ${plural(schedule.length, ['тренировка', 'тренировки', 'тренировок'])} ${t('в неделю')}`
+                : t('Выберите хотя бы один день')}
             </div>
           </div>
 
@@ -623,7 +624,7 @@ function AssignSheet({
                   </span>
                   <span className="grow title">{r.name}</span>
                   <span className="value">
-                    {WEEKDAYS.filter((_, wd) => slots[wd] === r.id).join(', ') || 'не назначен'}
+                    {WEEKDAYS.filter((_, wd) => slots[wd] === r.id).map(t).join(', ') || t('не назначен')}
                   </span>
                 </div>
               ))}
@@ -656,14 +657,13 @@ function AssignSheet({
             disabled={busy || !chosen || !schedule.length}
             onClick={assignReady}
           >
-            Назначить на {weeks} {plural(weeks, ['неделю', 'недели', 'недель'])}
+            {t('Назначить на')} {weeks} {plural(weeks, ['неделю', 'недели', 'недель'])}
           </button>
         </div>
       ) : (
         <div className="stack">
           <div className="muted">
-            Создадим пустую программу под этого клиента. Наполните её днями и упражнениями,
-            потом назначьте на дни недели.
+            {t('Создадим пустую программу под этого клиента. Наполните её днями и упражнениями, потом назначьте на дни недели.')}
           </div>
           <div className="field">
             <label>{t('Название')}</label>
@@ -671,11 +671,11 @@ function AssignSheet({
               className="input"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder={`Программа · ${clientName}`}
+              placeholder={`${t('Программа')} · ${clientName}`}
             />
           </div>
           <button className="btn primary block" disabled={busy} onClick={createAndOpen}>
-            Создать и наполнить
+            {t('Создать и наполнить')}
           </button>
         </div>
       )}

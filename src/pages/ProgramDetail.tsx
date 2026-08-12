@@ -101,7 +101,7 @@ export function ProgramDetail() {
   const plannedDays = myPlan?.assignment.schedule
     ? [...myPlan.assignment.schedule]
         .sort((a, b) => a.weekday - b.weekday)
-        .map((s) => WEEKDAYS[s.weekday])
+        .map((s) => t(WEEKDAYS[s.weekday]))
     : []
   const exMap = new Map((exercises ?? []).map((e) => [e.id, e]))
 
@@ -118,7 +118,7 @@ export function ProgramDetail() {
           <h1 className="detail">{program.name}</h1>
           <div className="sub">
             {program.goal} · {program.level}
-            {!editable && ' · программа платформы'}
+            {!editable && ` · ${t('программа платформы')}`}
           </div>
         </div>
       </div>
@@ -136,7 +136,7 @@ export function ProgramDetail() {
               className="btn sm"
               onClick={() => nav(`/trainer/clients/${program.client_id}`)}
             >
-              К клиенту
+              {t('К клиенту')}
             </button>
           </div>
         </div>
@@ -156,28 +156,29 @@ export function ProgramDetail() {
         >
           <div className="row between">
             <div className="grow">
-              <div className="strong">{myPlan ? 'В моём плане' : 'Мой план'}</div>
+              <div className="strong">{myPlan ? t('В моём плане') : t('Мой план')}</div>
               <div className="mute-sm" style={{ marginTop: 3 }}>
                 {lockedByTrainer
-                  ? `Сейчас действует программа от тренера${plan?.trainer ? ` · ${plan.trainer.name}` : ''}`
+                  ? `${t('Сейчас действует программа от тренера')}${plan?.trainer ? ` · ${plan.trainer.name}` : ''}`
                   : plannedDays.length
                     ? `${plannedDays.join(', ')} · ${plannedDays.length} ${plural(
                         plannedDays.length,
                         ['тренировка', 'тренировки', 'тренировок'],
-                      )} в неделю`
-                    : 'Разложите дни по дням недели — они появятся в календаре на главной'}
+                      )} ${t('в неделю')}`
+                    : t('Разложите дни по дням недели — они появятся в календаре на главной')}
               </div>
             </div>
             {!lockedByTrainer && (
               <button className="btn sm" onClick={() => setPlanOpen(true)}>
-                {myPlan ? 'Изменить' : 'В план'}
+                {myPlan ? t('Изменить') : t('В план')}
               </button>
             )}
           </div>
 
           {myPlan && (
             <div className="weekday-row mt-4">
-              {WEEKDAYS.map((label, wd) => {
+              {WEEKDAYS.map((rawLabel, wd) => {
+                const label = t(rawLabel)
                 const on = myPlan.assignment.schedule?.some((s) => s.weekday === wd)
                 return (
                   <div key={wd} className={`weekday${on ? ' on' : ''}`}>
@@ -206,20 +207,20 @@ export function ProgramDetail() {
                   haptics.impact()
                   const sid = await startSessionFromRoutine(routine.id)
                   if (!sid) {
-                    toast('В этом дне пока нет упражнений')
+                    toast(t('В этом дне пока нет упражнений'))
                     return
                   }
                   nav(`/session/${sid}`)
                 }}
               >
-                <IconPlay size={13} /> Начать
+                <IconPlay size={13} /> {t('Начать')}
               </button>
             </div>
 
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
               {dayItems.length === 0 && (
                 <div className="mute-sm" style={{ padding: 16, textAlign: 'center' }}>
-                  Пока пусто
+                  {t('Пока пусто')}
                 </div>
               )}
               {dayItems.map((item, idx) => {
@@ -247,9 +248,9 @@ export function ProgramDetail() {
                         )}
                         <span className="grow">
                           <span className="truncate" style={{ display: 'block' }}>
-                            {ex?.name ?? 'Упражнение'}
+                            {ex?.name ?? t('Упражнение')}
                           </span>
-                          <span className="mute-sm">{ex?.muscle_group} · как делать</span>
+                          <span className="mute-sm">{t(ex?.muscle_group ?? '')} · {t('как делать')}</span>
                         </span>
                         <span className="chevron">
                           <IconChevronRight size={16} />
@@ -373,7 +374,7 @@ export function ProgramDetail() {
           className="btn block mt-4"
           onClick={async () => {
             const count = (routines ?? []).length
-            await createRoutine(id, `День ${count + 1}`)
+            await createRoutine(id, `${t('День')} ${count + 1}`)
             toast(t('День добавлен'))
           }}
         >
@@ -386,8 +387,7 @@ export function ProgramDetail() {
           <div className="section-title">{t('Объём за неделю')}</div>
           <div className="card">
             <div className="mute-sm mb-3">
-              Подходы по всем дням программы. Пересчитывается на месте — видно, куда
-              перекосило, пока программу ещё собирают.
+              {t('Подходы по всем дням программы. Пересчитывается на месте — видно, куда перекосило, пока программу ещё собирают.')}
             </div>
             <div className="stack">
               {volume.map((v) => (
@@ -519,10 +519,10 @@ function PlanSheet({
     setBusy(true)
     try {
       await planProgramMyself({ programId, schedule, weeks })
-      toast('План сохранён — дни появятся в календаре')
+      toast(t('План сохранён — дни появятся в календаре'))
       onClose()
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Не удалось сохранить план')
+      toast(e instanceof Error ? t(e.message) : t('Не удалось сохранить план'))
     } finally {
       setBusy(false)
     }
@@ -532,7 +532,7 @@ function PlanSheet({
     setBusy(true)
     try {
       await cancelMyPlan()
-      toast('План снят')
+      toast(t('План снят'))
       onClose()
     } finally {
       setBusy(false)
@@ -545,7 +545,8 @@ function PlanSheet({
         <div className="field">
           <label>{t('Дни недели')}</label>
           <div className="weekday-row">
-            {WEEKDAYS.map((label, wd) => {
+            {WEEKDAYS.map((rawLabel, wd) => {
+              const label = t(rawLabel)
               const mark = markOf(slots[wd])
               return (
                 <button
@@ -561,8 +562,8 @@ function PlanSheet({
           </div>
           <div className="mute-sm mt-2">
             {schedule.length
-              ? `${schedule.length} ${plural(schedule.length, ['тренировка', 'тренировки', 'тренировок'])} в неделю`
-              : 'Выберите хотя бы один день'}
+              ? `${schedule.length} ${plural(schedule.length, ['тренировка', 'тренировки', 'тренировок'])} ${t('в неделю')}`
+              : t('Выберите хотя бы один день')}
           </div>
         </div>
 
@@ -575,7 +576,7 @@ function PlanSheet({
                 </span>
                 <span className="grow title">{r.name}</span>
                 <span className="value">
-                  {WEEKDAYS.filter((_, wd) => slots[wd] === r.id).join(', ') || 'не назначен'}
+                  {WEEKDAYS.filter((_, wd) => slots[wd] === r.id).map(t).join(', ') || t('не назначен')}
                 </span>
               </div>
             ))}
@@ -598,12 +599,12 @@ function PlanSheet({
           disabled={busy || !schedule.length}
           onClick={save}
         >
-          Запланировать на {weeks} {plural(weeks, ['неделю', 'недели', 'недель'])}
+          {t('Запланировать на')} {weeks} {plural(weeks, ['неделю', 'недели', 'недель'])}
         </button>
 
         {current?.length ? (
           <button className="btn block" disabled={busy} onClick={drop}>
-            Убрать из плана
+            {t('Убрать из плана')}
           </button>
         ) : null}
       </div>

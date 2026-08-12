@@ -64,10 +64,10 @@ export function Nutrition() {
           <h1>{t('Питание')}</h1>
           <div className="sub">
             {plan?.fromCoach
-              ? 'Норму назначил тренер'
+              ? t('Норму назначил тренер')
               : plan?.expenditure.source === 'adaptive'
                 ? `Расход по вашим данным · ${plan.expenditure.tdee} ккал`
-                : 'Расход оценён по формуле'}
+                : t('Расход оценён по формуле')}
           </div>
         </div>
         <button
@@ -141,7 +141,8 @@ export function Nutrition() {
         </div>
       )}
 
-      {SLOTS.map(({ key, label }) => {
+      {SLOTS.map(({ key, label: rawLabel }) => {
+        const label = t(rawLabel)
         const items = (logs ?? []).filter((l) => l.slot === key)
         const sum = sumNutrients(items)
         return (

@@ -91,7 +91,7 @@ export function BodySegmentsFigure({
         <div className="kg">{s ? `${s.kg} ${unit}` : '—'}</div>
         {s?.pct != null && <div className="pct">{s.pct} %</div>}
         {s?.status && (
-          <span className={`status ${chipClass(kind, s)}`}>{STATUS_TEXT[s.status]}</span>
+          <span className={`status ${chipClass(kind, s)}`}>{t(STATUS_TEXT[s.status])}</span>
         )}
       </div>
     )
@@ -104,7 +104,7 @@ export function BodySegmentsFigure({
       {total != null && (
         <div className="row between mb-1">
           <span className="mute-sm">
-            {kind === 'muscle' ? 'Содержание мышц' : 'Содержание жира'}
+            {kind === 'muscle' ? t('Содержание мышц') : t('Содержание жира')}
           </span>
           <span style={{ fontFamily: 'var(--font-num)', fontWeight: 700 }}>
             {total} {unit}
@@ -134,7 +134,7 @@ export function BodySegmentsFigure({
             <span className="part">{t('туловище')}</span>
             {trunk.status && (
               <span className={`status ${chipClass(kind, trunk)}`} style={{ marginLeft: 8 }}>
-                {STATUS_TEXT[trunk.status]}
+                {t(STATUS_TEXT[trunk.status])}
               </span>
             )}
           </span>

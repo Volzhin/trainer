@@ -38,8 +38,8 @@ export function Profile() {
         <Row
           icon={(profile?.name ?? 'Г').slice(0, 1)}
           title={profile?.name ?? t('Гость')}
-          sub={`${profile?.experience ?? 'Опыт не указан'}${
-            profile?.height_cm ? ` · ${profile.height_cm} см` : ''
+          sub={`${profile?.experience ? t(profile.experience) : t('Опыт не указан')}${
+            profile?.height_cm ? ` · ${profile.height_cm} ${t('см')}` : ''
           }`}
           onClick={() => setEditOpen(true)}
           chevron
@@ -165,14 +165,14 @@ function EditProfileSheet({ open, onClose }: { open: boolean; onClose: () => voi
             onChange={(e) => setExperience(e.target.value)}
           >
             {['Новичок', 'Средний', 'Продвинутый'].map((v) => (
-              <option key={v}>{v}</option>
+              <option key={v} value={v}>{t(v)}</option>
             ))}
           </select>
         </div>
         <div className="divider" />
         <div className="field-group-title">{t('Где с вами связаться')}</div>
         <div className="mute-sm mb-3">
-          Тренер напишет вам туда, где вам удобно отвечать.
+          {t('Тренер напишет вам туда, где вам удобно отвечать.')}
         </div>
         <ContactEditor
           contacts={contacts}
@@ -184,7 +184,7 @@ function EditProfileSheet({ open, onClose }: { open: boolean; onClose: () => voi
         />
 
         <button className="btn primary block" onClick={submit}>
-          Сохранить
+          {t('Сохранить')}
         </button>
       </div>
     </Sheet>

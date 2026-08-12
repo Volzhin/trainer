@@ -26,7 +26,7 @@ export function TrainerProfile() {
       updated_at: Date.now(),
     })
     haptics.success()
-    toast(isPro ? 'Подписка отключена' : 'Подписка активна')
+    toast(isPro ? t('Подписка отключена') : t('Подписка активна'))
     setPayOpen(false)
   }
 
@@ -95,7 +95,7 @@ export function TrainerProfile() {
               <div className="grow">
                 <div className="strong">{t('Подписка активна')}</div>
                 <div className="mute-sm mt-1">
-                  Набор клиентов, ведение и назначение программ — без ограничений.
+                  {t('Набор клиентов, ведение и назначение программ — без ограничений.')}
                 </div>
               </div>
               <span className="badge pro">PRO</span>
@@ -108,12 +108,10 @@ export function TrainerProfile() {
           <>
             <div className="strong">{t('Подписка не оформлена')}</div>
             <div className="mute-sm mt-1">
-              Без неё нельзя выпускать коды приглашения, назначать программы и собирать
-              персональные планы. Уже набранные клиенты и их история остаются на месте —
-              вы просто не сможете добавлять новых и менять назначения.
+              {t('Без неё нельзя выпускать коды приглашения, назначать программы и собирать персональные планы. Уже набранные клиенты и их история остаются на месте — вы просто не сможете добавлять новых и менять назначения.')}
             </div>
             <button className="btn primary block mt-3" onClick={() => setPayOpen(true)}>
-              Оформить за 499 ₽ в месяц
+              {t('Оформить за 499 ₽ в месяц')}
             </button>
           </>
         )}
@@ -151,24 +149,22 @@ export function TrainerProfile() {
             </div>
             <div className="row between mt-2">
               <span>
-                Год <span className="badge">−40%</span>
+                {t('Год')} <span className="badge">−40%</span>
               </span>
               <strong>3 590 ₽</strong>
             </div>
           </div>
           <div className="muted">
-            Клиентам приложение бесплатно целиком — они ничего не оплачивают и ни во что не
-            упираются.
+            {t('Клиентам приложение бесплатно целиком — они ничего не оплачивают и ни во что не упираются.')}
           </div>
           <button className="btn primary block" onClick={togglePlan}>
-            Оплатить через СБП
+            {t('Оплатить через СБП')}
           </button>
           <button className="btn block" onClick={togglePlan}>
-            Банковской картой (ЮKassa)
+            {t('Банковской картой (ЮKassa)')}
           </button>
           <div className="mute-sm text-center">
-            В прототипе оплата эмулируется и просто включает подписку. В проде права выдаёт
-            эквайер по вебхуку.
+            {t('В прототипе оплата эмулируется и просто включает подписку. В проде права выдаёт эквайер по вебхуку.')}
           </div>
         </div>
       </Sheet>
@@ -233,7 +229,7 @@ function TrainerForm({ onDone }: { onDone: () => void }) {
           className="input"
           value={spec}
           onChange={(e) => setSpec(e.target.value)}
-          placeholder={profile?.specialization ?? 'Силовой тренинг'}
+          placeholder={profile?.specialization ?? t('Силовой тренинг')}
         />
       </div>
       <div className="field">
@@ -242,13 +238,13 @@ function TrainerForm({ onDone }: { onDone: () => void }) {
           className="textarea"
           value={bio}
           onChange={(e) => setBio(e.target.value)}
-          placeholder={profile?.bio ?? 'Опыт, образование, подход к работе'}
+          placeholder={profile?.bio ?? t('Опыт, образование, подход к работе')}
         />
       </div>
       <div className="divider" />
       <div className="field-group-title">{t('Где с вами связаться')}</div>
       <div className="mute-sm mb-3">
-        Клиент увидит эти ссылки в карточке тренера и напишет вам в один тап.
+        {t('Клиент увидит эти ссылки в карточке тренера и напишет вам в один тап.')}
       </div>
       <ContactEditor
         contacts={contacts}
@@ -260,7 +256,7 @@ function TrainerForm({ onDone }: { onDone: () => void }) {
       />
 
       <button className="btn primary block" onClick={submit}>
-        Сохранить
+        {t('Сохранить')}
       </button>
     </div>
   )

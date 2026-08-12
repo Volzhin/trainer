@@ -84,7 +84,7 @@ export function SessionDetail() {
           <div className="label">{t('длительность')}</div>
         </div>
         <div className="stat">
-          <div className="value">{Math.round(volume)} кг</div>
+          <div className="value">{Math.round(volume)} {t('кг')}</div>
           <div className="label">{t('тоннаж')}</div>
         </div>
       </div>
@@ -123,8 +123,7 @@ export function SessionDetail() {
             <span className="strong">{t('Видеоотчёт')}</span>
           </div>
           <div className="mute-sm">
-            Тренировка уже сохранена. Ролики можно прикрепить к любому упражнению ниже — хоть
-            сейчас, хоть вечером.
+            {t('Тренировка уже сохранена. Ролики можно прикрепить к любому упражнению ниже — хоть сейчас, хоть вечером.')}
           </div>
         </div>
       )}
@@ -147,11 +146,11 @@ export function SessionDetail() {
                 )}
                 <span className="grow">
                   <span className="truncate strong" style={{ display: 'block' }}>
-                    {ex?.name ?? 'Упражнение'}
+                    {ex?.name ?? t('Упражнение')}
                   </span>
                   <span className="mute-sm">
-                    {rows.length} {plural(rows.length, ['подход', 'подхода', 'подходов'])} · как
-                    делать
+                    {rows.length} {plural(rows.length, ['подход', 'подхода', 'подходов'])} ·{' '}
+                    {t('как делать')}
                   </span>
                 </span>
               </button>
@@ -165,8 +164,8 @@ export function SessionDetail() {
                   style={{ gridTemplateColumns: '34px 1fr 1fr 60px' }}
                 >
                   <div className="num">{s.set_number}</div>
-                  <div style={{ textAlign: 'center' }}>{formatWeight(s.weight_kg)} кг</div>
-                  <div style={{ textAlign: 'center' }}>{s.reps_completed ?? '—'} повт.</div>
+                  <div style={{ textAlign: 'center' }}>{formatWeight(s.weight_kg)} {t('кг')}</div>
+                  <div style={{ textAlign: 'center' }}>{s.reps_completed ?? '—'} {t('повт.')}</div>
                   <div style={{ textAlign: 'right' }}>
                     {s.is_pr === 1 && (
                       <span className="badge pr">

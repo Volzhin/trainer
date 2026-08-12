@@ -46,8 +46,8 @@ export function Exercises() {
         <div>
           <h1>{t('Упражнения')}</h1>
           <div className="sub">
-            {list.length} {plural(list.length, ['упражнение', 'упражнения', 'упражнений'])} в
-            каталоге
+            {list.length} {plural(list.length, ['упражнение', 'упражнения', 'упражнений'])}{' '}
+            {t('в каталоге')}
           </div>
         </div>
         <button
@@ -85,7 +85,7 @@ export function Exercises() {
                 setLimit(60)
               }}
             >
-              {m}
+              {t(m)}
             </button>
           ))}
         </div>
@@ -94,7 +94,7 @@ export function Exercises() {
           style={{ flex: '0 0 auto' }}
           onClick={() => setFilterOpen(true)}
         >
-          {equipment === 'Всё' ? 'Инвентарь' : equipment}
+          {equipment === 'Всё' ? t('Инвентарь') : t(equipment)}
         </button>
       </div>
 
@@ -114,7 +114,7 @@ export function Exercises() {
             <span className="grow">
               <span className="title">{ex.name}</span>
               <span className="sub">
-                {ex.muscle_group} · {ex.equipment}
+                {t(ex.muscle_group)} · {t(ex.equipment)}
               </span>
             </span>
             {ex.is_custom === 1 && <span className="badge">{t('своё')}</span>}
@@ -127,7 +127,7 @@ export function Exercises() {
           className="btn block mt-3"
           onClick={() => setLimit((v) => v + 120)}
         >
-          Показать ещё · осталось {list.length - visible.length}
+          {t('Показать ещё')} · {t('осталось')} {list.length - visible.length}
         </button>
       )}
 
@@ -143,7 +143,7 @@ export function Exercises() {
                 setFilterOpen(false)
               }}
             >
-              {e}
+              {t(e)}
             </button>
           ))}
         </div>
@@ -152,7 +152,7 @@ export function Exercises() {
       <CreateExerciseSheet
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreated={() => toast('Упражнение добавлено')}
+        onCreated={() => toast(t('Упражнение добавлено'))}
       />
     </div>
   )
@@ -212,7 +212,7 @@ function CreateExerciseSheet({
             onChange={(e) => setMuscle(e.target.value)}
           >
             {facets.muscles.map((m) => (
-              <option key={m}>{m}</option>
+              <option key={m} value={m}>{t(m)}</option>
             ))}
           </select>
         </div>
@@ -224,7 +224,7 @@ function CreateExerciseSheet({
             onChange={(e) => setEquipment(e.target.value)}
           >
             {facets.equipment.map((e) => (
-              <option key={e}>{e}</option>
+              <option key={e} value={e}>{t(e)}</option>
             ))}
           </select>
         </div>
@@ -238,10 +238,10 @@ function CreateExerciseSheet({
           />
         </div>
         <button className="btn primary block" disabled={!name.trim()} onClick={submit}>
-          Создать
+          {t('Создать')}
         </button>
         <div className="mute-sm" style={{ textAlign: 'center' }}>
-          Своё упражнение видно только вам.
+          {t('Своё упражнение видно только вам.')}
         </div>
       </div>
     </Sheet>

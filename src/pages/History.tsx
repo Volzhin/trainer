@@ -64,7 +64,7 @@ export function History() {
                   <span className="sub">
                     {formatDate(s.start_time)} · {sets.length}{' '}
                     {plural(sets.length, ['подход', 'подхода', 'подходов'])} ·{' '}
-                    {Math.round(totalVolume(sets))} кг ·{' '}
+                    {Math.round(totalVolume(sets))} {t('кг')} ·{' '}
                     {formatDuration((s.end_time ?? s.start_time) - s.start_time)}
                   </span>
                 </span>

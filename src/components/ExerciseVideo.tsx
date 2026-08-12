@@ -49,7 +49,7 @@ export function AttachmentPlayer({
           style={{ width: '100%', borderRadius: 12, background: '#000', display: 'block' }}
         />
       ) : (
-        <img src={url} alt="Техника выполнения" style={{ width: '100%', borderRadius: 12 }} />
+        <img src={url} alt={t('Техника выполнения')} style={{ width: '100%', borderRadius: 12 }} />
       )}
       <div className="row between mt-2">
         <span className="mute-sm">
@@ -102,7 +102,7 @@ export function VideoUploader({
       haptics.success()
       toast('Видео прикреплено')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Не удалось прикрепить файл')
+      toast(e instanceof Error ? t(e.message) : 'Не удалось прикрепить файл')
     } finally {
       setBusy(false)
       // Сбрасываем оба поля: иначе повторный выбор того же файла не
@@ -161,7 +161,7 @@ export function VideoUploader({
           onClick={() => galleryRef.current?.click()}
         >
           <IconGallery size={15} />
-          Из галереи
+          {t('Из галереи')}
         </button>
       </div>
     </div>

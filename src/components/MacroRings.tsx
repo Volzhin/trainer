@@ -1,5 +1,6 @@
 import type { Nutrients } from '../db/db'
 import { useCountUp } from './BodyDonut'
+import { t } from '../lib/i18n'
 
 /**
  * Калории кольцом, макронутриенты полосами. Кольцо отвечает на главный
@@ -47,7 +48,7 @@ export function MacroRings({
           style={{ ['--dash' as string]: C }}
         />
         <text x="80" y="74" textAnchor="middle" fill="var(--text-2)" fontSize="11">
-          съедено
+          {t('съедено')}
         </text>
         <text
           x="80"

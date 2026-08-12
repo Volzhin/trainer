@@ -83,7 +83,7 @@ export function Settings() {
       })
       location.reload()
     } catch {
-      toast('Не удалось переключить режим')
+      toast(t('Не удалось переключить режим'))
       setBusy(false)
     }
   }
@@ -109,7 +109,7 @@ export function Settings() {
     a.download = `trainer-history-${new Date().toISOString().slice(0, 10)}.csv`
     a.click()
     URL.revokeObjectURL(url)
-    toast('Файл сохранён')
+    toast(t('Файл сохранён'))
   }
 
   const loadDemo = async () => {
@@ -117,15 +117,15 @@ export function Settings() {
     try {
       if (isTrainer) {
         const res = await seedTrainerDemo(userId)
-        toast(`Добавлено ${res.clients} ${plural(res.clients, ['клиент', 'клиента', 'клиентов'])}`)
+        toast(`${t('Добавлено')} ${res.clients} ${plural(res.clients, ['клиент', 'клиента', 'клиентов'])}`)
       } else {
         const res = await generateDemoData()
-        toast(`Добавлено ${res.sessions} тренировок`)
+        toast(`${t('Добавлено')} ${res.sessions} ${plural(res.sessions, ['тренировка', 'тренировки', 'тренировок'])}`)
       }
       haptics.success()
       setDemoOpen(false)
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Не удалось сгенерировать данные')
+      toast(e instanceof Error ? t(e.message) : t('Не удалось сгенерировать данные'))
     } finally {
       setBusy(false)
     }
@@ -138,7 +138,7 @@ export function Settings() {
       db.bodyMetrics.clear(),
       db.syncQueue.clear(),
     ])
-    toast('История очищена')
+    toast(t('История очищена'))
   }
 
   const reseed = async () => {
@@ -149,7 +149,7 @@ export function Settings() {
       db.templateItems.clear(),
     ])
     await seedIfEmpty()
-    toast('Каталог восстановлен')
+    toast(t('Каталог восстановлен'))
   }
 
   return (
@@ -212,7 +212,7 @@ export function Settings() {
             >
               {[45, 60, 90, 120, 150, 180, 240].map((v) => (
                 <option key={v} value={v}>
-                  {v} сек
+                  {v} {t('сек')}
                 </option>
               ))}
             </select>
@@ -241,7 +241,7 @@ export function Settings() {
           value={notifGranted ? t('Выдано') : t('Разрешить')}
           onClick={async () => {
             const ok = await ensureNotificationPermission()
-            toast(ok ? 'Уведомления включены' : 'Разрешение не выдано')
+            toast(ok ? t('Уведомления включены') : t('Разрешение не выдано'))
           }}
           chevron
         />
@@ -254,7 +254,7 @@ export function Settings() {
           {reminders.map(({ kind, title, sub }) => (
             <Row key={kind} title={t(title)} sub={t(sub)}>
               <Toggle
-                label={title}
+                label={t(title)}
                 value={notificationOn(profile, kind)}
                 onChange={(v) =>
                   patch({ notifications: { ...(profile?.notifications ?? {}), [kind]: v } })
@@ -277,7 +277,7 @@ export function Settings() {
           sub={
             isTrainer
               ? t(
-                  'Свой дневник, замеры и питание. Клиенты останутся на месте — вернуться можно тем же переключателем.',
+                  t('Свой дневник, замеры и питание. Клиенты останутся на месте — вернуться можно тем же переключателем.'),
                 )
               : t('Клиенты, программы и разбор отчётов')
           }
@@ -295,11 +295,11 @@ export function Settings() {
         />
         {!isTrainer && <Row title={t('Выгрузить историю в CSV')} onClick={exportCsv} chevron />}
         <Row
-          title={isTrainer ? 'Добавить демо-клиентов' : 'Демо-режим'}
+          title={isTrainer ? t('Добавить демо-клиентов') : t('Демо-режим')}
           sub={
             isTrainer
-              ? 'Несколько клиентов с историей — посмотреть кабинет в работе'
-              : 'Заполнить дневник примером за 10 недель'
+              ? t('Несколько клиентов с историей — посмотреть кабинет в работе')
+              : t('Заполнить дневник примером за 10 недель')
           }
           onClick={() => setDemoOpen(true)}
           chevron
@@ -320,7 +320,7 @@ export function Settings() {
       <AccountSection />
 
       <div className="mute-sm text-center mt-5">
-        Прототип v0.2 · офлайн-первое хранилище IndexedDB
+        {t('Прототип v0.2 · офлайн-первое хранилище IndexedDB')}
       </div>
 
       <AccountSwitcher open={accountsOpen} onClose={() => setAccountsOpen(false)} />
@@ -333,8 +333,8 @@ export function Settings() {
         <div className="stack">
           <div className="muted">
             {isTrainer
-              ? 'Приложение переключится на ваш собственный дневник: тренировки, замеры, питание. Список клиентов и программы сохранятся — вернуться можно этим же переключателем в настройках.'
-              : 'Приложение переключится на кабинет тренера: клиенты, программы, разбор отчётов. Ваша история тренировок сохранится.'}
+              ? t('Приложение переключится на ваш собственный дневник: тренировки, замеры, питание. Список клиентов и программы сохранятся — вернуться можно этим же переключателем в настройках.')
+              : t('Приложение переключится на кабинет тренера: клиенты, программы, разбор отчётов. Ваша история тренировок сохранится.')}
           </div>
           <button className="btn primary block" disabled={busy} onClick={switchRole}>
             {busy ? t('Переключаю…') : t('Переключить')}
@@ -345,23 +345,22 @@ export function Settings() {
 
       <Sheet
         open={demoOpen}
-        title={isTrainer ? 'Демо-клиенты' : 'Демо-история'}
+        title={isTrainer ? t('Демо-клиенты') : t('Демо-история')}
         onClose={() => setDemoOpen(false)}
       >
         <div className="stack">
           <div className="muted">
             {isTrainer
-              ? 'Создаст несколько клиентов с тренировками, замерами и отчётами — чтобы посмотреть, как кабинет выглядит в работе.'
-              : 'Сгенерирует 10 недель тренировок по сплиту Push / Pull / Legs с прогрессией весов, личными рекордами и еженедельными замерами тела.'}
+              ? t('Создаст несколько клиентов с тренировками, замерами и отчётами — чтобы посмотреть, как кабинет выглядит в работе.')
+              : t('Сгенерирует 10 недель тренировок по сплиту Push / Pull / Legs с прогрессией весов, личными рекордами и еженедельными замерами тела.')}
           </div>
           {!isTrainer && (
             <div className="card mute-sm" style={{ color: 'var(--warn)' }}>
-              Текущая история тренировок и замеры будут заменены. Каталог упражнений и ваши
-              программы не пострадают.
+              {t('Текущая история тренировок и замеры будут заменены. Каталог упражнений и ваши программы не пострадают.')}
             </div>
           )}
           <button className="btn primary block" disabled={busy} onClick={loadDemo}>
-            {busy ? 'Создаю…' : isTrainer ? 'Добавить клиентов' : 'Заполнить дневник'}
+            {busy ? t('Создаю…') : isTrainer ? t('Добавить клиентов') : t('Заполнить дневник')}
           </button>
         </div>
       </Sheet>
@@ -395,8 +394,8 @@ function HelpSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
       <div className="stack" style={{ gap: 16 }}>
         {items.map(([title, text]) => (
           <div key={title}>
-            <div className="strong">{title}</div>
-            <div className="muted mt-1">{text}</div>
+            <div className="strong">{t(title)}</div>
+            <div className="muted mt-1">{t(text)}</div>
           </div>
         ))}
       </div>

@@ -135,7 +135,7 @@ export function ClientWorkouts({
           <>
             <div className="strong">{t('Программа не назначена')}</div>
             <div className="mute-sm mt-1">
-              Клиент не увидит план тренировок, пока вы не назначите программу.
+              {t('Клиент не увидит план тренировок, пока вы не назначите программу.')}
             </div>
             <button className="btn primary block mt-3" onClick={onAssign}>
               {t('Назначить программу')}
@@ -174,7 +174,7 @@ export function ClientWorkouts({
         {inProgram.length ? t('Упражнения программы') : t('Упражнения')}
       </div>
       <div className="mute-sm mb-3">
-        Рабочий вес в последней тренировке и изменение расчётного максимума за четыре недели.
+        {t('Рабочий вес в последней тренировке и изменение расчётного максимума за четыре недели.')}
       </div>
       {shownExercises.length === 0 ? (
         <div className="empty compact">{t('За четыре недели подходов не записано')}</div>
