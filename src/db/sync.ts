@@ -526,9 +526,28 @@ export async function syncClients(): Promise<number> {
  */
 export async function syncMyTrainer(): Promise<boolean> {
   const me = authUser()
-  if (!me || me.role === 'trainer' || !me.trainer) return false
+  if (!me || me.role === 'trainer') return false
 
-  const trainer = await getUser(me.trainer)
+  /*
+   * Тренера спрашиваем у сервера, а не у сохранённой сессии.
+   *
+   * Тренер может отвязать клиента со своей стороны — тогда поле на сервере
+   * пустеет, а в сессии на устройстве остаётся прежнее значение до
+   * следующего входа. Клиент продолжал бы видеть раздел «Чат», сдавать
+   * отчёты в пустоту и не смог бы подключить нового тренера.
+   */
+  const fresh = await getUser(me.id).catch(() => null)
+  const trainerId = fresh ? ((fresh as { trainer?: string }).trainer ?? '') : me.trainer
+
+  if (!trainerId) {
+    // Связи больше нет — убираем и местную, иначе экраны продолжат
+    // показывать тренера, которого уже нет.
+    const stale = await db.links.where('client_id').equals(me.id).toArray()
+    for (const l of stale) await db.links.delete(l.id)
+    return stale.length > 0
+  }
+
+  const trainer = await getUser(trainerId)
   if (!trainer) return false
 
   const local = await db.profile.get(trainer.id)

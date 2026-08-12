@@ -414,6 +414,22 @@ export async function peekInvite(
   })
 }
 
+/**
+ * Разорвать связь на сервере.
+ *
+ * Зовут обе стороны: клиент — за себя, тренер — за своего клиента. Кто
+ * кому кем приходится, проверяет сервер: поле лежит в записи клиента, и
+ * открывать её на запись всем подряд ради этого нельзя.
+ */
+export async function unlinkClient(clientId?: string): Promise<void> {
+  await request('/api/unlink', {
+    method: 'POST',
+    body: JSON.stringify({ client: clientId ?? '' }),
+  })
+  // Отвязал себя — своя же сессия устарела.
+  if (!clientId) await refresh()
+}
+
 export async function redeemInvite(code: string): Promise<RedeemedTrainer> {
   const res = await request<{ trainer: RedeemedTrainer }>('/api/redeem', {
     method: 'POST',

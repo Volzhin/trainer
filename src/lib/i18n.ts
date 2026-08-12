@@ -288,6 +288,8 @@ const EN: Record<string, string> = {
   'Связь с клиентом': 'Contacting the client',
   Написать: 'Message',
   'Прекратить работу с клиентом': 'End work with this client',
+  'История останется у клиента, вы потеряете к ней доступ. Он сможет подключить другого тренера.':
+    'The history stays with the client, you lose access to it. They will be able to connect another trainer.',
   'опыт не указан': 'experience not set',
   'Сданные тренировки': 'Submitted workouts',
   'Куда уходит нагрузка': 'Where the load goes',
