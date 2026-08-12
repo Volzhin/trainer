@@ -50,6 +50,12 @@ export interface Program {
   is_public: 0 | 1
   /** Задан — программа собрана тренером под конкретного клиента. */
   client_id?: string
+  /**
+   * Из какого шаблона сделана копия. Программу, назначенную клиенту,
+   * копируют под него (иначе она до него не доедет), и без этой ссылки
+   * повторное назначение того же шаблона делало бы копию за копией.
+   */
+  source_id?: string
   updated_at: number
 }
 
@@ -377,11 +383,52 @@ export interface WorkoutReport {
   client_comment?: string
   submitted_at?: number
   /**
-   * Что ответил тренер. Лежит здесь, а не в его отметке о проверке, именно
-   * потому, что предназначен клиенту: строка принадлежит клиенту, приезжает
-   * к нему и уезжает обратно вместе с его правками, ничего не теряя.
+   * Ответ тренера прежних версий. Новые ложатся в ReportReply — здесь они
+   * жили в одной строке с отчётом клиента, и обмен, разбирающий конфликты
+   * строкой целиком, стирал ими правку клиента или терял их сам. Поле
+   * оставлено, чтобы уже полученные ответы не пропали с экранов.
    */
   trainer_comment?: string
+  updated_at: number
+}
+
+/**
+ * Ответ тренера на отчёт.
+ *
+ * Отдельной строкой, а не полем в отчёте клиента: обмен решает конфликты
+ * сравнением меток у всей строки, поэтому в общей строке побеждает тот, кто
+ * записал последним, — клиент, пересдавший отчёт, затирает разбор тренера, а
+ * ответ, написанный офлайн, не доезжает вовсе. Здесь у каждой стороны своя
+ * строка, и затирать друг друга им нечем.
+ *
+ * Принадлежит клиенту (ему адресовано), автор — тренер.
+ */
+export interface ReportReply {
+  /** id отчёта о тренировке либо `${clientId}:${YYYY-MM-DD}` для дня питания. */
+  id: string
+  client_id: string
+  trainer_id: string
+  target: ReviewTarget
+  text: string
+  created_at: number
+  updated_at: number
+}
+
+/**
+ * Норма КБЖУ, назначенная тренером.
+ *
+ * По смыслу это часть карточки питания, но живёт отдельно от неё по той же
+ * причине, что и ответ на отчёт: настройки питания правит клиент, норму
+ * назначает тренер, и в одной строке их правки уничтожают друг друга.
+ */
+export interface CoachTarget {
+  /** id клиента: действующая норма у него одна. */
+  id: string
+  client_id: string
+  trainer_id: string
+  kcal?: number
+  macros?: { protein: number; fat: number; carbs: number }
+  note?: string
   updated_at: number
 }
 
@@ -440,6 +487,12 @@ export interface NutritionTarget {
   trainer_id: string
   /** Понедельник недели, на которую выданы цели. */
   week_start: number
+  /**
+   * Тот же понедельник календарной датой. Метка времени зависит от пояса
+   * устройства, а неделя — нет: без общего ключа цели тренера доезжали бы к
+   * клиенту в другом поясе только со следующей недели.
+   */
+  week_key?: string
   kcal?: number
   protein?: number
   fat?: number
@@ -640,13 +693,23 @@ export interface Attachment {
   updated_at: number
 }
 
-/** Очередь исходящих мутаций для будущей фоновой синхронизации с REST API. */
+/** Очередь исходящих мутаций: единственный след, по которому выгрузка
+ *  узнаёт об удалениях. */
 export interface SyncQueueItem {
   id: string
   entity: string
   entity_id: string
   op: 'create' | 'update' | 'delete'
   payload: unknown
+  /**
+   * Владелец удалённой строки, если его нельзя вывести из неё самой.
+   *
+   * Подход принадлежит тренировке, день программы — программе, и владельца
+   * выгрузка ищет по родителю. При удалении тренировки целиком родителя к
+   * этому моменту уже нет, и удаления подходов молча отбрасывались бы —
+   * поэтому владельца запоминаем в момент удаления, пока он ещё известен.
+   */
+  owner?: string
   created_at: number
   attempts: number
 }
@@ -678,6 +741,8 @@ class TrainerDB extends Dexie {
   nutritionTargets!: Table<NutritionTarget, string>
   dailyActivity!: Table<DailyActivity, string>
   tasks!: Table<ClientTask, string>
+  reportReplies!: Table<ReportReply, string>
+  coachTargets!: Table<CoachTarget, string>
 
   constructor() {
     super('trainer_db')
@@ -764,6 +829,17 @@ class TrainerDB extends Dexie {
       dailyActivity: 'id, user_id, date, [user_id+date]',
       tasks: 'id, client_id, status, [client_id+status]',
     })
+
+    /**
+     * v8 — то, что пишет тренер в карточку клиента, переезжает в
+     * собственные строки: ответ на отчёт и назначенная норма КБЖУ. Раньше
+     * они лежали внутри строк клиента, а обмен разбирает конфликты целой
+     * строкой — правки двух сторон стирали друг друга.
+     */
+    this.version(8).stores({
+      reportReplies: 'id, client_id, [client_id+target]',
+      coachTargets: 'id, client_id',
+    })
   }
 }
 
@@ -836,13 +912,19 @@ export async function getAccentPref(): Promise<AccentPref> {
   return state?.accent ?? 'lime'
 }
 
+/**
+ * Настройки внешнего вида и признак онбординга лежат в одной строке с
+ * курсорами обмена, поэтому пишутся поверх неё целиком, а не переносом
+ * знакомых полей: перечислять их поимённо — значит потерять всё, о чём
+ * забыли. Стёртые курсоры оборачиваются полной перезагрузкой данных, при
+ * которой возвращается локально удалённое.
+ */
 export async function setAccentPref(accent: AccentPref) {
   const state = await db.appState.get(APP_STATE_ID)
   await db.appState.put({
+    ...state,
     id: APP_STATE_ID,
     active_user_id: state?.active_user_id ?? activeUserId,
-    onboarded: state?.onboarded,
-    theme: state?.theme,
     accent,
   })
   applyAccent(accent)
@@ -856,10 +938,9 @@ export async function getThemePref(): Promise<ThemePref> {
 export async function setThemePref(theme: ThemePref) {
   const state = await db.appState.get(APP_STATE_ID)
   await db.appState.put({
+    ...state,
     id: APP_STATE_ID,
     active_user_id: state?.active_user_id ?? activeUserId,
-    onboarded: state?.onboarded,
-    accent: state?.accent,
     theme,
   })
   applyTheme(theme)
@@ -873,10 +954,9 @@ export async function isOnboarded(): Promise<boolean> {
 export async function markOnboarded() {
   const state = await db.appState.get(APP_STATE_ID)
   await db.appState.put({
+    ...state,
     id: APP_STATE_ID,
     active_user_id: state?.active_user_id ?? activeUserId,
-    theme: state?.theme,
-    accent: state?.accent,
     onboarded: 1,
   })
 }
@@ -889,14 +969,15 @@ export const uid = (): string =>
 export const now = () => Date.now()
 
 /**
- * Ставит мутацию в локальную очередь. В проде очередь разбирает
- * Service Worker (Workbox Background Sync) при появлении сети.
+ * Ставит мутацию в локальную очередь. Очередь нужна только удалениям:
+ * остальное выгрузка находит обходом таблиц по updated_at.
  */
 export async function enqueue(
   entity: string,
   entity_id: string,
   op: SyncQueueItem['op'],
   payload: unknown,
+  owner?: string,
 ) {
   await db.syncQueue.add({
     id: uid(),
@@ -904,7 +985,39 @@ export async function enqueue(
     entity_id,
     op,
     payload,
+    owner,
     created_at: now(),
     attempts: 0,
   })
+}
+
+/**
+ * Удаляет строку так, чтобы удаление доехало до сервера.
+ *
+ * Выгрузка обходит таблицы по updated_at и видит только то, что есть, —
+ * удалённой строки в этом обходе нет по определению. Единственный её след
+ * остаётся в очереди, поэтому прямой delete означает: у себя пропало, у
+ * тренера осталось, а на новом устройстве вернулось обратно.
+ *
+ * Имя таблицы должно совпадать с именем в SYNCED (см. db/sync.ts) — по нему
+ * выгрузка находит владельца строки.
+ *
+ * `owner` передают там, где владельца выводят из родителя, а родителя
+ * удаляют следом (подходы вместе с тренировкой, дни вместе с программой):
+ * к моменту выгрузки искать его уже негде.
+ */
+export async function deleteSynced(table: string, id: string, owner?: string) {
+  const row = await db.table(table).get(id)
+  await db.table(table).delete(id)
+  if (row) await enqueue(table, id, 'delete', row, owner)
+}
+
+/** То же для пачки. Строки читаются до удаления — потом их уже не прочесть. */
+export async function deleteManySynced(table: string, ids: string[], owner?: string) {
+  if (!ids.length) return
+  const rows = (await db.table(table).bulkGet(ids)) as (unknown | undefined)[]
+  await db.table(table).bulkDelete(ids)
+  for (const [i, row] of rows.entries()) {
+    if (row) await enqueue(table, ids[i], 'delete', row, owner)
+  }
 }
