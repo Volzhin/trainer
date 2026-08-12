@@ -16,6 +16,7 @@ import {
   IconZap,
 } from '../components/Icons'
 import { useApp } from '../store/app'
+import { t } from '../lib/i18n'
 
 /**
  * Первый запуск: кто вы → что умеет приложение → с чего начать.
@@ -108,7 +109,7 @@ export function Onboarding({ onDone }: Props) {
           <div className="glyph">
             <IconDumbbell size={44} />
           </div>
-          <h2>Как вы будете пользоваться приложением?</h2>
+          <h2>{t('Как вы будете пользоваться приложением?')}</h2>
           <p className="mb-6">
             От этого зависят экраны — их можно переключить позже в профиле.
           </p>
@@ -124,8 +125,8 @@ export function Onboarding({ onDone }: Props) {
                 <IconMuscle size={22} />
               </span>
               <span className="grow">
-                <span className="strong" style={{ display: 'block' }}>Я тренируюсь</span>
-                <span className="mute-sm">Дневник тренировок, программы и прогресс</span>
+                <span className="strong" style={{ display: 'block' }}>{t('Я тренируюсь')}</span>
+                <span className="mute-sm">{t('Дневник тренировок, программы и прогресс')}</span>
               </span>
             </button>
             <button
@@ -139,8 +140,8 @@ export function Onboarding({ onDone }: Props) {
                 <IconTeacher size={22} />
               </span>
               <span className="grow">
-                <span className="strong" style={{ display: 'block' }}>Я тренер</span>
-                <span className="mute-sm">Кабинет с клиентами, программы и обратная связь</span>
+                <span className="strong" style={{ display: 'block' }}>{t('Я тренер')}</span>
+                <span className="mute-sm">{t('Кабинет с клиентами, программы и обратная связь')}</span>
               </span>
             </button>
           </div>
@@ -171,7 +172,7 @@ export function Onboarding({ onDone }: Props) {
           <div className="glyph">
             <IconSparkles size={44} />
           </div>
-          <h2>Показать на примере?</h2>
+          <h2>{t('Показать на примере?')}</h2>
           <p>
             {role === 'TRAINER'
               ? 'Добавим пятерых клиентов с готовой историей — кабинет сразу будет живым, и вы увидите, как он работает. Демо-данные можно удалить в любой момент.'

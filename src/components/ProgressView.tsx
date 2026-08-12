@@ -10,6 +10,7 @@ import {
 } from '../db/analytics'
 import { BarChart } from '../components/LineChart'
 import { formatDate, formatTonnage, formatWeight, plural } from '../lib/calc'
+import { t } from '../lib/i18n'
 
 const WEEKDAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
 
@@ -38,7 +39,7 @@ export function ProgressView({ userId }: { userId: string }) {
     return list.filter((e) => e.inProgram)
   }, [report, onlyProgram])
 
-  if (!report) return <div className="screen">Загрузка…</div>
+  if (!report) return <div className="screen">{t('Загрузка…')}</div>
 
   const periodLabel = PERIODS.find((p) => p.key === period)!.label.toLowerCase()
 
@@ -46,7 +47,7 @@ export function ProgressView({ userId }: { userId: string }) {
     <div>
       <div className="header">
         <div>
-          <h1>Прогресс</h1>
+          <h1>{t('Прогресс')}</h1>
           <div className="sub">
             {report.sessions}{' '}
             {plural(report.sessions, ['тренировка', 'тренировки', 'тренировок'])} за{' '}
@@ -72,11 +73,11 @@ export function ProgressView({ userId }: { userId: string }) {
       <div className="stat-grid three">
         <div className="stat">
           <div className="value t-num">{report.sessionsThisWeek}</div>
-          <div className="label">на этой неделе</div>
+          <div className="label">{t('на этой неделе')}</div>
         </div>
         <div className="stat">
           <div className="value t-num">{report.perWeek}</div>
-          <div className="label">в среднем за неделю</div>
+          <div className="label">{t('в среднем за неделю')}</div>
         </div>
         <div className="stat">
           {/* Прочерк, а не ноль: ноль означал бы, что вес стоит, а тут его
@@ -96,18 +97,18 @@ export function ProgressView({ userId }: { userId: string }) {
               ? '—'
               : `${report.weightPerWeek > 0 ? '+' : ''}${report.weightPerWeek}`}
           </div>
-          <div className="label">вес, кг в неделю</div>
+          <div className="label">{t('вес, кг в неделю')}</div>
         </div>
       </div>
 
       <div className="stat-grid">
         <div className="stat">
           <div className="value t-num">{formatTonnage(report.volume)}</div>
-          <div className="label">поднято всего</div>
+          <div className="label">{t('поднято всего')}</div>
         </div>
         <div className="stat">
           <div className="value t-num">{report.sets}</div>
-          <div className="label">подходов</div>
+          <div className="label">{t('подходов')}</div>
         </div>
       </div>
 
@@ -118,22 +119,23 @@ export function ProgressView({ userId }: { userId: string }) {
         />
       ) : (
         <>
-          <div className="section-title">Программа</div>
+          <div className="section-title">{t('Программа')}</div>
           <div className="card">
-            <div className="t-body-strong">Программа не назначена</div>
+            <div className="t-body-strong">{t('Программа не назначена')}</div>
             <div className="mute-sm mt-1">
-              С программой прогресс считается по плану: видно, какие тренировки вы пропустили и
-              какие упражнения растут, а какие стоят.
+              {t(
+                'С программой прогресс считается по плану: видно, какие тренировки вы пропустили и какие упражнения растут, а какие стоят.',
+              )}
             </div>
             <button className="btn block mt-3" onClick={() => nav('/programs')}>
-              Выбрать программу
+              {t('Выбрать программу')}
             </button>
           </div>
         </>
       )}
 
       <div className="section-title">
-        {report.plan && onlyProgram ? 'Упражнения программы' : 'Упражнения'}
+        {report.plan && onlyProgram ? t('Упражнения программы') : t('Упражнения')}
       </div>
       <div className="mute-sm mb-3">
         Рабочий вес в последней тренировке и изменение расчётного максимума за {periodLabel}.
@@ -142,16 +144,16 @@ export function ProgressView({ userId }: { userId: string }) {
       {report.plan && (
         <div className="segmented mb-3">
           <button className={onlyProgram ? 'on' : ''} onClick={() => setOnlyProgram(true)}>
-            Из программы
+            {t('Из программы')}
           </button>
           <button className={onlyProgram ? '' : 'on'} onClick={() => setOnlyProgram(false)}>
-            Все
+            {t('Все')}
           </button>
         </div>
       )}
 
       {shown.length === 0 ? (
-        <div className="empty compact">За этот период подходов не записано</div>
+        <div className="empty compact">{t('За этот период подходов не записано')}</div>
       ) : (
         <div className="stack tight">
           {shown.map((e) => (
@@ -164,7 +166,7 @@ export function ProgressView({ userId }: { userId: string }) {
         </div>
       )}
 
-      <div className="section-title">Нагрузка по неделям</div>
+      <div className="section-title">{t('Нагрузка по неделям')}</div>
       <div className="card">
         <BarChart
           data={report.weekly.map((w) => w.value)}
@@ -175,10 +177,10 @@ export function ProgressView({ userId }: { userId: string }) {
         </div>
       </div>
 
-      <div className="section-title">Куда уходит нагрузка</div>
+      <div className="section-title">{t('Куда уходит нагрузка')}</div>
       <div className="card">
         {report.muscles.length === 0 ? (
-          <div className="empty compact">Нет данных за период</div>
+          <div className="empty compact">{t('Нет данных за период')}</div>
         ) : (
           <div className="stack">
             {report.muscles.slice(0, 8).map((m) => {
@@ -201,7 +203,7 @@ export function ProgressView({ userId }: { userId: string }) {
         )}
       </div>
 
-      <div className="section-title">Личные рекорды</div>
+      <div className="section-title">{t('Личные рекорды')}</div>
       <div className="mute-sm mb-3">
         Расчётный максимум на одно повторение — по формуле Эпли из лучшего подхода.
       </div>
@@ -239,7 +241,7 @@ function PlanCard({ plan, onOpen }: { plan: PlanProgress; onOpen: () => void }) 
 
   return (
     <>
-      <div className="section-title">Программа</div>
+      <div className="section-title">{t('Программа')}</div>
       <div className="card">
         <div className="row between">
           <div className="grow">

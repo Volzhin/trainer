@@ -4,6 +4,7 @@ import { db } from '../db/db'
 import { listMySessions } from '../db/repo'
 import { IconBack, IconCheck, IconChevronRight, IconDumbbell } from '../components/Icons'
 import { formatDate, formatDuration, plural, totalVolume } from '../lib/calc'
+import { t } from '../lib/i18n'
 
 /** Полная история тренировок. С главной убрана: там теперь только календарь. */
 export function History() {
@@ -18,11 +19,11 @@ export function History() {
   return (
     <div className="screen">
       <div className="header">
-        <button className="icon-btn" onClick={() => nav(-1)} aria-label="Назад">
+        <button className="icon-btn" onClick={() => nav(-1)} aria-label={t('Назад')}>
           <IconBack size={18} />
         </button>
         <div className="grow">
-          <h1 className="detail">История</h1>
+          <h1 className="detail">{t('История')}</h1>
           <div className="sub">
             {loading
               ? ' '
@@ -42,7 +43,7 @@ export function History() {
           <div className="big">
             <IconDumbbell size={34} />
           </div>
-          Здесь появятся завершённые тренировки.
+          {t('Здесь появятся завершённые тренировки.')}
         </div>
       ) : (
         <div className="group stagger">

@@ -34,6 +34,7 @@ import { getNutritionProfile } from '../db/nutrition'
 import { macroTargets, MACRO_PRESETS } from '../lib/tdee'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
 
 // Цвета берём из токенов: они подобраны отдельно для светлой и тёмной темы.
 export const BODY_C = {
@@ -279,7 +280,9 @@ export function BodyCompositionView({
 }) {
   const { toast } = useApp()
   const fileRef = useRef<HTMLInputElement>(null)
-  const t = TEXT[subject]
+  // Тексты, зависящие от того, на кого смотрят: на себя или на клиента.
+  // Имя не t — так зовут функцию перевода, и рядом они не уживаются.
+  const texts = TEXT[subject]
 
   const [pending, setPending] = useState<Parsed[] | null>(null)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
@@ -517,9 +520,9 @@ export function BodyCompositionView({
 
       {!latest && (
         <div className="card mb-3">
-          <div className="strong">{t.emptyTitle}</div>
+          <div className="strong">{texts.emptyTitle}</div>
           <div className="muted mt-1">
-            {t.emptyHint}
+            {texts.emptyHint}
           </div>
         </div>
       )}
@@ -543,7 +546,7 @@ export function BodyCompositionView({
 
       {latest && (
         <>
-          <div className="section-title">Основные параметры</div>
+          <div className="section-title">{t('Основные параметры')}</div>
           <div className="group stagger">
             {MAIN.map((row, i) => (
               <MetricRow
@@ -569,7 +572,7 @@ export function BodyCompositionView({
               пустая рамка с заголовком читается как поломка. */}
           {composed && OTHER.some((r) => composed[r.key] != null) && (
             <>
-              <div className="section-title">Другие</div>
+              <div className="section-title">{t('Другие')}</div>
               <div className="group stagger">
                 {OTHER.map((row, i) => (
                   <MetricRow
@@ -589,7 +592,7 @@ export function BodyCompositionView({
 
       {segmented?.muscle_segments && (
         <>
-          <div className="section-title">Анализ тела по сегментам</div>
+          <div className="section-title">{t('Анализ тела по сегментам')}</div>
           <div className="segmented mb-3">
             <button
               className={segTab === 'muscle' ? 'on' : ''}
@@ -620,7 +623,7 @@ export function BodyCompositionView({
 
       {trendPoints.length > 0 && (
         <>
-          <div className="section-title">Динамика</div>
+          <div className="section-title">{t('Динамика')}</div>
           <div className="chips mb-3">
             {TRACKABLE.filter((r) =>
               (metrics ?? []).some((m) => typeof m[r.key] === 'number'),
@@ -667,7 +670,7 @@ export function BodyCompositionView({
 
       {latest && (latest.optimal_weight_kg != null || latest.daily_kcal != null) && (
         <>
-          <div className="section-title">Может быть полезным</div>
+          <div className="section-title">{t('Может быть полезным')}</div>
           <div className="group">
             {latest.optimal_weight_kg != null && (
               <div className="group-row">
@@ -731,19 +734,19 @@ export function BodyCompositionView({
 
       {latest?.optimal_weight_kg != null && latest.weight_kg != null && (
         <>
-          <div className="section-title">Улучшение композиции тела</div>
+          <div className="section-title">{t('Улучшение композиции тела')}</div>
           <div className="card">
             <div className="metrics">
-              <Target label="Вес" value={round1(latest.optimal_weight_kg - latest.weight_kg)} />
+              <Target label={t('Вес')} value={round1(latest.optimal_weight_kg - latest.weight_kg)} />
               <Target
-                label="Жир"
+                label={t('Жир')}
                 value={
                   latest.body_fat_kg != null
                     ? round1(latest.optimal_weight_kg - latest.weight_kg)
                     : undefined
                 }
               />
-              <Target label="Мышцы" value={0} />
+              <Target label={t('Мышцы')} value={0} />
             </div>
             <div className="mute-sm mt-3">
               Сколько осталось до оптимального веса при сохранении мышечной массы.
@@ -764,8 +767,8 @@ export function BodyCompositionView({
                 ? `Читаю ${progress.done + 1} из ${progress.total}…`
                 : 'Читаю отчёт…'
               : latest
-                ? t.uploadMore
-                : t.uploadFirst}
+                ? texts.uploadMore
+                : texts.uploadFirst}
           </button>
           <button className="btn block mt-2" onClick={() => setManualOpen(true)}>
             Ввести замер вручную
@@ -803,7 +806,7 @@ export function BodyCompositionView({
               {busy ? 'Сохраняю…' : 'Добавить замер'}
             </button>
             <div className="mute-sm" style={{ textAlign: 'center' }}>
-              {t.privacy}
+              {texts.privacy}
             </div>
           </div>
         )}
@@ -851,7 +854,7 @@ export function BodyCompositionView({
               {busy ? 'Сохраняю…' : `Добавить замеры · ${readyCount}`}
             </button>
             <div className="mute-sm" style={{ textAlign: 'center' }}>
-              {t.privacy}
+              {texts.privacy}
             </div>
           </div>
         )}

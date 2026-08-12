@@ -11,6 +11,7 @@ import { useApp } from '../store/app'
 import { adoptAccount, enterDemoMode, firstExchange } from '../db/account'
 import { startSync } from '../db/sync'
 import { IconChevronRight } from '../components/Icons'
+import { t } from '../lib/i18n'
 
 /**
  * Вход и регистрация.
@@ -86,7 +87,7 @@ export function Auth({ onReady }: { onReady: () => void }) {
     <div className="screen auth">
       <div className="auth-head">
         <div className="auth-mark" aria-hidden />
-        <h1>Тренировки</h1>
+        <h1>{t('Тренировки')}</h1>
         <p className="sub">
           {mode === 'register'
             ? 'Заведите аккаунт — данные будут доступны на всех ваших устройствах.'
@@ -98,7 +99,7 @@ export function Auth({ onReady }: { onReady: () => void }) {
 
       {mode === 'register' && (
         <div className="field">
-          <label>Вы здесь как</label>
+          <label>{t('Вы здесь как')}</label>
           <div className="segmented">
             <button className={role === 'client' ? 'on' : ''} onClick={() => setRole('client')}>
               Занимаюсь
@@ -120,19 +121,19 @@ export function Auth({ onReady }: { onReady: () => void }) {
 
       {mode === 'register' && (
         <div className="field">
-          <label>Как вас зовут</label>
+          <label>{t('Как вас зовут')}</label>
           <input
             className="input"
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoComplete="name"
-            placeholder="Имя"
+            placeholder={t('Имя')}
           />
         </div>
       )}
 
       <div className="field">
-        <label>Почта</label>
+        <label>{t('Почта')}</label>
         <input
           className="input"
           type="email"
@@ -147,14 +148,14 @@ export function Auth({ onReady }: { onReady: () => void }) {
 
       {mode !== 'reset' && (
         <div className="field">
-          <label>Пароль</label>
+          <label>{t('Пароль')}</label>
           <input
             className="input"
             type="password"
             autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="не короче 8 символов"
+            placeholder={t('не короче 8 символов')}
           />
         </div>
       )}
@@ -206,7 +207,7 @@ export function Auth({ onReady }: { onReady: () => void }) {
 
       <button className="group-row auth-demo" onClick={demo}>
         <span className="grow">
-          <span className="title">Посмотреть без регистрации</span>
+          <span className="title">{t('Посмотреть без регистрации')}</span>
           <span className="sub">
             Демо-данные на этом устройстве, ничего не уходит на сервер
           </span>

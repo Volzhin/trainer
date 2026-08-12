@@ -10,6 +10,7 @@ import { NutritionDayReport } from '../components/NutritionDayReport'
 import { IconBack, IconChevronRight, IconPlus, IconTrash } from '../components/Icons'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
+import { t } from '../lib/i18n'
 
 const SLOTS: { key: MealSlot; label: string }[] = [
   { key: 'breakfast', label: 'Завтрак' },
@@ -59,7 +60,7 @@ export function Nutrition() {
     <div className="screen">
       <div className="header">
         <div>
-          <h1>Питание</h1>
+          <h1>{t('Питание')}</h1>
           <div className="sub">
             {plan?.fromCoach
               ? 'Норму назначил тренер'
@@ -71,20 +72,20 @@ export function Nutrition() {
         <button
           className="icon-btn"
           onClick={() => nav('/nutrition/settings')}
-          aria-label="Настройки питания"
+          aria-label={t('Настройки питания')}
         >
           <IconChevronRight size={18} />
         </button>
       </div>
 
       <div className="cal-nav mb-4">
-        <button className="icon-btn" onClick={() => shiftDay(-1)} aria-label="Предыдущий день">
+        <button className="icon-btn" onClick={() => shiftDay(-1)} aria-label={t('Предыдущий день')}>
           <IconBack size={16} />
         </button>
         <div className="grow" style={{ textAlign: 'center' }}>
           <div className="strong">
             {isToday
-              ? 'Сегодня'
+              ? t('Сегодня')
               : new Date(`${date}T12:00:00`).toLocaleDateString('ru-RU', {
                   weekday: 'short',
                   day: 'numeric',
@@ -95,7 +96,7 @@ export function Nutrition() {
         <button
           className="icon-btn"
           onClick={() => shiftDay(1)}
-          aria-label="Следующий день"
+          aria-label={t('Следующий день')}
           disabled={isToday}
           style={isToday ? { opacity: 0.4 } : undefined}
         >
@@ -112,12 +113,12 @@ export function Nutrition() {
         <div className="row between mt-4">
           {target == null ? (
             <>
-              <span className="mute-sm">Съедено</span>
+              <span className="mute-sm">{t('Съедено')}</span>
               <span className="figures strong">{eaten.kcal} ккал</span>
             </>
           ) : (
             <>
-              <span className="mute-sm">{over ? 'Превышение' : 'Осталось'}</span>
+              <span className="mute-sm">{over ? t('Превышение') : t('Осталось')}</span>
               <span className="figures strong">
                 {over ? eaten.kcal - target : target - eaten.kcal} ккал
               </span>
@@ -134,7 +135,7 @@ export function Nutrition() {
 
       {plan?.fromCoach && plan.profile.coach_note && (
         <div className="card" style={{ marginTop: 12, borderColor: 'var(--accent)' }}>
-          <div className="mute-sm">Комментарий тренера</div>
+          <div className="mute-sm">{t('Комментарий тренера')}</div>
           <div className="mt-1">{plan.profile.coach_note}</div>
         </div>
       )}
@@ -145,7 +146,7 @@ export function Nutrition() {
         return (
           <div key={key}>
             <div className="section-title">
-              {label}
+              {t(label)}
               {items.length > 0 && (
                 <span style={{ float: 'right', fontFamily: 'var(--font-num)' }}>
                   {sum.kcal} ккал
@@ -168,10 +169,10 @@ export function Nutrition() {
                   </span>
                   <button
                     className="icon-btn"
-                    aria-label="Удалить"
+                    aria-label={t('Удалить')}
                     onClick={async () => {
                       await deleteFoodLog(l.id)
-                      toast('Запись удалена')
+                      toast(t('Запись удалена'))
                     }}
                   >
                     <IconTrash size={15} />
@@ -182,7 +183,7 @@ export function Nutrition() {
                 <span className="metric-icon" style={{ color: 'var(--accent-ink)' }}>
                   <IconPlus size={18} />
                 </span>
-                <span className="grow title">Добавить</span>
+                <span className="grow title">{t('Добавить')}</span>
               </button>
             </div>
           </div>
@@ -196,9 +197,9 @@ export function Nutrition() {
       <div className="group mt-5">
         <button className="group-row" onClick={() => nav('/nutrition/foods')}>
           <span className="grow">
-            <span className="title">Мои продукты</span>
+            <span className="title">{t('Мои продукты')}</span>
             <span className="sub">
-              Домашние блюда и то, чего нет в базе
+              {t('Домашние блюда и то, чего нет в базе')}
             </span>
           </span>
           <span className="chevron">
@@ -211,7 +212,7 @@ export function Nutrition() {
         slot={pickerSlot}
         date={date}
         onClose={() => setPickerSlot(null)}
-        onAdded={() => toast('Записано')}
+        onAdded={() => toast(t('Записано'))}
       />
     </div>
   )

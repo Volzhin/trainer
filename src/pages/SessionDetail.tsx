@@ -10,6 +10,7 @@ import { ExerciseTechniqueSheet } from '../components/ExerciseTechnique'
 import { IconBack, IconChat, IconRecord, IconTrash, IconVideo } from '../components/Icons'
 import { formatDateTime, formatDuration, formatWeight, plural, totalVolume } from '../lib/calc'
 import { useApp, useClientMode } from '../store/app'
+import { t } from '../lib/i18n'
 
 export function SessionDetail() {
   const { id = '' } = useParams()
@@ -40,7 +41,7 @@ export function SessionDetail() {
     if (comments?.some((c) => c.is_read === 0)) void markFeedbackRead(id)
   }, [comments, id])
 
-  if (!session) return <div className="screen">Загрузка…</div>
+  if (!session) return <div className="screen">{t('Загрузка…')}</div>
 
   const exMap = new Map((exercises ?? []).map((e) => [e.id, e]))
   const grouped = new Map<number, ExerciseSet[]>()
@@ -55,7 +56,7 @@ export function SessionDetail() {
   return (
     <div className="screen">
       <div className="header">
-        <button className="icon-btn" onClick={() => nav(-1)} aria-label="Назад">
+        <button className="icon-btn" onClick={() => nav(-1)} aria-label={t('Назад')}>
           <IconBack size={18} />
         </button>
         <div className="grow">
@@ -66,10 +67,10 @@ export function SessionDetail() {
           className="icon-btn"
           onClick={async () => {
             await deleteSession(id)
-            toast('Тренировка удалена')
+            toast(t('Тренировка удалена'))
             nav('/', { replace: true })
           }}
-          aria-label="Удалить"
+          aria-label={t('Удалить')}
         >
           <IconTrash size={17} />
         </button>
@@ -80,24 +81,24 @@ export function SessionDetail() {
           <div className="value">
             {formatDuration((session.end_time ?? session.start_time) - session.start_time)}
           </div>
-          <div className="label">длительность</div>
+          <div className="label">{t('длительность')}</div>
         </div>
         <div className="stat">
           <div className="value">{Math.round(volume)} кг</div>
-          <div className="label">тоннаж</div>
+          <div className="label">{t('тоннаж')}</div>
         </div>
       </div>
 
       {session.notes && (
         <div className="card mt-3">
-          <div className="mute-sm">Заметка</div>
+          <div className="mute-sm">{t('Заметка')}</div>
           <div className="mt-1">{session.notes}</div>
         </div>
       )}
 
       {(comments ?? []).filter((c) => !c.exercise_id && c.text.trim()).length > 0 && (
         <>
-          <div className="section-title">Комментарий тренера</div>
+          <div className="section-title">{t('Комментарий тренера')}</div>
           {(comments ?? [])
             .filter((c) => !c.exercise_id && c.text.trim())
             .map((c) => (
@@ -119,7 +120,7 @@ export function SessionDetail() {
         <div className="card mt-3">
           <div className="row mb-1">
             <IconVideo size={16} />
-            <span className="strong">Видеоотчёт</span>
+            <span className="strong">{t('Видеоотчёт')}</span>
           </div>
           <div className="mute-sm">
             Тренировка уже сохранена. Ролики можно прикрепить к любому упражнению ниже — хоть
@@ -128,7 +129,7 @@ export function SessionDetail() {
         </div>
       )}
 
-      <div className="section-title">Упражнения</div>
+      <div className="section-title">{t('Упражнения')}</div>
       {blocks.map(([seq, rows]) => {
         const ex = exMap.get(rows[0].exercise_id)
         return (
@@ -188,7 +189,7 @@ export function SessionDetail() {
                     key={c.id}
                     className="muted quote mb-2"
                   >
-                    <div className="mute-sm">Разбор техники от тренера</div>
+                    <div className="mute-sm">{t('Разбор техники от тренера')}</div>
                     {c.text}
                   </div>
                 ))}

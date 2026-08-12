@@ -7,6 +7,7 @@ import { IconSettings } from '../components/Icons'
 import { useProfile } from '../store/app'
 import { MyTrainerCard } from '../components/MyTrainerCard'
 import { Group, Row } from '../components/Group'
+import { t } from '../lib/i18n'
 
 export function Profile() {
   const nav = useNavigate()
@@ -25,10 +26,10 @@ export function Profile() {
     <div className="screen">
       <div className="header">
         <div>
-          <h1>Профиль</h1>
-          <div className="sub">{profile?.name ?? 'Гость'}</div>
+          <h1>{t('Профиль')}</h1>
+          <div className="sub">{profile?.name ?? t('Гость')}</div>
         </div>
-        <button className="icon-btn" onClick={() => nav('/settings')} aria-label="Настройки">
+        <button className="icon-btn" onClick={() => nav('/settings')} aria-label={t('Настройки')}>
           <IconSettings size={18} />
         </button>
       </div>
@@ -36,7 +37,7 @@ export function Profile() {
       <Group>
         <Row
           icon={(profile?.name ?? 'Г').slice(0, 1)}
-          title={profile?.name ?? 'Гость'}
+          title={profile?.name ?? t('Гость')}
           sub={`${profile?.experience ?? 'Опыт не указан'}${
             profile?.height_cm ? ` · ${profile.height_cm} см` : ''
           }`}
@@ -48,22 +49,22 @@ export function Profile() {
       <MyTrainerCard />
 
 
-      <Group title="Мои данные">
+      <Group title={t('Мои данные')}>
         <Row
-          title="История тренировок"
-          sub="Все завершённые тренировки"
+          title={t('История тренировок')}
+          sub={t('Все завершённые тренировки')}
           onClick={() => nav('/history')}
           chevron
         />
         <Row
-          title="Анализ тела"
-          sub="Замеры и отчёты InBody"
+          title={t('Анализ тела')}
+          sub={t('Замеры и отчёты InBody')}
           onClick={() => nav('/body')}
           chevron
         />
         <Row
-          title="Прогресс"
-          sub="План программы, рост весов по упражнениям, рекорды"
+          title={t('Прогресс')}
+          sub={t('План программы, рост весов по упражнениям, рекорды')}
           onClick={() => nav('/progress')}
           chevron
         />
@@ -108,19 +109,19 @@ function EditProfileSheet({ open, onClose }: { open: boolean; onClose: () => voi
   }
 
   return (
-    <Sheet open={open} title="Профиль" onClose={onClose}>
+    <Sheet open={open} title={t('Профиль')} onClose={onClose}>
       <div className="stack">
         <div className="field">
-          <label>Имя</label>
+          <label>{t('Имя')}</label>
           <input
             className="input"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder={profile?.name ?? 'Гость'}
+            placeholder={profile?.name ?? t('Гость')}
           />
         </div>
         <div className="field">
-          <label>Рост, см</label>
+          <label>{t('Рост, см')}</label>
           <input
             className="input"
             inputMode="numeric"
@@ -130,7 +131,7 @@ function EditProfileSheet({ open, onClose }: { open: boolean; onClose: () => voi
           />
         </div>
         <div className="field">
-          <label>Целевой вес, кг</label>
+          <label>{t('Целевой вес, кг')}</label>
           <input
             className="input"
             inputMode="decimal"
@@ -140,7 +141,7 @@ function EditProfileSheet({ open, onClose }: { open: boolean; onClose: () => voi
           />
         </div>
         <div className="field">
-          <label>Опыт тренировок</label>
+          <label>{t('Опыт тренировок')}</label>
           <select
             className="select"
             value={experience}
@@ -152,7 +153,7 @@ function EditProfileSheet({ open, onClose }: { open: boolean; onClose: () => voi
           </select>
         </div>
         <div className="divider" />
-        <div className="field-group-title">Где с вами связаться</div>
+        <div className="field-group-title">{t('Где с вами связаться')}</div>
         <div className="mute-sm mb-3">
           Тренер напишет вам туда, где вам удобно отвечать.
         </div>

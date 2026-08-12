@@ -8,6 +8,7 @@ import { Sheet } from '../components/Sheet'
 import { loadFacets, matchesQuery } from '../lib/facets'
 import { useApp } from '../store/app'
 import { plural } from '../lib/calc'
+import { t } from '../lib/i18n'
 
 export function Exercises() {
   const nav = useNavigate()
@@ -43,7 +44,7 @@ export function Exercises() {
     <div className="screen">
       <div className="header">
         <div>
-          <h1>Упражнения</h1>
+          <h1>{t('Упражнения')}</h1>
           <div className="sub">
             {list.length} {plural(list.length, ['упражнение', 'упражнения', 'упражнений'])} в
             каталоге
@@ -52,7 +53,7 @@ export function Exercises() {
         <button
           className="icon-btn"
           onClick={() => setCreateOpen(true)}
-          aria-label="Создать упражнение"
+          aria-label={t('Создать упражнение')}
         >
           <IconPlus size={18} />
         </button>
@@ -62,7 +63,7 @@ export function Exercises() {
         <IconSearch />
         <input
           className="input"
-          placeholder="Поиск: жим, тяга, присед…"
+          placeholder={t('Поиск: жим, тяга, присед…')}
           value={q}
           onChange={(e) => {
             setQ(e.target.value)
@@ -99,7 +100,9 @@ export function Exercises() {
 
       <div className="group stagger mt-4">
         {list.length === 0 && (
-          <div className="empty">Ничего не нашлось. Можно создать своё упражнение.</div>
+          <div className="empty">
+            {t('Ничего не нашлось. Можно создать своё упражнение.')}
+          </div>
         )}
         {visible.map((ex, i) => (
           <button
@@ -114,7 +117,7 @@ export function Exercises() {
                 {ex.muscle_group} · {ex.equipment}
               </span>
             </span>
-            {ex.is_custom === 1 && <span className="badge">своё</span>}
+            {ex.is_custom === 1 && <span className="badge">{t('своё')}</span>}
           </button>
         ))}
       </div>
@@ -128,7 +131,7 @@ export function Exercises() {
         </button>
       )}
 
-      <Sheet open={filterOpen} title="Инвентарь" onClose={() => setFilterOpen(false)}>
+      <Sheet open={filterOpen} title={t('Инвентарь')} onClose={() => setFilterOpen(false)}>
         <div className="stack">
           {['Всё', ...facets.equipment].map((e) => (
             <button
@@ -190,19 +193,19 @@ function CreateExerciseSheet({
   }
 
   return (
-    <Sheet open={open} title="Своё упражнение" onClose={onClose}>
+    <Sheet open={open} title={t('Своё упражнение')} onClose={onClose}>
       <div className="stack">
         <div className="field">
-          <label>Название</label>
+          <label>{t('Название')}</label>
           <input
             className="input"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Например: Тяга Пендлея"
+            placeholder={t('Например: Тяга Пендлея')}
           />
         </div>
         <div className="field">
-          <label>Мышечная группа</label>
+          <label>{t('Мышечная группа')}</label>
           <select
             className="select"
             value={muscle || facets.muscles[0] || ''}
@@ -214,7 +217,7 @@ function CreateExerciseSheet({
           </select>
         </div>
         <div className="field">
-          <label>Оборудование</label>
+          <label>{t('Оборудование')}</label>
           <select
             className="select"
             value={equipment || facets.equipment[0] || ''}
@@ -226,12 +229,12 @@ function CreateExerciseSheet({
           </select>
         </div>
         <div className="field">
-          <label>Заметка по технике</label>
+          <label>{t('Заметка по технике')}</label>
           <textarea
             className="textarea"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Необязательно"
+            placeholder={t('Необязательно')}
           />
         </div>
         <button className="btn primary block" disabled={!name.trim()} onClick={submit}>
