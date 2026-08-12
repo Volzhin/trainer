@@ -22,11 +22,24 @@ if (!EMAIL || !PASSWORD) {
 const MAX_UPLOAD = 64 * 1024 * 1024
 
 /**
+ * Вход обязателен — и это не формальность.
+ *
+ * У неавторизованного запроса @request.auth.id — пустая строка, а у клиента
+ * без тренера пусто и поле trainer. Сравнение «пусто = пусто» истинно, и
+ * условие вида owner.trainer = @request.auth.id пропускало наружу записи всех
+ * клиентов, которые ещё не подключили тренера, — вместе с их профилями и
+ * почтой, без всякого входа. Поэтому каждое правило начинается с проверки,
+ * что запрос вообще от кого-то.
+ */
+const AUTHED = '@request.auth.id != ""'
+
+/**
  * Доступ к данным клиента. Тренер видит и правит записи своих клиентов:
  * без этого он не сможет ни назначить программу, ни оставить обратную связь.
  * Связь односторонняя — поле trainer у клиента, поэтому одного условия хватает.
  */
-const OWNER_OR_TRAINER = 'owner = @request.auth.id || owner.trainer = @request.auth.id'
+const OWNER_OR_TRAINER =
+  `${AUTHED} && (owner = @request.auth.id || owner.trainer = @request.auth.id)`
 
 /**
  * То же самое для таблицы синхронизации, но с одним изъятием: заметки о
@@ -35,7 +48,8 @@ const OWNER_OR_TRAINER = 'owner = @request.auth.id || owner.trainer = @request.a
  * их обычным обменом и читал бы, что тренер о нём думает.
  */
 const RECORDS_RULE =
-  '(owner = @request.auth.id && tbl != "trainerNotes") || owner.trainer = @request.auth.id'
+  `${AUTHED} && ((owner = @request.auth.id && tbl != "trainerNotes")` +
+  ' || owner.trainer = @request.auth.id)'
 
 async function main() {
   const token = await login()
@@ -126,11 +140,11 @@ async function main() {
     // Читать и править приглашения может только их автор. Клиент код не
     // ищет — он отдаёт его серверу, который сам находит нужную запись.
     // Иначе список кодов был бы доступен любому вошедшему целиком.
-    listRule: 'trainer = @request.auth.id',
-    viewRule: 'trainer = @request.auth.id',
-    createRule: 'trainer = @request.auth.id',
-    updateRule: 'trainer = @request.auth.id',
-    deleteRule: 'trainer = @request.auth.id',
+    listRule: `${AUTHED} && trainer = @request.auth.id`,
+    viewRule: `${AUTHED} && trainer = @request.auth.id`,
+    createRule: `${AUTHED} && trainer = @request.auth.id`,
+    updateRule: `${AUTHED} && trainer = @request.auth.id`,
+    deleteRule: `${AUTHED} && trainer = @request.auth.id`,
   })
 
   await backfillSeq(token)
@@ -215,10 +229,15 @@ async function patchUsers(token, users) {
     fields,
     // Регистрация открыта: приложение публичное, роль выбирается при входе.
     createRule: '',
+    // Вход обязателен: у клиента без тренера поле trainer пусто, и без этой
+    // проверки условие trainer = @request.auth.id совпадало для запроса
+    // вообще без входа — список людей с почтами читал кто угодно.
     listRule:
-      'id = @request.auth.id || trainer = @request.auth.id || id = @request.auth.trainer',
+      `${AUTHED} && (id = @request.auth.id || trainer = @request.auth.id` +
+      ' || id = @request.auth.trainer)',
     viewRule:
-      'id = @request.auth.id || trainer = @request.auth.id || id = @request.auth.trainer',
+      `${AUTHED} && (id = @request.auth.id || trainer = @request.auth.id` +
+      ' || id = @request.auth.trainer)',
     // Свой профиль человек правит сам, но не привязку к тренеру: иначе весь
     // разбор кода приглашения обходится одним PATCH — достаточно знать id
     // тренера, чтобы попасть к нему в кабинет и получить доступ к его
