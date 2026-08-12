@@ -35,12 +35,24 @@ jobs:
         env:
           BASE_PATH: /
 
+      # Отпечаток сервера берётся из секрета, а не собирается заново каждый
+      # раз: keyscan доверяет тому, кто ответил, и посредник между раннером и
+      # сервером получил бы и доступ, и пароль администратора базы.
+      # Снять отпечаток: ssh-keyscan -H <хост> — и положить в SSH_KNOWN_HOSTS.
       - name: Ключ доступа к серверу
+        env:
+          KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          if [ -n "$KNOWN_HOSTS" ]; then
+            echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            echo "::warning::SSH_KNOWN_HOSTS не задан — ключ хоста принимается на веру"
+            ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          fi
+          chmod 600 ~/.ssh/known_hosts
 
       - name: Выкладка приложения
         run: rsync -az --delete dist/ root@${{ secrets.DEPLOY_HOST }}:/opt/trainer/web/
@@ -54,13 +66,19 @@ jobs:
 
       # Схема применяется после статики: скрипт идемпотентен, и повторный
       # запуск на неизменившейся схеме ничего не делает.
+      # Пароль уходит потоком, а не в строке команды: аргументы удалённого
+      # процесса видит на сервере любой через ps, окружение — только root.
       - name: Схема базы
+        env:
+          PB_ADMIN_EMAIL: ${{ secrets.PB_ADMIN_EMAIL }}
+          PB_ADMIN_PASSWORD: ${{ secrets.PB_ADMIN_PASSWORD }}
         run: |
           scp server/schema.mjs root@${{ secrets.DEPLOY_HOST }}:/opt/trainer/schema.mjs
-          ssh root@${{ secrets.DEPLOY_HOST }} \
-            "PB_ADMIN_EMAIL='${{ secrets.PB_ADMIN_EMAIL }}' \
-             PB_ADMIN_PASSWORD='${{ secrets.PB_ADMIN_PASSWORD }}' \
-             node /opt/trainer/schema.mjs"
+          printf '%s\n%s\n' "$PB_ADMIN_EMAIL" "$PB_ADMIN_PASSWORD" |
+            ssh root@${{ secrets.DEPLOY_HOST }} \
+              'read -r EMAIL; read -r PASSWORD;
+               PB_ADMIN_EMAIL="$EMAIL" PB_ADMIN_PASSWORD="$PASSWORD" \
+                 node /opt/trainer/schema.mjs'
 
       - name: Проверка живости
         run: |
