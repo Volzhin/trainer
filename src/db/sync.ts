@@ -54,6 +54,8 @@ const SYNCED = [
   'nutritionTargets',
   'dailyActivity',
   'tasks',
+  'reportReplies',
+  'coachTargets',
 ] as const
 
 type SyncedTable = (typeof SYNCED)[number]
@@ -88,6 +90,8 @@ async function ownerOf(
     // выданы: иначе клиент не получит ни своих норм, ни своей анкеты.
     case 'nutritionTargets':
     case 'tasks':
+    case 'reportReplies':
+    case 'coachTargets':
       return str(row.client_id)
 
     // Сообщение принадлежит клиенту независимо от того, кто его написал:
@@ -217,10 +221,27 @@ export async function push(): Promise<number> {
     for (const row of rows) {
       const owner = await ownerOf(name, row)
       if (!owner) continue
+
+      // Заметки тренера про меня — не мои. Сервер их у клиента и не примет:
+      // они принадлежат ему по владельцу, но заводит и читает их только
+      // тренер. Строки могли осесть на устройстве от прежних версий, и
+      // попытка их выгрузить упёрлась бы в отказ и остановила обмен.
+      if (name === 'trainerNotes' && owner === me.id) continue
+
       // Чужие строки не трогаем: сервер их всё равно отклонит, а лишний
       // запрос на мобильной сети стоит дороже проверки на месте.
       if (owner !== me.id) {
-        if (!isMyClient(owner) || !TRAINER_AUTHORED.includes(name)) continue
+        if (!TRAINER_AUTHORED.includes(name)) continue
+        if (!isMyClient(owner)) {
+          // Неизвестно, наш ли это клиент: список не приехал. Пропустить
+          // молча нельзя — курсор уйдёт вперёд, и строка (ответ тренера,
+          // назначение, сообщение) не попадёт уже ни в один проход.
+          if (!clientsKnown) {
+            failed = true
+            break
+          }
+          continue
+        }
       }
 
       try {
@@ -267,14 +288,20 @@ const TRAINER_AUTHORED: readonly string[] = [
   // Переписку ведут оба, а принадлежит она клиенту: без этой строки
   // сообщения тренера не уезжали бы дальше его собственного телефона.
   'chat',
-  // Отчёты заводит клиент, но тренер дописывает в них свой ответ — без
-  // этих двух его слова остались бы на его же телефоне.
-  'workoutReports',
-  'nutritionDays',
+  // Ответ на отчёт и назначенную норму пишет тренер, адресованы они клиенту.
+  'reportReplies',
+  'coachTargets',
 ]
 
 /** Кого этот тренер ведёт — список приезжает вместе с данными клиентов. */
 let clientIds = new Set<string>()
+
+/**
+ * Достоверен ли этот список прямо сейчас. Пустой набор означает и «клиентов
+ * нет», и «список не доехал», а решения это требует разного: во втором
+ * случае выгрузку надо остановить, а не пропускать строки как чужие.
+ */
+let clientsKnown = false
 
 const isMyClient = (id: string) => clientIds.has(id)
 
@@ -300,7 +327,9 @@ async function drainDeletes() {
       continue
     }
     try {
-      const owner = await ownerOf(table, stale)
+      // Владелец, запомненный при удалении, главнее вычисленного: родителя,
+      // по которому его ищут, к этому моменту может уже не быть.
+      const owner = item.owner ?? (await ownerOf(table, stale))
       if (!owner) {
         done.push(item.id)
         continue
@@ -337,7 +366,14 @@ export async function pull(): Promise<number> {
 
     for (const rec of res.items) {
       newest = Math.max(newest, rec.updated)
-      if (await apply(rec)) applied++
+      try {
+        if (await apply(rec)) applied++
+      } catch {
+        // Одна негодная запись не должна останавливать обмен. Раньше
+        // исключение обрывало проход, курсор замирал на ней, и каждый
+        // следующий заход спотыкался о неё же — приложение переставало
+        // получать вообще что-либо. Пропускаем её и идём дальше.
+      }
     }
 
     if (res.page * res.perPage >= res.totalItems) break
@@ -357,11 +393,24 @@ async function apply(rec: RemoteRecord): Promise<boolean> {
 
   if (rec.deleted) {
     if (!local) return false
+    // Своя правка новее удаления — оставляем её. Иначе строка, которую
+    // человек только что изменил и ещё не успел выгрузить, исчезает у него
+    // из-под рук, а push её уже не найдёт: удалять нечего.
+    if (Number.isFinite(rec.updated) && stampOf(local) > rec.updated) return false
     await table.delete(key)
     return true
   }
 
   if (!rec.payload || typeof rec.payload !== 'object') return false
+
+  // Куда лечь, решает rid, а ложится payload — и если ключи расходятся,
+  // строка накрывает чужую. Сервер этого не сверяет: он проверяет владельца
+  // записи, а её содержимое считает делом автора. Значит любой может
+  // прислать запись со своим owner и чужим id внутри — и подменить в базе
+  // тренера его собственный профиль или данные другого клиента.
+  const payload = rec.payload as Record<string, unknown>
+  if (ridOf(rec.tbl, payload) !== rec.rid) return false
+
   // Локальная правка новее серверной — оставляем свою, её выгрузит push.
   if (local && stampOf(local) >= rec.updated) return false
 
@@ -454,10 +503,26 @@ async function pushAttachments(): Promise<number> {
  */
 export async function syncClients(): Promise<number> {
   const me = authUser()
-  if (!me || me.role !== 'trainer') return 0
+  if (!me || me.role !== 'trainer') {
+    // У занимающегося чужих строк не бывает — знать про список некого,
+    // и выгрузку это не блокирует.
+    clientsKnown = true
+    return 0
+  }
 
-  const clients = await listClients(me.id)
+  // Признак сбрасываем только при настоящем отказе. Обнулять его на время
+  // запроса нельзя: обновление списка приходит и по событию из живого потока,
+  // посреди работающей выгрузки, — и та обрывала бы проход, хотя список
+  // с прошлого раза никуда не делся.
+  let clients
+  try {
+    clients = await listClients(me.id)
+  } catch (e) {
+    clientsKnown = false
+    throw e
+  }
   rememberClients(clients.map((c) => c.id))
+  clientsKnown = true
 
   for (const c of clients) {
     const existing = await db.profile.get(c.id)
@@ -570,11 +635,17 @@ export async function syncNow(): Promise<{
  * у тренера и мобильным трафиком; плюс обмен при возврате в приложение и
  * при появлении сети, когда данные скорее всего устарели.
  */
+/** Ссылки держим, чтобы снять их в stopSync: вход и выход за сессию могут
+ *  случиться не раз, и каждый оставлял бы после себя ещё один обработчик. */
+const kick = () => {
+  void syncNow()
+}
+const onVisible = () => {
+  if (document.visibilityState === 'visible') kick()
+}
+
 export function startSync() {
   if (timer) return
-  const kick = () => {
-    void syncNow()
-  }
   kick()
 
   // Живой поток — основной способ узнать об изменении. Запись прилетает
@@ -588,9 +659,7 @@ export function startSync() {
   // приложение не должно замереть до следующего запуска.
   timer = setInterval(kick, 60_000)
   window.addEventListener('online', kick)
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') kick()
-  })
+  document.addEventListener('visibilitychange', onVisible)
 }
 
 /** Разбор одного события из живого потока. */
@@ -607,29 +676,27 @@ async function onRealtime(e: {
 
   if (e.collection !== 'records') return
 
-  if (e.action === 'delete') {
-    // В событии удаления полей уже нет, кроме идентификаторов: снимаем
-    // строку по ним, если такая есть.
-    const tbl = String(e.record.tbl ?? '')
-    const rid = String(e.record.rid ?? '')
-    if (isSynced(tbl) && rid) await db.table(tbl).delete(rid)
-    return
+  const rec = e.record as unknown as RemoteRecord
+
+  try {
+    // Удаление идёт тем же путём, что и всё остальное: там сверяются метки,
+    // и своя несохранённая правка не пропадёт из-за чужого удаления.
+    await apply(e.action === 'delete' ? { ...rec, deleted: true } : rec)
+  } catch {
+    /* битое событие не должно ломать поток */
   }
 
-  await apply(e.record as unknown as RemoteRecord)
-
-  // Курсор двигаем вместе с событием, чтобы страховочный опрос не тянул
-  // уже применённое заново.
-  const updated = Number(e.record.updated)
-  if (Number.isFinite(updated)) {
-    const since = await pullCursor()
-    if (updated > since) await setCursors({ pulled: updated })
-  }
+  // Курсор по событию не двигаем. Поток рвётся незаметно — при обрыве часть
+  // событий теряется, и метка, ушедшая вперёд по единственному дошедшему,
+  // навсегда закрывает от страховочного опроса всё, что он должен был
+  // добрать. Лишний повтор дешевле пропущенной записи.
 }
 
 export function stopSync() {
   if (timer) clearInterval(timer)
   timer = null
+  window.removeEventListener('online', kick)
+  document.removeEventListener('visibilitychange', onVisible)
   closeRealtime()
 }
 
