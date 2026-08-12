@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { NutritionDay, WorkoutReport } from '../db/db'
+import type { NutritionDay, ReviewTarget, WorkoutReport } from '../db/db'
 import { reviewReport } from '../db/reports'
 import { formatDate } from '../lib/calc'
 import { Sheet } from './Sheet'
@@ -17,8 +17,8 @@ import { t } from '../lib/i18n'
  */
 
 export type ReviewSubject = {
-  target: 'workout' | 'nutrition'
-  /** id отчёта о тренировке либо дата дня питания. */
+  target: ReviewTarget
+  /** id отчёта о тренировке либо дата дня питания или замера. */
   ref: string
   title: string
   subtitle: string

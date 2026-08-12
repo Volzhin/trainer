@@ -19,6 +19,7 @@ import { ClientReports } from '../../components/ClientReports'
 import { pendingReviewCount, tasksOf, weekProgress } from '../../db/reports'
 import { ChatThread } from '../../components/ChatThread'
 import { ClientWorkouts } from '../../components/ClientWorkouts'
+import { ClientBodyReports } from '../../components/ClientBodyReports'
 import { IconBack, IconCheck } from '../../components/Icons'
 import { formatDate, plural, startOfDay } from '../../lib/calc'
 import { useApp } from '../../store/app'
@@ -177,6 +178,8 @@ export function TrainerClientDetail() {
 
       {tab === 'body' && (
         <div className="mt-1">
+          <ClientBodyReports clientId={id} />
+
           {/* Вес стоит перед составом тела, а не в сводке профиля: смотрят
               на него вместе с процентом жира и обхватами — из них и
               складывается ответ, уходит ли вес туда, куда нужно. Отдельно

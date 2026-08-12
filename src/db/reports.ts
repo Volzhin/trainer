@@ -201,6 +201,18 @@ export async function reviewReport(input: {
   if (comment) {
     if (input.target === 'workout') {
       await db.workoutReports.update(input.ref, { trainer_comment: comment, updated_at: ts })
+    } else if (input.target === 'body') {
+      // Ссылка у замера — дата, а замеров за день может быть несколько
+      // (взвесились утром, сходили на InBody вечером). Ответ пишем всем:
+      // он про день, а не про конкретную строку.
+      const day = await db.bodyMetrics
+        .where('user_id')
+        .equals(input.clientId)
+        .and((m) => localDate(m.logged_at) === input.ref)
+        .toArray()
+      for (const m of day) {
+        await db.bodyMetrics.update(m.id, { trainer_comment: comment, updated_at: ts })
+      }
     } else {
       await db.nutritionDays.update(`${input.clientId}:${input.ref}`, {
         trainer_comment: comment,
@@ -451,6 +463,8 @@ export type SubmittedEntry = {
   at: number
   title: string
   detail: string
+  /** Что ответил тренер. Без этого его разбор оставался бы у него же. */
+  reply?: string
 }
 
 /**
@@ -484,6 +498,7 @@ export async function submittedEntries(
       id: m.id,
       kind,
       at: m.logged_at,
+      reply: m.trainer_comment,
       title: kind === 'inbody' ? 'InBody' : kind === 'measure' ? 'Замеры' : 'Вес',
       detail: [
         m.weight_kg != null && `${m.weight_kg} кг`,
@@ -517,6 +532,26 @@ export async function submittedEntries(
 export async function deleteSubmittedEntry(entry: SubmittedEntry) {
   if (entry.kind === 'activity') await db.dailyActivity.delete(entry.id)
   else await db.bodyMetrics.delete(entry.id)
+}
+
+/**
+ * Сданные замеры клиента по дням — календарь во вкладке «Тело».
+ *
+ * Отдельного признака «сдан» у замера нет и не нужно: он появляется в
+ * общей базе ровно тогда, когда клиент его записал. Сам факт записи и
+ * есть сдача.
+ */
+export async function submittedBodyDays(clientId: string) {
+  const rows = await db.bodyMetrics.where('user_id').equals(clientId).toArray()
+  const byDate = new Map<string, { date: string; at: number; comment?: string }>()
+  for (const m of rows) {
+    const date = localDate(m.logged_at)
+    const prev = byDate.get(date)
+    if (!prev || m.logged_at > prev.at) {
+      byDate.set(date, { date, at: m.logged_at, comment: m.trainer_comment })
+    }
+  }
+  return [...byDate.values()].sort((a, b) => b.at - a.at)
 }
 
 /* --------------------------- сводка недели ----------------------------- */

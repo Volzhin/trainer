@@ -262,9 +262,13 @@ function SubmittedList({
             <div className="group-row" key={`${e.kind}-${e.id}`}>
               <span className="grow">
                 <span className="title">
-                  {e.title} · {formatDate(e.at)}
+                  {t(e.title)} · {formatDate(e.at)}
                 </span>
-                <span className="sub">{e.detail || 'без цифр'}</span>
+                <span className="sub">{e.detail || t('без цифр')}</span>
+                {/* Ответ тренера показываем здесь же: разбор замера иначе
+                    остался бы у него на экране, а клиент так и не узнал бы,
+                    что его прочитали. */}
+                {e.reply && <span className="sub quote mt-1">{e.reply}</span>}
               </span>
               <button
                 className="icon-btn"
