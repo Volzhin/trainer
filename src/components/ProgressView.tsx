@@ -11,6 +11,7 @@ import {
 import { BarChart } from '../components/LineChart'
 import { formatDate, formatTonnage, formatWeight, plural } from '../lib/calc'
 import { t } from '../lib/i18n'
+import { exName } from '../lib/exerciseNames'
 
 const WEEKDAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
 
@@ -334,7 +335,7 @@ export function ExerciseRow({ row, onOpen }: { row: ExerciseProgress; onOpen: ()
   return (
     <button className="list-item" onClick={onOpen}>
       <div className="grow" style={{ minWidth: 0 }}>
-        <div className="truncate t-body-strong">{exercise.name}</div>
+        <div className="truncate t-body-strong">{exName(exercise.name)}</div>
         <div className="mute-sm truncate mt-1">
           {untouched
             ? row.routineNames.length

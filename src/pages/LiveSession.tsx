@@ -46,6 +46,7 @@ import { Sheet } from '../components/Sheet'
 import { useApp, useClientMode, useProfile } from '../store/app'
 import { ensureNotificationPermission, haptics } from '../lib/native'
 import { t } from '../lib/i18n'
+import { exName } from '../lib/exerciseNames'
 
 type Block = {
   sequence_order: number
@@ -187,7 +188,7 @@ export function LiveSession() {
     const { isPR } = await completeSet(set.id)
     if (isPR) {
       haptics.success()
-      toast(`${t('Личный рекорд')}: ${block.exercise.name}!`, 'pr')
+      toast(`${t('Личный рекорд')}: ${exName(block.exercise.name)}!`, 'pr')
     } else {
       haptics.impact()
     }
@@ -202,7 +203,7 @@ export function LiveSession() {
     const next = block.sets.find((s) => s.id !== set.id && !s.is_done)
     startRest(
       restSeconds ?? profile?.default_rest_seconds ?? 90,
-      next ? block.exercise.name : undefined,
+      next ? exName(block.exercise.name) : undefined,
     )
   }
 
@@ -260,7 +261,7 @@ export function LiveSession() {
     }
     if (prs) {
       haptics.success()
-      toast(`${t('Личный рекорд')}: ${block.exercise.name}!`, 'pr')
+      toast(`${t('Личный рекорд')}: ${exName(block.exercise.name)}!`, 'pr')
     } else {
       haptics.impact()
     }
@@ -340,7 +341,7 @@ export function LiveSession() {
                 )}
                 <span className="grow">
                   <span className="truncate strong" style={{ display: 'block' }}>
-                    {block.exercise.name}
+                    {exName(block.exercise.name)}
                   </span>
                   <span className="mute-sm">
                     {/* Цель важнее истории: по ней человек решает, сколько
@@ -363,7 +364,7 @@ export function LiveSession() {
               <button
                 className="icon-btn"
                 onClick={() => setTechniqueFor(block.exercise.id)}
-                aria-label={`${t('Техника')}: ${block.exercise.name}`}
+                aria-label={`${t('Техника')}: ${exName(block.exercise.name)}`}
                 title={t('Как делать')}
               >
                 <IconInfo size={17} />
@@ -371,7 +372,7 @@ export function LiveSession() {
               <button
                 className="icon-btn"
                 onClick={() => setStatsFor(block.exercise)}
-                aria-label={`${t('Статистика')}: ${block.exercise.name}`}
+                aria-label={`${t('Статистика')}: ${exName(block.exercise.name)}`}
                 title={t('Статистика по подходам')}
               >
                 <IconChart size={17} />
@@ -410,7 +411,7 @@ export function LiveSession() {
                   не введено ни веса, ни повторов, нечего. */}
               <button
                 className={`check sm${block.sets.every((x) => x.is_done) ? ' on' : ''}`}
-                aria-label={`${t('Отметить всё')}: ${block.exercise.name}`}
+                aria-label={`${t('Отметить всё')}: ${exName(block.exercise.name)}`}
                 onClick={() => void onToggleBlock(block)}
               >
                 <IconCheck size={15} />
@@ -531,7 +532,7 @@ export function LiveSession() {
               {doneBlocks.map((block) => (
                 <div className="finish-video" key={block.exercise.id}>
                   <div className="row between">
-                    <span className="title truncate">{block.exercise.name}</span>
+                    <span className="title truncate">{exName(block.exercise.name)}</span>
                     <span className="mute-sm">
                       {block.done} {plural(block.done, ['подход', 'подхода', 'подходов'])}
                     </span>

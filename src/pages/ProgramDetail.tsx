@@ -30,6 +30,7 @@ import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
 import { plural } from '../lib/calc'
 import { t } from '../lib/i18n'
+import { exName } from '../lib/exerciseNames'
 
 const WEEKDAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
 
@@ -248,7 +249,7 @@ export function ProgramDetail() {
                         )}
                         <span className="grow">
                           <span className="truncate" style={{ display: 'block' }}>
-                            {ex?.name ?? t('Упражнение')}
+                            {exName(ex?.name) || t('Упражнение')}
                           </span>
                           <span className="mute-sm">{t(ex?.muscle_group ?? '')} · {t('как делать')}</span>
                         </span>
@@ -266,7 +267,7 @@ export function ProgramDetail() {
                           <button
                             className="icon-btn"
                             onClick={() => setTechniqueFor(ex.id)}
-                            aria-label={`${t('Как делать')}: ${ex.name}`}
+                            aria-label={`${t('Как делать')}: ${exName(ex.name)}`}
                             title={t('Как делать')}
                           >
                             <IconInfo size={17} />
@@ -274,7 +275,7 @@ export function ProgramDetail() {
                           <button
                             className="icon-btn"
                             onClick={() => setStatsFor(ex)}
-                            aria-label={`${t('Статистика')}: ${ex.name}`}
+                            aria-label={`${t('Статистика')}: ${exName(ex.name)}`}
                             title={t('Статистика по подходам')}
                           >
                             <IconChart size={17} />

@@ -7,6 +7,7 @@ import { ExerciseMedia } from '../components/ExerciseMedia'
 import { ExerciseDescription } from '../components/ExerciseDescription'
 import { estimate1RM, formatDate, formatWeight } from '../lib/calc'
 import { t } from '../lib/i18n'
+import { exName } from '../lib/exerciseNames'
 
 export function ExerciseDetail() {
   const { id = '' } = useParams()
@@ -66,7 +67,7 @@ export function ExerciseDetail() {
           <IconBack size={18} />
         </button>
         <div className="grow">
-          <h1 className="detail">{exercise.name}</h1>
+          <h1 className="detail">{exName(exercise.name)}</h1>
         </div>
       </div>
 

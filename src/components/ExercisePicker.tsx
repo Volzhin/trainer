@@ -6,6 +6,7 @@ import { Sheet } from './Sheet'
 import { IconSearch } from './Icons'
 import { loadFacets, matchesQuery } from '../lib/facets'
 import { t } from '../lib/i18n'
+import { exName } from '../lib/exerciseNames'
 
 type Props = {
   open: boolean
@@ -37,7 +38,7 @@ export function ExercisePicker({
     return (exercises ?? [])
       .filter((e) => (muscle === 'Все' ? true : e.muscle_group === muscle))
       .filter((e) => matchesQuery(e, term))
-      .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+      .sort((a, b) => exName(a.name).localeCompare(exName(b.name)))
   }, [exercises, q, muscle])
 
   return (
@@ -77,9 +78,9 @@ export function ExercisePicker({
             onClose()
           }}
         >
-          <div className="avatar">{ex.name.slice(0, 1)}</div>
+          <div className="avatar">{exName(ex.name).slice(0, 1)}</div>
           <div className="grow">
-            <div className="truncate">{ex.name}</div>
+            <div className="truncate">{exName(ex.name)}</div>
             <div className="mute-sm">
               {t(ex.muscle_group)} · {t(ex.equipment)}
               {ex.is_custom === 1 ? ' · своё' : ''}

@@ -4,6 +4,7 @@ import { Sheet } from './Sheet'
 import { ExerciseMedia } from './ExerciseMedia'
 import { ExerciseDescription } from './ExerciseDescription'
 import { t } from '../lib/i18n'
+import { exName } from '../lib/exerciseNames'
 
 /**
  * Техника упражнения шторкой. Открывается из программы и прямо во время
@@ -25,7 +26,7 @@ export function ExerciseTechniqueSheet({
   if (!exerciseId) return null
 
   return (
-    <Sheet open={!!exerciseId} title={exercise?.name ?? 'Техника'} onClose={onClose}>
+    <Sheet open={!!exerciseId} title={exName(exercise?.name) || t('Техника')} onClose={onClose}>
       {!exercise ? (
         <div className="empty">{t('Упражнение не найдено')}</div>
       ) : (

@@ -19,6 +19,7 @@ import { estimate1RM } from '../lib/calc'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
 import { t } from '../lib/i18n'
+import { exName } from '../lib/exerciseNames'
 
 /**
  * Разбор тренировки глазами тренера: что реально было сделано по подходам,
@@ -111,7 +112,7 @@ export function SessionReview({
             <div className="ex-head">
               <div className="grow">
                 <div className="truncate strong">
-                  {ex?.name ?? t('Упражнение')}
+                  {exName(ex?.name) || t('Упражнение')}
                 </div>
                 <div className="mute-sm">
                   {sorted.length} {plural(sorted.length, ['подход', 'подхода', 'подходов'])}

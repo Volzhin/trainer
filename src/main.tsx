@@ -19,6 +19,7 @@ import {
 } from './db/db'
 import { setLang } from './lib/i18n'
 import './index.css'
+import { loadExerciseNames } from './lib/exerciseNames'
 
 /*
  * Обновление приложения.
@@ -82,6 +83,9 @@ seedIfEmpty()
     // Язык — до рендера: иначе первый кадр выходит на одном языке, а
     // второй на другом, и это видно.
     setLang(await getLangPref())
+    // Названия упражнений — тоже до рендера: подгрузи их после, и список
+    // каталога на секунду остался бы русским, а потом дёрнулся.
+    await loadExerciseNames()
   })
   .finally(() => {
     createRoot(document.getElementById('root')!).render(

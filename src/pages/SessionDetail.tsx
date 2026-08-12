@@ -11,6 +11,7 @@ import { IconBack, IconChat, IconRecord, IconTrash, IconVideo } from '../compone
 import { formatDateTime, formatDuration, formatWeight, plural, totalVolume } from '../lib/calc'
 import { useApp, useClientMode } from '../store/app'
 import { t } from '../lib/i18n'
+import { exName } from '../lib/exerciseNames'
 
 export function SessionDetail() {
   const { id = '' } = useParams()
@@ -146,7 +147,7 @@ export function SessionDetail() {
                 )}
                 <span className="grow">
                   <span className="truncate strong" style={{ display: 'block' }}>
-                    {ex?.name ?? t('Упражнение')}
+                    {exName(ex?.name) || t('Упражнение')}
                   </span>
                   <span className="mute-sm">
                     {rows.length} {plural(rows.length, ['подход', 'подхода', 'подходов'])} ·{' '}

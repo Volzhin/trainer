@@ -9,6 +9,7 @@ import { loadFacets, matchesQuery } from '../lib/facets'
 import { useApp } from '../store/app'
 import { plural } from '../lib/calc'
 import { t } from '../lib/i18n'
+import { exName } from '../lib/exerciseNames'
 
 export function Exercises() {
   const nav = useNavigate()
@@ -35,7 +36,7 @@ export function Exercises() {
       .filter((e) => (muscle === 'Все' ? true : e.muscle_group === muscle))
       .filter((e) => (equipment === 'Всё' ? true : e.equipment === equipment))
       .filter((e) => matchesQuery(e, term))
-      .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+      .sort((a, b) => exName(a.name).localeCompare(exName(b.name)))
   }, [exercises, q, muscle, equipment])
 
   const visible = list.slice(0, limit)
@@ -112,7 +113,7 @@ export function Exercises() {
             onClick={() => nav(`/exercises/${ex.id}`)}
           >
             <span className="grow">
-              <span className="title">{ex.name}</span>
+              <span className="title">{exName(ex.name)}</span>
               <span className="sub">
                 {t(ex.muscle_group)} · {t(ex.equipment)}
               </span>
