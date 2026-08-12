@@ -9,7 +9,7 @@ import {
   loadClientSummaries,
   revokeInvite,
 } from '../../db/coach'
-import { pendingReviewCount } from '../../db/reports'
+import { pendingReviewCount, weekStatus, type ReviewStage } from '../../db/reports'
 import { unreadCount } from '../../db/chat'
 import { Sheet } from '../../components/Sheet'
 import { IconChat, IconPlus, IconRecord, IconTrash, IconUsers } from '../../components/Icons'
@@ -51,6 +51,14 @@ export function TrainerClients() {
       (clients ?? []).map(
         async (c) => [c.client.id, await pendingReviewCount(c.client.id)] as const,
       ),
+    )
+    return new Map(entries)
+  }, [clients])
+
+  // Недельный счёт и стадия разбора по каждому клиенту.
+  const status = useLiveQuery(async () => {
+    const entries = await Promise.all(
+      (clients ?? []).map(async (c) => [c.client.id, await weekStatus(c.client.id)] as const),
     )
     return new Map(entries)
   }, [clients])
@@ -222,13 +230,32 @@ export function TrainerClients() {
                 />
               </div>
 
+              {/* Две строки недели — под каждым клиентом, независимо от
+                  того, назначена ли программа: без программы у тренировок
+                  нет плана, но питание сдаётся всё равно, и молчать об этом
+                  значит терять половину картины.
+
+                  Цвет отвечает только за стадию разбора: сам по себе счёт
+                  не говорит, чей сейчас ход. */}
+              <div className="mt-3">
+                <WeekLine
+                  label="тренировок выполнено"
+                  done={status?.get(c.client.id)?.sessionsDone ?? c.sessionsThisWeek}
+                  total={status?.get(c.client.id)?.sessionsTarget ?? null}
+                  stage={status?.get(c.client.id)?.workouts ?? 'none'}
+                />
+                <WeekLine
+                  label="дней по питанию сдано"
+                  done={status?.get(c.client.id)?.nutritionDays ?? 0}
+                  total={7}
+                  stage={status?.get(c.client.id)?.nutrition ?? 'none'}
+                />
+              </div>
+
               {c.assignedProgramName ? (
                 <div className="mt-3">
                   <div className="row between mute-sm mb-1">
                     <span className="truncate">{c.assignedProgramName}</span>
-                    <span style={{ flex: '0 0 auto' }}>
-                      {c.sessionsThisWeek} / {c.weeklyTarget} за неделю
-                    </span>
                   </div>
                   <div className="bar">
                     <i
@@ -258,6 +285,40 @@ export function TrainerClients() {
       )}
 
       <InviteSheet open={inviteOpen} onClose={() => setInviteOpen(false)} onToast={toast} />
+    </div>
+  )
+}
+
+/**
+ * Строка недельного счёта с цветом стадии разбора.
+ *
+ * Цвет означает ровно одно: чей сейчас ход. Жёлтый — клиент сдал, разбор
+ * за тренером. Зелёный — разобрано, ход клиента. Без цвета — сдавать пока
+ * нечего, и красить нечего тоже: пустая неделя не провинность.
+ *
+ * Те же два цвета, что в календарях отчётов, и по той же причине — тренер
+ * не должен запоминать вторую систему обозначений.
+ */
+function WeekLine({
+  label,
+  done,
+  total,
+  stage,
+}: {
+  label: string
+  done: number
+  total: number | null
+  stage: ReviewStage
+}) {
+  const color =
+    stage === 'pending' ? 'var(--warn)' : stage === 'reviewed' ? 'var(--ok)' : undefined
+
+  return (
+    <div className="row between mute-sm mb-1" style={{ color }}>
+      <span className="truncate">{label}</span>
+      <span className="figures" style={{ flex: '0 0 auto' }}>
+        {total == null ? done : `${done} / ${total}`}
+      </span>
     </div>
   )
 }

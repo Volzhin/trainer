@@ -570,6 +570,56 @@ export async function weekProgress(clientId: string): Promise<WeekProgress> {
   }
 }
 
+/**
+ * Стадия разбора по виду отчётов. Ровно три состояния, как и в календарях:
+ * ничего не сдано, сдано и ждёт разбора, всё разобрано.
+ */
+export type ReviewStage = 'none' | 'pending' | 'reviewed'
+
+export type WeekStatus = WeekProgress & {
+  workouts: ReviewStage
+  nutrition: ReviewStage
+}
+
+/**
+ * Строка клиента в списке тренера: сколько сделано за неделю и есть ли по
+ * этому непрочитанная работа.
+ *
+ * Стадия считается по всему сданному, а не только по недельному: отчёт,
+ * пролежавший неделю, не перестаёт ждать разбора оттого, что началась
+ * новая. Счётчик при этом недельный — по нему судят о текущем темпе.
+ * Две разные вещи, и мешать их в одно число нельзя.
+ */
+export async function weekStatus(clientId: string): Promise<WeekStatus> {
+  const base = await weekProgress(clientId)
+
+  const workoutReports = await db.workoutReports
+    .where('[user_id+status]')
+    .equals([clientId, 'submitted'])
+    .toArray()
+  const days = await db.nutritionDays
+    .where('[user_id+status]')
+    .equals([clientId, 'submitted'])
+    .toArray()
+
+  const [seenWorkouts, seenDays] = await Promise.all([
+    reviewedRefs(clientId, 'workout'),
+    reviewedRefs(clientId, 'nutrition'),
+  ])
+
+  const stage = (total: number, unreviewed: number): ReviewStage =>
+    total === 0 ? 'none' : unreviewed > 0 ? 'pending' : 'reviewed'
+
+  return {
+    ...base,
+    workouts: stage(
+      workoutReports.length,
+      workoutReports.filter((r) => !seenWorkouts.has(r.id)).length,
+    ),
+    nutrition: stage(days.length, days.filter((d) => !seenDays.has(d.date)).length),
+  }
+}
+
 /* ------------------- статистика для недельных целей -------------------- */
 
 const DAY = 86400_000
