@@ -1,13 +1,30 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, currentUserId, type WorkoutRoutine, type WorkoutTemplateItem } from '../db/db'
+import {
+  db,
+  currentUserId,
+  type Exercise,
+  type WorkoutRoutine,
+  type WorkoutTemplateItem,
+} from '../db/db'
 import { useExercises } from '../db/catalog'
 import { addTemplateItem, createRoutine, startSessionFromRoutine } from '../db/repo'
 import { activeAssignmentFor, cancelMyPlan, planProgramMyself } from '../db/coach'
-import { IconBack, IconChevronRight, IconPlay, IconPlus, IconTrash } from '../components/Icons'
+import {
+  IconBack,
+  IconChart,
+  IconChevronRight,
+  IconInfo,
+  IconPlay,
+  IconPlus,
+  IconTrash,
+} from '../components/Icons'
 import { ExercisePicker } from '../components/ExercisePicker'
 import { ExerciseTechniqueSheet } from '../components/ExerciseTechnique'
+import { ExerciseStatsSheet } from '../components/ExerciseStatsSheet'
+import { CoachHint } from '../components/CoachHint'
+import { ExerciseBrief } from '../components/ExerciseBrief'
 import { Sheet } from '../components/Sheet'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
@@ -22,6 +39,7 @@ export function ProgramDetail() {
   const { toast } = useApp()
   const [pickerFor, setPickerFor] = useState<string | null>(null)
   const [techniqueFor, setTechniqueFor] = useState<string | null>(null)
+  const [statsFor, setStatsFor] = useState<Exercise | null>(null)
   const [planOpen, setPlanOpen] = useState(false)
 
   const program = useLiveQuery(() => db.programs.get(id), [id])
@@ -237,6 +255,31 @@ export function ProgramDetail() {
                           <IconChevronRight size={16} />
                         </span>
                       </button>
+
+                      {/* Те же две кнопки, что в тренировке: техника и
+                          статистика. Программу открывают до зала, чтобы
+                          понять, что предстоит, — и там эти вопросы те же,
+                          что у снаряда. */}
+                      {ex && (
+                        <>
+                          <button
+                            className="icon-btn"
+                            onClick={() => setTechniqueFor(ex.id)}
+                            aria-label={`${t('Как делать')}: ${ex.name}`}
+                            title={t('Как делать')}
+                          >
+                            <IconInfo size={17} />
+                          </button>
+                          <button
+                            className="icon-btn"
+                            onClick={() => setStatsFor(ex)}
+                            aria-label={`${t('Статистика')}: ${ex.name}`}
+                            title={t('Статистика по подходам')}
+                          >
+                            <IconChart size={17} />
+                          </button>
+                        </>
+                      )}
                       {editable && (
                         <button
                           className="icon-btn"
@@ -247,6 +290,18 @@ export function ProgramDetail() {
                         </button>
                       )}
                     </div>
+
+                    {/* Слово тренера и своя история — только у того, кто по
+                        программе занимается. Тренеру, который её правит,
+                        показывать нечего: клиента здесь нет, а его
+                        собственные подходы к чужой программе отношения не
+                        имеют. */}
+                    {!editable && ex && (
+                      <>
+                        <CoachHint exerciseId={ex.id} />
+                        <ExerciseBrief exerciseId={ex.id} />
+                      </>
+                    )}
 
                     {/* Три поля в строке на узком экране становятся по
                         восемьдесят пикселей, а с верхней границей их четыре.
@@ -372,6 +427,12 @@ export function ProgramDetail() {
       />
 
       <ExerciseTechniqueSheet exerciseId={techniqueFor} onClose={() => setTechniqueFor(null)} />
+
+      <ExerciseStatsSheet
+        exerciseId={statsFor?.id ?? null}
+        name={statsFor?.name}
+        onClose={() => setStatsFor(null)}
+      />
 
       <ExercisePicker
         open={!!pickerFor}
