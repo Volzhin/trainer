@@ -620,6 +620,8 @@ const EN: Record<string, string> = {
   'Код приглашения': 'Invite code',
   Далее: 'Next',
   'Вы уже работаете с тренером': 'You already work with a trainer',
+  'У вас уже есть тренер — отключите его, прежде чем подключать другого':
+    'You already have a trainer — disconnect them before connecting another',
   'Сканировать QR': 'Scan QR',
   'Или введите код руками': 'Or type the code by hand',
   'Клиент наводит камеру — приложение откроется с готовым кодом':

@@ -26,6 +26,7 @@ import {
   deleteRemoteAttachment,
   isAuthed,
   redeemInvite as remoteRedeemInvite,
+  updateAccount,
 } from '../lib/backend'
 
 /**
@@ -213,12 +214,24 @@ export async function redeemInvite(
   if (invite.expires_at < now()) throw new Error('Срок действия кода истёк')
   if (invite.trainer_id === clientId) throw new Error('Нельзя пригласить самого себя')
 
-  const existing = await db.links
-    .where('[trainer_id+client_id]')
-    .equals([invite.trainer_id, clientId])
-    .first()
-  if (existing && existing.status !== 'PAUSED')
+  /*
+   * Тренер у клиента ровно один.
+   *
+   * Проверять только связь с этим же тренером было мало: код второго
+   * тренера заводил вторую связь, и дальше всё зависело от того, какую из
+   * них вернёт база первой. Отчёты, комментарии и назначения расходились
+   * между двумя кабинетами непредсказуемо, а на сервере поле trainer у
+   * клиента одно — та связь молча переписывала другую.
+   */
+  const links = await db.links.where('client_id').equals(clientId).toArray()
+  const active = links.filter((l) => l.status !== 'PAUSED')
+
+  if (active.some((l) => l.trainer_id === invite.trainer_id))
     throw new Error('Вы уже работаете с этим тренером')
+  if (active.length)
+    throw new Error('У вас уже есть тренер — отключите его, прежде чем подключать другого')
+
+  const existing = links.find((l) => l.trainer_id === invite.trainer_id)
 
   const ts = now()
   const signed = consents.map((c) => ({ ...c, signed_at: c.signed_at || ts }))
@@ -296,14 +309,37 @@ export async function removeLink(linkId: string) {
     })
   }
   await db.links.delete(linkId)
+
+  /*
+   * Снимаем связь и на сервере — иначе она останется там навсегда.
+   *
+   * Поле trainer лежит в записи клиента, и править её вправе только он
+   * сам. Поэтому отключение с его стороны отвязывает по-настоящему, а
+   * отключение со стороны тренера убирает клиента из его кабинета, но
+   * серверную связь не рвёт: у тренера нет прав на чужую запись. Клиент
+   * доотвяжется, когда откроет приложение и нажмёт «Отключить тренера».
+   */
+  if (link.client_id === currentUserId() && isAuthed()) {
+    await updateAccount({ trainer: '' }).catch(() => {
+      /* сеть подождёт: местная связь уже снята, экраны это увидят */
+    })
+  }
 }
 
+/**
+ * Тренер клиента.
+ *
+ * Берём самую свежую связь, а не первую попавшуюся: порядок выдачи у базы
+ * свой, и при двух связях (например, оставшейся от прежнего тренера)
+ * приложение показывало бы то одного, то другого между перезагрузками.
+ */
 export async function trainerOfClient(clientId = currentUserId()) {
-  const link = await db.links
+  const links = await db.links
     .where('client_id')
     .equals(clientId)
     .and((l) => l.status !== 'PAUSED')
-    .first()
+    .toArray()
+  const link = links.sort((a, b) => b.created_at - a.created_at)[0]
   if (!link) return null
   const trainer = await db.profile.get(link.trainer_id)
   return trainer ? { link, trainer } : null
