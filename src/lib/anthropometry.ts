@@ -23,11 +23,6 @@ export type Derived = {
   bodyFatPct?: number
   fatMassKg?: number
   leanMassKg?: number
-  /** Скелетно-мышечная масса — доля безжировой, оценка. */
-  skeletalMuscleKg?: number
-  bodyWaterL?: number
-  proteinKg?: number
-  mineralsKg?: number
   bmi?: number
   /** Отношение талии к росту: выше 0.5 — повод обратить внимание. */
   waistToHeight?: number
@@ -105,12 +100,19 @@ export function deriveComposition(input: {
   const fat = (weightKg * pct) / 100
   const lean = weightKg - fat
 
+  /*
+   * Жировая и безжировая масса — арифметика от процента жира: вес минус
+   * жир. Оценка, но честная: она следует из того, что измерили лентой.
+   *
+   * Скелетные мышцы, воду, белок и минералы отсюда не выводим, хотя
+   * формулы для этого есть и раньше стояли: это одна и та же безжировая
+   * масса, умноженная на четыре постоянных коэффициента. Никакого нового
+   * знания в них нет, а выглядели они в приложении как показатели
+   * биоимпеданса — с нормами, динамикой и сегментами. Тренер принимал бы
+   * решения по числам, которых никто не измерял.
+   */
   out.fatMassKg = round1(fat)
   out.leanMassKg = round1(lean)
-  out.skeletalMuscleKg = round1(lean * 0.575)
-  out.bodyWaterL = round1(lean * 0.732)
-  out.proteinKg = round1(lean * 0.2)
-  out.mineralsKg = round1(lean * 0.0675)
 
   return out
 }

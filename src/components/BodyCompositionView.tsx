@@ -1239,10 +1239,8 @@ export function ManualMeasurementSheet({
           body_fat_pct: num('body_fat_pct') ?? derived.bodyFatPct,
           body_fat_kg: derived.fatMassKg,
           fat_free_mass_kg: derived.leanMassKg,
-          skeletal_muscle_kg: derived.skeletalMuscleKg,
-          body_water_l: derived.bodyWaterL,
-          protein_kg: derived.proteinKg,
-          minerals_kg: derived.mineralsKg,
+          // Мышцы, вода, белок и минералы сюда не пишутся: лентой их не
+          // измеришь, а поля эти читаются как показатели биоимпеданса.
           bmi: derived.bmi,
           waist_to_height: derived.waistToHeight,
           waist_to_hip: derived.waistToHip,
@@ -1263,13 +1261,6 @@ export function ManualMeasurementSheet({
     ['Жир', derived.bodyFatPct != null ? `${derived.bodyFatPct} %` : undefined],
     ['Жировая масса', derived.fatMassKg != null ? `${derived.fatMassKg} кг` : undefined],
     ['Безжировая масса', derived.leanMassKg != null ? `${derived.leanMassKg} кг` : undefined],
-    [
-      'Скелетные мышцы',
-      derived.skeletalMuscleKg != null ? `${derived.skeletalMuscleKg} кг` : undefined,
-    ],
-    ['Вода', derived.bodyWaterL != null ? `${derived.bodyWaterL} л` : undefined],
-    ['Белок', derived.proteinKg != null ? `${derived.proteinKg} кг` : undefined],
-    ['Минералы', derived.mineralsKg != null ? `${derived.mineralsKg} кг` : undefined],
     ['ИМТ', derived.bmi != null ? String(derived.bmi) : undefined],
     [
       'Талия к росту',

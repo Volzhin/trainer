@@ -90,7 +90,15 @@ export function BodyCompositionCard({
     ] as { key: string; value?: number; color: string }[]
   ).filter((p): p is Part => typeof p.value === 'number' && p.value > 0)
 
-  const total = parts.reduce((a, p) => a + p.value, 0)
+  /*
+   * Полосу состава рисуем только когда долей больше одной.
+   *
+   * Без биоимпеданса известна ровно одна — жировая масса, посчитанная от
+   * процента жира. Одна доля заполняет полосу целиком и читается как
+   * «сто процентов жира», хотя означает всего лишь, что остального никто
+   * не измерял.
+   */
+  const total = parts.length > 1 ? parts.reduce((a, p) => a + p.value, 0) : 0
 
   return (
     <button className="card tap" style={{ width: '100%', textAlign: 'left' }} onClick={onOpen}>

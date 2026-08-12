@@ -231,15 +231,21 @@ async function buildHistory(userId: string, opts: HistoryOptions): Promise<Histo
       hip_cm: Math.round((100 - week * 0.2) * 10) / 10,
       body_fat_kg: derived.fatMassKg,
       fat_free_mass_kg: derived.leanMassKg,
-      skeletal_muscle_kg: derived.skeletalMuscleKg,
-      body_water_l: derived.bodyWaterL,
-      protein_kg: derived.proteinKg,
-      minerals_kg: derived.mineralsKg,
+      /*
+       * Состав считаем прямо здесь, а не в общем расчёте по обхватам:
+       * лентой эти показатели не измерить, и приложение их больше не
+       * выводит. Демо изображает отчёт биоимпеданса — там они бывают, —
+       * поэтому и источник у записи соответствующий.
+       */
+      skeletal_muscle_kg: round1((derived.leanMassKg ?? 0) * 0.575),
+      body_water_l: round1((derived.leanMassKg ?? 0) * 0.732),
+      protein_kg: round1((derived.leanMassKg ?? 0) * 0.2),
+      minerals_kg: round1((derived.leanMassKg ?? 0) * 0.0675),
       bmi: derived.bmi,
       waist_to_height: derived.waistToHeight,
       waist_to_hip: derived.waistToHip,
       visceral_fat: Math.max(1, Math.round(fatPct / 2.4)),
-      source: 'manual',
+      source: 'inbody',
       derived: 1,
       logged_at: ts,
       updated_at: ts,
@@ -250,6 +256,8 @@ async function buildHistory(userId: string, opts: HistoryOptions): Promise<Histo
 }
 
 /** Демо-история для активного клиента. Заменяет текущие тренировки и замеры. */
+const round1 = (v: number) => Math.round(v * 10) / 10
+
 export async function generateDemoData(userId = currentUserId()) {
   const bundle = await buildHistory(userId, {
     weeks: 10,
