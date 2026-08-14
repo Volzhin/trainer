@@ -841,6 +841,25 @@ a {
   transition: width 0.9s linear;
 }
 
+/* Карточка о том, что пошло не так: та же карточка, но с рамкой внимания.
+   Класс, а не цвет в разметке, — таких мест уже два. */
+.card.warn {
+  border-color: var(--warn);
+}
+
+/* Полоса «данные не уходят». В общем потоке, поэтому отступ сверху свой:
+   у экрана он начинается уже после неё. */
+.sync-trouble {
+  padding: calc(var(--safe-t) + 8px) 16px 12px;
+  border-bottom: 1px solid var(--warn);
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.sync-trouble .mute-sm {
+  color: var(--text-2);
+}
+
 /* ----------------------- нижняя панель сессии ----------------------- */
 
 .session-banner {

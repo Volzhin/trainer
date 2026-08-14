@@ -1311,6 +1311,15 @@ const EN: Record<string, string> = {
     'It has not reached this device yet. Check your connection and update the app — the program will appear on its own.',
   Нет: 'No',
   Смотреть: 'View',
+
+  /* --- обмен не доходит --- */
+  'Данные не уходят на сервер': 'Data is not reaching the server',
+  'Данные для клиента не уходят': 'Data for a client is not being sent',
+  'Сервер не принимает изменения. Написанное сохранено и уедет, как только он снова начнёт их принимать, — ничего не пропадёт.':
+    'The server is refusing changes. Everything you wrote is saved and will be sent as soon as it accepts them again — nothing is lost.',
+  'Сервер не считает этого человека вашим клиентом — проверьте связь в его карточке. Сообщения и назначения сохранены и уедут, когда связь восстановится.':
+    'The server does not treat this person as your client — check the link on their card. Messages and assignments are saved and will be sent once the link is restored.',
+
   'Опишите ограничения или выберите «Нет»': 'Describe the limitations or choose “No”',
 
   /* --- дни рождения клиентов --- */

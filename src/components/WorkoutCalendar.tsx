@@ -346,7 +346,7 @@ export function WorkoutCalendar() {
       {pending && (
         <>
           <div className="section-title">{t('План')}</div>
-          <div className="card" style={{ borderColor: 'var(--warn)' }}>
+          <div className="card warn">
             <div className="strong">{t('Тренер назначил программу')}</div>
             <div className="mute-sm mt-1">
               {t('Она ещё не загрузилась на это устройство. Проверьте связь и обновите приложение — программа появится сама.')}

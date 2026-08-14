@@ -9,6 +9,7 @@ import { Auth } from './pages/Auth'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { TabBar } from './components/TabBar'
 import { RestTimer } from './components/RestTimer'
+import { SyncTroubleBanner } from './components/SyncTroubleBanner'
 import { Home } from './pages/Home'
 import { Programs } from './pages/Programs'
 import { ProgramDetail } from './pages/ProgramDetail'
@@ -90,6 +91,9 @@ export default function App() {
 
   return (
     <div className="app">
+      {/* Выше всех экранов и в общем потоке: беда обмена касается любого из
+          них, а перекрывать заголовок ради предупреждения незачем. */}
+      <SyncTroubleBanner />
       {/* key по аккаунту: смена профиля перемонтирует дерево, и все
           запросы к базе перечитываются от имени нового пользователя. */}
       <ErrorBoundary key={`${userId}-${location.pathname}`}>

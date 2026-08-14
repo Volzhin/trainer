@@ -14,6 +14,7 @@
 import { db, APP_STATE_ID, type Contact, type ContactKind } from './db'
 import { linkId } from './coach'
 import {
+  ApiError,
   authUser,
   closeRealtime,
   getUser,
@@ -197,6 +198,48 @@ async function setCursors(patch: { pulled?: number; pulledSeq?: number; pushed?:
   })
 }
 
+// --- Состояние обмена ---
+
+/**
+ * Почему выгрузка не доходит.
+ *
+ * Обмен молчал о своих бедах, и это дорого обошлось: сервер час не принимал
+ * записи, у людей не уходили ни сообщения, ни назначения, а на экране всё
+ * выглядело отправленным. Узнали от человека, а не от приложения.
+ *
+ * `offline` сюда не попадает намеренно: приложение офлайн-первое, работа без
+ * сети — обычное дело, и пугать ею незачем. Речь только о том, что связь
+ * есть, а данные не уезжают.
+ */
+export type SyncTrouble =
+  /** Сервер не принял строку. Обмен встал и сам не починится. */
+  | { kind: 'rejected'; table: string; message: string }
+  /** Строки для человека, которого сервер не считает клиентом этого тренера. */
+  | { kind: 'stranger'; owners: string[] }
+  | null
+
+let trouble: SyncTrouble = null
+const troubleWatchers = new Set<(state: SyncTrouble) => void>()
+
+export const syncTrouble = (): SyncTrouble => trouble
+
+/** Подписка для экранов: состояние меняется в фоне, между перерисовками. */
+export function onSyncTrouble(fn: (state: SyncTrouble) => void): () => void {
+  troubleWatchers.add(fn)
+  fn(trouble)
+  return () => {
+    troubleWatchers.delete(fn)
+  }
+}
+
+function setTrouble(next: SyncTrouble) {
+  // Сравниваем по содержимому: проход идёт раз в минуту, и одинаковое
+  // состояние не должно дёргать перерисовку.
+  if (JSON.stringify(next) === JSON.stringify(trouble)) return
+  trouble = next
+  for (const fn of troubleWatchers) fn(next)
+}
+
 // --- Выгрузка ---
 
 /**
@@ -217,6 +260,18 @@ export async function push(): Promise<number> {
   const boundary = Date.now()
   let sent = 0
   let failed = false
+  let rejected: { table: string; message: string } | null = null
+
+  /**
+   * Самая ранняя отметка отложенной строки — дальше неё курсор не пойдёт.
+   *
+   * Пропустить строку и подвинуть курсор — значит потерять её навсегда:
+   * следующий проход берёт только то, что новее отметки, и пропущенное под
+   * условие уже не попадёт. Придержанный курсор стоит лишнего обхода, зато
+   * отложенное уедет само, как только причина уйдёт.
+   */
+  let held = Number.POSITIVE_INFINITY
+  const stranded = new Set<string>()
 
   for (const name of SYNCED) {
     if (failed) break
@@ -249,6 +304,23 @@ export async function push(): Promise<number> {
             failed = true
             break
           }
+          /*
+           * Список приехал, и этого человека в нём нет.
+           *
+           * В кабинете он при этом есть: кабинет строится по локальной
+           * таблице links, а право писать даёт поле trainer в его аккаунте
+           * на сервере — и списки расходятся, если связь оборвалась или не
+           * доехала. Тренер тогда пишет сообщения и назначает программы в
+           * пустоту, а выглядит это как обычная работа.
+           *
+           * Строку придерживаем и говорим об этом вслух. Прежде она молча
+           * пропускалась, курсор уходил вперёд, и написанное не отправлялось
+           * уже никогда — даже после того, как связь восстановят.
+           */
+          if (await db.links.where('client_id').equals(owner).first()) {
+            stranded.add(owner)
+            held = Math.min(held, stampOf(row))
+          }
           continue
         }
       }
@@ -263,19 +335,32 @@ export async function push(): Promise<number> {
           payload: row,
         })
         sent++
-      } catch {
+      } catch (e) {
         // Курсор не сдвигаем: следующий проход начнёт с той же точки и
         // повторит всё, что не доехало.
         failed = true
+        // Отказ сервера и обрыв связи выглядят одинаково — строка не уехала, —
+        // но значат разное. Без сети обмен догонит сам, и говорить не о чем;
+        // отказ сам не пройдёт, и молчать о нём нельзя.
+        // 401 не в счёт: это оборвавшаяся сессия, и про неё человеку говорит
+        // экран входа. Полоса «сервер не принимает» тут только запутала бы.
+        if (e instanceof ApiError && e.status > 401 && e.status < 500) {
+          rejected = { table: name, message: e.message }
+        }
         break
       }
     }
   }
 
-  if (failed) return sent
+  if (failed) {
+    setTrouble(rejected ? { kind: 'rejected', ...rejected } : trouble)
+    return sent
+  }
 
   await drainDeletes()
-  await setCursors({ pushed: boundary })
+  // Через отложенную строку курсор не переносим — см. held выше.
+  await setCursors({ pushed: Math.min(boundary, held - 1) })
+  setTrouble(stranded.size ? { kind: 'stranger', owners: [...stranded] } : null)
   return sent
 }
 
