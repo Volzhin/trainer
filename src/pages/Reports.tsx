@@ -116,7 +116,9 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
       <div className="header">
         <div>
           <h1>{t('Отчёты')}</h1>
-          <div className="sub">Тренер: {trainerName}</div>
+          <div className="sub">
+            {t('Тренер')}: {trainerName}
+          </div>
         </div>
         {!loading && pending > 0 && (
           <span className="badge">
@@ -182,7 +184,7 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
                 <span className="sub">
                   {lastWeight == null
                     ? t('ещё не вносили')
-                    : `${t('последний')} — ${formatWeight(lastWeight.weight_kg)} кг, ${formatDate(lastWeight.logged_at)}`}
+                    : `${t('последний')} — ${formatWeight(lastWeight.weight_kg)} ${t('кг')}, ${formatDate(lastWeight.logged_at)}`}
                 </span>
               </span>
               <span className="chevron">
