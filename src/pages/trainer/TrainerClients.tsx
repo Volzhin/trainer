@@ -14,7 +14,7 @@ import { pendingReviewCount, weekStatus, type ReviewStage } from '../../db/repor
 import { unreadCount } from '../../db/chat'
 import { Sheet } from '../../components/Sheet'
 import { QrCode } from '../../components/QrCode'
-import { IconChat, IconPlus, IconTrash, IconUsers } from '../../components/Icons'
+import { IconCake, IconChat, IconPlus, IconTrash, IconUsers } from '../../components/Icons'
 import { plural } from '../../lib/calc'
 import { useApp, useProfile } from '../../store/app'
 import { haptics } from '../../lib/native'
@@ -40,7 +40,7 @@ const STALE_DAYS = 7
 function BirthdayBadge({ days }: { days: number | null }) {
   if (days == null) return null
   return (
-    <span className="badge" style={{ color: 'var(--accent-ink)' }}>
+    <span className="badge pro">
       {days === 0 ? t('сегодня ДР') : `${t('ДР через')} ${days} ${plural(days, ['день', 'дня', 'дней'])}`}
     </span>
   )
@@ -57,17 +57,28 @@ function BirthdaysSoon({ clients }: { clients: { client: { id: string; name: str
 
   return (
     <div className="card mb-3" style={{ borderColor: 'var(--accent)' }}>
-      <div className="mute-sm">{t('Скоро дни рождения')}</div>
-      {soon.map((x) => (
-        <div className="row between mt-1" key={x.name}>
-          <span className="truncate">{x.name}</span>
-          <span className="mute-sm">
-            {x.days === 0
-              ? t('сегодня')
-              : `${t('через')} ${x.days} ${plural(x.days, ['день', 'дня', 'дней'])}`}
-          </span>
-        </div>
-      ))}
+      {/* Значок с заголовком — шапкой, список под ними во всю ширину.
+          Пока список стоял справа от значка, он был вложен в колонку
+          заголовка и висел с отступом, будто съехал. */}
+      <div className="row" style={{ gap: 10 }}>
+        <span className="metric-icon" style={{ color: 'var(--accent-ink)' }}>
+          <IconCake size={20} />
+        </span>
+        <span className="strong grow">{t('Скоро дни рождения')}</span>
+      </div>
+
+      <div className="group mt-3">
+        {soon.map((x) => (
+          <div className="group-row" key={x.name}>
+            <span className="grow title truncate">{x.name}</span>
+            <span className="value mute-sm">
+              {x.days === 0
+                ? t('сегодня')
+                : `${t('через')} ${x.days} ${plural(x.days, ['день', 'дня', 'дней'])}`}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
