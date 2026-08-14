@@ -2,9 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db'
 import { localDate } from '../lib/tdee'
-import { formatDate } from '../lib/calc'
-import { setManualNutrition } from '../db/reports'
-import { addNutritionShot, deleteAttachment, nutritionShots } from '../db/coach'
+import { formatDate, plural } from '../lib/calc'
+import { setManualNutrition, submitNutritionDay } from '../db/reports'
+import { sendText } from '../db/chat'
+import {
+  addNutritionShot,
+  deleteAttachment,
+  nutritionShots,
+  trainerOfClient,
+} from '../db/coach'
 import { Sheet } from './Sheet'
 import { ShotThumb } from './ShotThumb'
 import { IconPlus, IconTrash } from './Icons'
@@ -43,6 +49,9 @@ export function ManualNutritionReport({ date }: { date: string }) {
     () => db.nutritionDays.get(`${userId}:${forDate}`),
     [userId, forDate],
   )
+  // Кому уходит отчёт. Без тренера сдавать некому: числа остаются в
+  // дневнике, и это не отчёт, а личная запись.
+  const bond = useLiveQuery(() => trainerOfClient(userId), [userId])
   const shotsVersion = useLiveQuery(() => db.attachments.count(), [])
   const shots = useLiveQuery(
     () => nutritionShots(forDate, userId),
@@ -79,12 +88,53 @@ export function ManualNutritionReport({ date }: { date: string }) {
   const save = async () => {
     setBusy(true)
     try {
-      await setManualNutrition(forDate, {
+      const totals = {
         kcal: num(form.kcal),
         protein: num(form.protein),
         fat: num(form.fat),
         carbs: num(form.carbs),
-      })
+      }
+      await setManualNutrition(forDate, totals)
+
+      /*
+       * Сохранение и есть сдача.
+       *
+       * Раньше числа ложились в дневник, а сдавал день отдельный блок ниже:
+       * человек закрывал шторку с чувством, что отчитался, а тренер не
+       * видел ничего. Отдельного «сдать» для этого пути больше нет.
+       *
+       * В чат уходит тем же движением: обсуждать четыре числа всё равно
+       * будут там, и сообщение открывает разговор, вместо того чтобы
+       * ждать, пока тренер сам заметит новый день.
+       */
+      // Пустая форма отчётом не является: сдавать нечего, и сообщение в
+      // чат без единого числа тренер прочитает как ошибку.
+      const filledNow =
+        totals.kcal != null ||
+        totals.protein != null ||
+        totals.fat != null ||
+        totals.carbs != null
+      if (bond && filledNow) {
+        await submitNutritionDay(forDate)
+        const parts = [
+          totals.kcal != null ? `${totals.kcal} ${t('ккал')}` : null,
+          totals.protein != null ? `${t('Б')} ${totals.protein}` : null,
+          totals.fat != null ? `${t('Ж')} ${totals.fat}` : null,
+          totals.carbs != null ? `${t('У')} ${totals.carbs}` : null,
+        ].filter(Boolean)
+        const shotLine = shotCount
+          ? ` · ${shotCount} ${plural(shotCount, ['скриншот', 'скриншота', 'скриншотов'])}`
+          : ''
+        await sendText({
+          trainerId: bond.link.trainer_id,
+          clientId: userId,
+          authorId: userId,
+          authorRole: 'CLIENT',
+          text: `${t('Отчёт по питанию')} · ${formatDate(
+            new Date(`${forDate}T12:00:00`).getTime(),
+          )}: ${parts.join(', ')}${shotLine}`,
+        })
+      }
       haptics.success()
       // Называем день, если он не тот, что открыт: сохранив отчёт за
       // позавчера, легко решить, что записал за сегодня.

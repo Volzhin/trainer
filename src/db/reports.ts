@@ -103,6 +103,28 @@ export async function dueReportReminder(
     .sort((a, b) => (a.remind_at ?? 0) - (b.remind_at ?? 0))[0]
 }
 
+/** С какого часа напоминаем о несданном дне питания. */
+const NUTRITION_REMINDER_HOUR = 22
+
+/**
+ * Пора ли напомнить про сегодняшний день питания.
+ *
+ * Час проверяем при открытии приложения, а не будим себя в 22:00: вкладка
+ * к этому времени закрыта, а обещать уведомление, которого браузер не даст,
+ * нельзя. Напоминаем только когда в дневнике что-то есть: просить отчитаться
+ * о дне, в котором ничего не записано, значит просить выдумать.
+ */
+export async function nutritionReminderDue(userId = currentUserId()): Promise<boolean> {
+  if (new Date().getHours() < NUTRITION_REMINDER_HOUR) return false
+
+  const date = localDate()
+  const day = await db.nutritionDays.get(dayId(userId, date))
+  if (day?.status === 'submitted') return false
+
+  const logged = await db.foodLogs.where('[user_id+date]').equals([userId, date]).count()
+  return logged > 0 || (!!day && isManualDay(day))
+}
+
 /** Что о своём отчёте знает клиент. Больше знать и нечего. */
 export async function myWorkoutReportState(sessionId: string): Promise<ReportStatus> {
   const report = await db.workoutReports.where('session_id').equals(sessionId).first()
@@ -153,6 +175,18 @@ export async function setManualNutrition(
 ) {
   const day = await ensureNutritionDay(date, userId)
   await db.nutritionDays.update(day.id, { manual, updated_at: now() })
+}
+
+/**
+ * День, сданный итогом из стороннего счётчика.
+ *
+ * Такой отчёт разбирать нечем: тренер видит четыре числа и скриншоты, а
+ * разговор о них идёт в чате. Поэтому он не ждёт отметки — ни в календаре,
+ * ни в счётчике непроверенного.
+ */
+export const isManualDay = (day: Pick<NutritionDay, 'manual'>): boolean => {
+  const m = day.manual
+  return !!m && (m.kcal != null || m.protein != null || m.fat != null || m.carbs != null)
 }
 
 export async function submitNutritionDay(date: string, comment?: string) {
@@ -1084,6 +1118,6 @@ export async function pendingReviewCount(clientId: string): Promise<number> {
   // предстоит разобрать, а не сколько клиент прислал за всё время.
   return (
     workouts.filter((r) => !seenWorkouts.has(r.id)).length +
-    days.filter((d) => !seenDays.has(d.date)).length
+    days.filter((d) => !isManualDay(d) && !seenDays.has(d.date)).length
   )
 }

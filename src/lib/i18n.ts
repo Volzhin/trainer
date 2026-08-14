@@ -1307,6 +1307,12 @@ const EN: Record<string, string> = {
 
   'Удалить заготовку': 'Delete template',
 
+  /* --- питание: сдача ручного отчёта и разбор --- */
+  'Разбор дня': 'Day review',
+  'День питания не сдан': 'Nutrition day not submitted',
+  'Записи есть — отправьте отчёт тренеру': 'You have entries — send the report to your trainer',
+  'Что съедено': 'What was eaten',
+
   /* --- завершение тренировки у онлайн-клиента: выбор из трёх --- */
   'Сдать видео-отчёт': 'Submit video report',
   'Сдать без видео': 'Submit without video',
@@ -1412,6 +1418,7 @@ const PLURAL_EN: Record<string, [string, string]> = {
   замер: ['measurement', 'measurements'],
   неделю: ['week', 'weeks'],
   файл: ['file', 'files'],
+  скриншот: ['screenshot', 'screenshots'],
   'не сдан': ['not submitted', 'not submitted'],
 }
 

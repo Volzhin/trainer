@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type NutritionTarget } from '../db/db'
+import { db, type MealSlot, type NutritionTarget } from '../db/db'
 import {
   activityFor,
   currentTargets,
+  isManualDay,
   reviewedRefs,
   setWeeklyTargets,
   submittedNutritionDays,
@@ -50,7 +51,11 @@ export function ClientNutritionReview({ clientId }: { clientId: string }) {
   const states = useMemo(() => {
     const map = new Map<string, ReportState>()
     for (const d of days ?? []) {
-      map.set(d.date, seen?.has(d.date) ? 'reviewed' : 'submitted')
+      // Итог из стороннего счётчика закрывает день сразу: разбирать в нём
+      // нечего — четыре числа и скриншоты, а разговор идёт в чате. Жёлтый
+      // означал бы долг, которого у тренера нет.
+      const done = isManualDay(d) || seen?.has(d.date)
+      map.set(d.date, done ? 'reviewed' : 'submitted')
     }
     return map
   }, [days, seen])
@@ -176,7 +181,7 @@ function NutritionDayFacts({
     const shots = await nutritionShots(date, clientId)
     return {
       eaten: sumNutrients(logs),
-      entries: logs.length,
+      entries: logs,
       // Итог, введённый рукой, важнее посчитанного: пока базы продуктов
       // нет, человек считает КБЖУ в стороннем счётчике, и его четыре
       // числа — единственное, что он на самом деле сдал.
@@ -205,7 +210,7 @@ function NutritionDayFacts({
       {(() => {
         const m = facts.manual
         const hasManual = m && (m.kcal != null || m.protein != null || m.fat != null || m.carbs != null)
-        if (!hasManual && facts.entries === 0) {
+        if (!hasManual && facts.entries.length === 0) {
           return <div className="mute-sm">{t('Записей о еде за день нет.')}</div>
         }
         const eaten = hasManual
@@ -229,6 +234,35 @@ function NutritionDayFacts({
         )
       })()}
 
+      {/* Что именно съедено, а не только сколько вышло: разговор о питании
+          ведётся про продукты и приёмы пищи, а по одной сумме сказать
+          нечего. Итог из счётчика такого списка не даёт — там его нет. */}
+      {facts.entries.length > 0 && (
+        <div className="mt-3">
+          <div className="cap mb-1">{t('Что съедено')}</div>
+          {MEAL_SLOTS.map(({ key, label }) => {
+            const rows = facts.entries.filter((l) => l.slot === key)
+            if (!rows.length) return null
+            return (
+              <div key={key} className="mt-2">
+                <div className="mute-sm">{t(label)}</div>
+                {rows.map((l) => (
+                  <div className="row between mt-1" key={l.id}>
+                    <span className="mute-sm truncate">
+                      {l.name}
+                      {l.amount ? ` · ${Math.round(l.amount)} ${l.unit}` : ''}
+                    </span>
+                    <span className="figures">
+                      {Math.round(l.nutrients.kcal)} {t('ккал')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {row(
         t('Шаги'),
         facts.activity?.steps ?? 0,
@@ -251,6 +285,14 @@ function NutritionDayFacts({
     </div>
   )
 }
+
+/** Приёмы пищи в порядке дня — подписи те же, что у клиента в дневнике. */
+const MEAL_SLOTS: { key: MealSlot; label: string }[] = [
+  { key: 'breakfast', label: 'Завтрак' },
+  { key: 'lunch', label: 'Обед' },
+  { key: 'dinner', label: 'Ужин' },
+  { key: 'snack', label: 'Перекусы' },
+]
 
 /* ------------------------------ шаги и сон ----------------------------- */
 

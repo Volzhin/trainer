@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, currentUserId, notificationOn } from '../db/db'
 import { getActiveSession, listMySessions } from '../db/repo'
 import { activeAssignmentFor } from '../db/coach'
-import { dueReportReminder, openTasks } from '../db/reports'
+import { dueReportReminder, nutritionReminderDue, openTasks } from '../db/reports'
 import { plural, weekStart } from '../lib/calc'
 import { WorkoutCalendar } from '../components/WorkoutCalendar'
 import { IconChevronRight, IconPlay } from '../components/Icons'
@@ -28,6 +28,14 @@ export function Home() {
   // Отложенный отчёт напоминает о себе здесь, а не уведомлением: разбудить
   // себя через четыре часа при закрытой вкладке приложение не может, и
   // единственный честный момент — когда человек вернулся сам.
+  // Про день питания напоминаем после 22:00 — если в дневнике что-то есть,
+  // а день так и не сдан.
+  const nutritionDue = useLiveQuery(
+    async () =>
+      notificationOn(profile, 'nutrition_report') ? await nutritionReminderDue() : false,
+    [profile?.notifications],
+    false,
+  )
   const reminder = useLiveQuery(
     async () =>
       notificationOn(profile, 'workout_report') ? await dueReportReminder() : undefined,
@@ -70,6 +78,16 @@ export function Home() {
           onClick={() => nav(`/session/${active.id}`)}
         >
           <IconPlay size={18} /> {t('Вернуться к тренировке')}
+        </button>
+      )}
+
+      {nutritionDue && (
+        <button className="list-item mb-4" onClick={() => nav('/nutrition')}>
+          <div className="grow">
+            <div className="strong">{t('День питания не сдан')}</div>
+            <div className="mute-sm truncate">{t('Записи есть — отправьте отчёт тренеру')}</div>
+          </div>
+          <IconChevronRight size={16} />
         </button>
       )}
 

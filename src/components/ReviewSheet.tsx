@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { NutritionDay, ReviewTarget, WorkoutReport } from '../db/db'
 import { replyFor, replyText, reviewReport } from '../db/reports'
+import { sendText } from '../db/chat'
 import { formatDate } from '../lib/calc'
 import { Sheet } from './Sheet'
 import { SATIETY_LABELS } from './NutritionDayReport'
@@ -29,11 +30,16 @@ export type ReviewSubject = {
   submittedAt?: number
 }
 
+/*
+ * Заголовок и подпись собираются здесь, а не в разметке, поэтому переводим
+ * их на месте: в шторку они приходят готовой строкой, и словарь её уже не
+ * перехватит — дата и оценка сытости у каждого дня свои.
+ */
 export const toWorkoutSubject = (r: WorkoutReport, title?: string): ReviewSubject => ({
   target: 'workout',
   ref: r.id,
-  title: title ?? 'Тренировка',
-  subtitle: r.submitted_at ? `Сдана ${formatDate(r.submitted_at)}` : 'Сдана',
+  title: title ?? t('Тренировка'),
+  subtitle: r.submitted_at ? `${t('Сдана')} ${formatDate(r.submitted_at)}` : t('Сдана'),
   comment: r.client_comment,
   reply: r.trainer_comment,
   submittedAt: r.submitted_at,
@@ -42,8 +48,10 @@ export const toWorkoutSubject = (r: WorkoutReport, title?: string): ReviewSubjec
 export const toDaySubject = (d: NutritionDay): ReviewSubject => ({
   target: 'nutrition',
   ref: d.date,
-  title: `Питание · ${formatDate(new Date(`${d.date}T12:00:00`).getTime())}`,
-  subtitle: d.satiety ? `Сытость: ${SATIETY_LABELS[d.satiety]}` : 'День питания',
+  title: `${t('Питание')} · ${formatDate(new Date(`${d.date}T12:00:00`).getTime())}`,
+  subtitle: d.satiety
+    ? `${t('Сытость')}: ${t(SATIETY_LABELS[d.satiety])}`
+    : t('День питания'),
   comment: d.comment,
   reply: d.trainer_comment,
   submittedAt: d.submitted_at,
@@ -102,6 +110,25 @@ export function ReviewSheet({
         ref: subject.ref,
         comment: reply,
       })
+      // Разбор дня питания продолжается в переписке: ответ, оставшийся в
+      // отчёте за позавчера, клиент прочитает, но отвечать ему будет некуда,
+      // а вопрос «почему столько углеводов» без разговора не решается.
+      // Тренировка так не отправляется: её разбор идёт по упражнениям, и
+      // сваливать его в чат значит дублировать то, что уже под видео.
+      if (subject.target === 'nutrition' && reply.trim()) {
+        await sendText({
+          trainerId,
+          clientId,
+          authorId: trainerId,
+          authorRole: 'TRAINER',
+          // Днём подписываем дату, а не подзаголовок: он рассказывает про
+          // сытость, и в переписке «Разбор дня День питания» читается как
+          // сбой. Дата же сразу говорит, о каком дне речь.
+          text: `${t('Разбор дня')} ${formatDate(
+            new Date(`${subject.ref}T12:00:00`).getTime(),
+          )}: ${reply.trim()}`,
+        })
+      }
       haptics.success()
       onDone()
       onClose()

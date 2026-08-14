@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type FoodLog, type MealSlot } from '../db/db'
 import { deleteFoodLog, loadPlan, logsForDate, sumNutrients } from '../db/nutrition'
+import { isManualDay } from '../db/reports'
 import { localDate } from '../lib/tdee'
 import { FoodPicker } from '../components/FoodPicker'
 import { MacroRings } from '../components/MacroRings'
@@ -43,7 +44,25 @@ export function Nutrition() {
   )
   const plan = useLiveQuery(() => loadPlan(userId), [userId, version])
 
-  const eaten = useMemo(() => sumNutrients(logs ?? []), [logs])
+  const day = useLiveQuery(() => db.nutritionDays.get(`${userId}:${date}`), [userId, date, version])
+
+  /**
+   * Итог, перенесённый рукой из стороннего счётчика, важнее посчитанного по
+   * дневнику: это и есть то, что человек за день съел, а дневник в такие дни
+   * он не ведёт. Пока счётчик считал только продукты, свои же четыре числа
+   * клиент видел нулями — и не понимал, что вообще сдал.
+   */
+  const eaten = useMemo(() => {
+    const counted = sumNutrients(logs ?? [])
+    const m = day?.manual
+    if (!m || !isManualDay({ manual: m })) return counted
+    return {
+      kcal: m.kcal ?? 0,
+      protein: m.protein ?? 0,
+      fat: m.fat ?? 0,
+      carbs: m.carbs ?? 0,
+    }
+  }, [logs, day?.manual])
   // Цели может не быть вовсе — тогда экран показывает только съеденное.
   // Раньше здесь стоял ноль, и любая еда объявлялась превышением нормы.
   const target = plan?.target ?? null
