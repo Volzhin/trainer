@@ -83,7 +83,7 @@ export function SessionReview({
   }
 
   return (
-    <Sheet open={!!session} title={session.title} onClose={onClose}>
+    <Sheet open={!!session} title={t(session.title)} onClose={onClose}>
       <div className="mute-sm mb-3">
         {formatDateTime(session.start_time)} ·{' '}
         {formatDuration((session.end_time ?? session.start_time) - session.start_time)} ·{' '}

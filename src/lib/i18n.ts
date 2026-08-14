@@ -446,6 +446,13 @@ const EN: Record<string, string> = {
     'Bodyweight training. All you need is a mat and twenty-five minutes.',
   'Понедельник, среда, пятница — всё тело каждый раз, из инвентаря только коврик.':
     'Monday, Wednesday, Friday — full body every time, a mat is all the equipment you need.',
+  // Описание программы лежит в базе одной склеенной строкой — ключом должна
+  // быть она целиком, иначе перевод первого предложения не сработает.
+  'Понедельник, среда, пятница — всё тело каждый раз, из инвентаря только коврик. Сутки отдыха между тренировками: мышца успевает восстановиться, а привычка держится на трёх опорах в неделю, а не на одной. Начинайте с пяти минут разминки, заканчивайте растяжкой. Прогрессия — повторениями: когда все подходы даются уверенно, добавляйте по два повторения к каждому.':
+    'Monday, Wednesday, Friday — full body every time, a mat is all the equipment you need. ' +
+    'A day of rest between workouts: the muscle recovers, and the habit rests on three ' +
+    'points in the week rather than one. Start with five minutes of warm-up, finish with ' +
+    'stretching. Progress by reps: once every set feels confident, add two reps to each.',
   Бодибилдинг: 'Bodybuilding',
   Пауэрлифтинг: 'Powerlifting',
   'Тяжелая атлетика': 'Weightlifting',
@@ -1288,6 +1295,42 @@ const EN: Record<string, string> = {
     'How you felt, what was hard, what hurt',
   'Например: Верх / Низ': 'For example: Upper / Lower',
 
+  /* --- питание: строки, собираемые из числа и единицы --- */
+  'Расход по вашим данным': 'Expenditure from your data',
+  'Тренер пока не выдал норму по калориям — записи сохраняются, цель появится вместе с рекомендациями.':
+    'Your trainer has not set a calorie target yet — entries are still saved, the target arrives with the recommendations.',
+
+  /* --- собираемые в строку куски: «10 workouts in 4 weeks», «86.8 t» --- */
+  за: 'in',
+  т: 't',
+  макс: 'max',
+
+  /* --- ошибки входа и регистрации: приходят с сервера, показываются как есть --- */
+  'Вход устарел — войдите ещё раз': 'Your session expired — sign in again',
+  'Неверная почта или пароль': 'Wrong email or password',
+  'Не удалось связаться с сервером': 'Could not reach the server',
+  'Подтверждение пароля': 'Password confirmation',
+  'уже занята': 'is already taken',
+  // $1 подставляет регулярное выражение уже после перевода — цифру нужно
+  // сохранить и в английской строке.
+  'минимум $1 символов': 'at least $1 characters',
+  'нужен настоящий адрес': 'needs a real address',
+  'заполните поле': 'fill in the field',
+  'пароли не совпадают': 'passwords do not match',
+
+  /* --- коды приглашений --- */
+  'Код не отозвался на сервере — проверьте связь и попробуйте снова':
+    'The code was not revoked on the server — check your connection and try again',
+  Отдых: 'Rest',
+  далее: 'next',
+  'Все аккаунты живут в одной локальной базе — так связку тренер↔клиент видно без сервера.':
+    'All accounts live in one local database — that is how the trainer↔client link works without a server.',
+  'Чат появится, когда вы начнёте работать с тренером. Код приглашения вводится в профиле.':
+    'The chat appears once you start working with a trainer. The invite code goes in your profile.',
+  'От тренера': 'From your trainer',
+  для: 'for',
+  клиента: 'client',
+
   /* --- дни недели и месяцы: короткие формы, они стоят в узкой сетке --- */
   пн: 'Mon',
   вт: 'Tue',
@@ -1351,6 +1394,24 @@ export function setLang(lang: Lang) {
 }
 
 export const getLang = (): Lang => current
+
+/**
+ * Локаль для `toLocaleDateString` и подобных.
+ *
+ * Даты идут мимо словаря: их собирает браузер, и «14 августа» посреди
+ * английского экрана словарь уже не перехватит — локаль нужно задать в
+ * самом вызове.
+ */
+export const locale = (): string => (current === 'en' ? 'en-GB' : 'ru-RU')
+
+/**
+ * Дробная часть: у русского запятая, у английского точка.
+ *
+ * Числа собираются в строку вручную (`toFixed`), поэтому разделитель
+ * приходится ставить тоже вручную — иначе «86,8 т» уезжает в английский.
+ */
+export const decimal = (s: string): string =>
+  current === 'en' ? s.replace(',', '.') : s.replace('.', ',')
 
 /**
  * Перевести строку. Нет перевода — возвращаем как есть.

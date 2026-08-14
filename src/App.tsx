@@ -131,7 +131,7 @@ function ActiveSessionBanner() {
         <IconPlay size={16} />
         <div className="grow">
           <div className="truncate strong" style={{ fontSize: 14 }}>
-            {active.title}
+            {t(active.title)}
           </div>
           <div style={{ fontSize: 12, opacity: 0.85 }}>
             {t('Тренировка идёт — нажмите, чтобы вернуться')}

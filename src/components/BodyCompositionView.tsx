@@ -226,7 +226,7 @@ const AS_SHARE: (keyof BodyMetric)[] = [
 function cellsFor(m: BodyMetric, key: keyof BodyMetric, unit: string): (string | null)[] {
   const v = m[key]
   if (typeof v !== 'number') return []
-  const abs = unit ? `${round1(v)} ${unit}` : String(round1(v))
+  const abs = unit ? `${round1(v)} ${t(unit)}` : String(round1(v))
 
   if (key === 'body_fat_pct') {
     return [

@@ -17,7 +17,7 @@ import { IconChat, IconPlus, IconTrash, IconUsers } from '../../components/Icons
 import { plural } from '../../lib/calc'
 import { useApp, useProfile } from '../../store/app'
 import { haptics } from '../../lib/native'
-import { t } from '../../lib/i18n'
+import { locale, t } from '../../lib/i18n'
 
 /**
  * Ссылка для QR-кода.
@@ -410,7 +410,7 @@ function InviteSheet({
               <div className="grow">
                 <div style={{ fontWeight: 700, letterSpacing: 2, fontSize: 20 }}>{i.code}</div>
                 <div className="mute-sm">
-                  {t('действует до')} {new Date(i.expires_at).toLocaleDateString('ru-RU')}
+                  {t('действует до')} {new Date(i.expires_at).toLocaleDateString(locale())}
                 </div>
               </div>
               <button className="btn sm" onClick={() => copy(i.code)}>

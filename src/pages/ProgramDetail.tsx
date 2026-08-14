@@ -144,7 +144,7 @@ export function ProgramDetail() {
       )}
 
       {program.description && !program.client_id && (
-        <div className="card muted">{program.description}</div>
+        <div className="card muted">{t(program.description)}</div>
       )}
 
       {/* Программа сама по себе — ещё не тренировки. План раскладывает её дни

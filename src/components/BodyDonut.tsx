@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { t } from '../lib/i18n'
 
 /**
  * Кольцо состава тела: доли мышц, белка, минералов, воды и жира.
@@ -95,7 +96,7 @@ export function BodyDonut({ parts, centerLabel, centerValue, status, statusKind 
         viewBox={`0 0 ${SIZE} ${SIZE}`}
         style={{ width: '100%', maxWidth: 280, margin: '0 auto', display: 'block' }}
         role="img"
-        aria-label={`Анализ тела, ${centerLabel} ${centerValue}`}
+        aria-label={`${t('Анализ тела')}, ${centerLabel} ${centerValue}`}
       >
         <circle
           cx={SIZE / 2}
@@ -178,11 +179,11 @@ export function BodyDonut({ parts, centerLabel, centerValue, status, statusKind 
               {a.value}
               <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-3)' }}>
                 {' '}
-                {a.unit}
+                {t(a.unit)}
               </span>
             </div>
             <div className="mute-sm" style={{ fontSize: 11 }}>
-              {a.label}
+              {t(a.label)}
             </div>
           </div>
         ))}

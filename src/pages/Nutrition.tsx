@@ -11,7 +11,7 @@ import { ManualNutritionReport } from '../components/ManualNutritionReport'
 import { IconBack, IconChevronRight, IconPlus, IconTrash } from '../components/Icons'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
-import { t } from '../lib/i18n'
+import { locale, t } from '../lib/i18n'
 
 const SLOTS: { key: MealSlot; label: string }[] = [
   { key: 'breakfast', label: 'Завтрак' },
@@ -66,7 +66,7 @@ export function Nutrition() {
             {plan?.fromCoach
               ? t('Норму назначил тренер')
               : plan?.expenditure.source === 'adaptive'
-                ? `Расход по вашим данным · ${plan.expenditure.tdee} ккал`
+                ? `${t('Расход по вашим данным')} · ${plan.expenditure.tdee} ${t('ккал')}`
                 : t('Расход оценён по формуле')}
           </div>
         </div>
@@ -87,7 +87,7 @@ export function Nutrition() {
           <div className="strong">
             {isToday
               ? t('Сегодня')
-              : new Date(`${date}T12:00:00`).toLocaleDateString('ru-RU', {
+              : new Date(`${date}T12:00:00`).toLocaleDateString(locale(), {
                   weekday: 'short',
                   day: 'numeric',
                   month: 'long',
@@ -115,21 +115,22 @@ export function Nutrition() {
           {target == null ? (
             <>
               <span className="mute-sm">{t('Съедено')}</span>
-              <span className="figures strong">{eaten.kcal} ккал</span>
+              <span className="figures strong">
+                {eaten.kcal} {t('ккал')}
+              </span>
             </>
           ) : (
             <>
               <span className="mute-sm">{over ? t('Превышение') : t('Осталось')}</span>
               <span className="figures strong">
-                {over ? eaten.kcal - target : target - eaten.kcal} ккал
+                {over ? eaten.kcal - target : target - eaten.kcal} {t('ккал')}
               </span>
             </>
           )}
         </div>
         {target == null && (
           <div className="mute-sm mt-2">
-            Тренер пока не выдал норму по калориям — записи сохраняются, цель появится
-            вместе с рекомендациями.
+            {t('Тренер пока не выдал норму по калориям — записи сохраняются, цель появится вместе с рекомендациями.')}
           </div>
         )}
       </div>
@@ -151,7 +152,7 @@ export function Nutrition() {
               {t(label)}
               {items.length > 0 && (
                 <span style={{ float: 'right', fontFamily: 'var(--font-num)' }}>
-                  {sum.kcal} ккал
+                  {sum.kcal} {t('ккал')}
                 </span>
               )}
             </div>

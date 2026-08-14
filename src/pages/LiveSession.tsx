@@ -291,7 +291,7 @@ export function LiveSession() {
           </button>
           <div style={{ textAlign: 'center' }} className="grow">
             <div className="truncate strong">
-              {session.title}
+              {t(session.title)}
             </div>
             <div className="mute-sm">
               <Stopwatch from={session.start_time} stopped={frozenElapsed} /> · {doneCount}{' '}
@@ -355,7 +355,7 @@ export function LiveSession() {
                     )}
                     {targets?.get(block.exercise.id) && block.prev.length > 0 && ' · '}
                     {block.prev.length > 0
-                      ? `${t('прошлый раз')} ${formatWeight(block.prev[0].weight_kg)} кг × ${
+                      ? `${t('прошлый раз')} ${formatWeight(block.prev[0].weight_kg)} ${t('кг')} × ${
                           block.prev[0].reps_completed ?? '—'
                         }`
                       : !targets?.get(block.exercise.id) && t('как делать')}

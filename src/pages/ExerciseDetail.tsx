@@ -132,10 +132,12 @@ export function ExerciseDetail() {
         {chart.length > 0 && (
           <div className="row between mb-1">
             <span className="muted">{t('Расчётный максимум')}</span>
-            <strong>{Math.round(pr)} кг</strong>
+            <strong>
+              {Math.round(pr)} {t('кг')}
+            </strong>
           </div>
         )}
-        <LineChart data={chart} unit=" кг" />
+        <LineChart data={chart} unit={` ${t('кг')}`} />
       </div>
 
       <div className="section-title">{t('История')}</div>

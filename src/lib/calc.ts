@@ -1,5 +1,5 @@
 import type { ExerciseSet } from '../db/db'
-import { getLang, pluralEn } from './i18n'
+import { decimal, getLang, locale, pluralEn, t } from './i18n'
 
 /** Оценка одноповторного максимума по формуле Эпли. */
 export function estimate1RM(weight: number, reps: number): number {
@@ -49,21 +49,21 @@ export function formatClock(seconds: number): string {
 
 /** Крупный тоннаж читается в тоннах, мелкий — в килограммах. */
 export function formatTonnage(kg: number): string {
-  if (kg >= 1000) return `${(kg / 1000).toFixed(1).replace('.', ',')} т`
-  return `${Math.round(kg)} кг`
+  if (kg >= 1000) return `${decimal((kg / 1000).toFixed(1))} ${t('т')}`
+  return `${Math.round(kg)} ${t('кг')}`
 }
 
 export function formatWeight(kg?: number): string {
   if (kg == null) return '—'
-  return Number.isInteger(kg) ? `${kg}` : kg.toFixed(1).replace('.', ',')
+  return Number.isInteger(kg) ? `${kg}` : decimal(kg.toFixed(1))
 }
 
 export function formatDate(ts: number): string {
-  return new Date(ts).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+  return new Date(ts).toLocaleDateString(locale(), { day: 'numeric', month: 'long' })
 }
 
 export function formatDateTime(ts: number): string {
-  return new Date(ts).toLocaleString('ru-RU', {
+  return new Date(ts).toLocaleString(locale(), {
     day: 'numeric',
     month: 'short',
     hour: '2-digit',

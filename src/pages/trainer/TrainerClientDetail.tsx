@@ -90,7 +90,7 @@ export function TrainerClientDetail() {
         <div className="grow">
           <h1 className="detail">{client.name}</h1>
           <div className="sub">
-            {client.experience ?? t('опыт не указан')}
+            {client.experience ? t(client.experience) : t('опыт не указан')}
             {client.height_cm ? ` · ${client.height_cm} ${t('см')}` : ''}
           </div>
         </div>

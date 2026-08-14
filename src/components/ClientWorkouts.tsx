@@ -155,7 +155,7 @@ export function ClientWorkouts({
               return (
                 <div key={m.group}>
                   <div className="row between mb-1">
-                    <span className="muted">{m.group}</span>
+                    <span className="muted">{t(m.group)}</span>
                     <span className="mute-sm t-num">
                       {m.sets} {plural(m.sets, ['подход', 'подхода', 'подходов'])}
                     </span>

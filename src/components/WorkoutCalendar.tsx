@@ -14,7 +14,7 @@ import { Sheet } from './Sheet'
 import { formatDuration, plural, startOfDay, totalVolume } from '../lib/calc'
 import { haptics } from '../lib/native'
 import { useApp } from '../store/app'
-import { t } from '../lib/i18n'
+import { locale, t } from '../lib/i18n'
 
 const WEEK_DAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
 const MONTHS = [
@@ -237,7 +237,7 @@ export function WorkoutCalendar() {
       </div>
 
       <div className="section-title">
-        {new Date(selected).toLocaleDateString('ru-RU', {
+        {new Date(selected).toLocaleDateString(locale(), {
           weekday: 'long',
           day: 'numeric',
           month: 'long',
@@ -286,7 +286,7 @@ export function WorkoutCalendar() {
                 <div className="row between">
                   <div className="grow">
                     <div className="truncate strong">
-                      {s.title}
+                      {t(s.title)}
                     </div>
                     <div className="mute-sm" style={{ marginTop: 3 }}>
                       {sets.length} {plural(sets.length, ['подход', 'подхода', 'подходов'])} ·{' '}

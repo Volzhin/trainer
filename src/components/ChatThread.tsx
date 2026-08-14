@@ -6,7 +6,7 @@ import { formatDate } from '../lib/calc'
 import { IconChat } from './Icons'
 import { haptics } from '../lib/native'
 import { useApp } from '../store/app'
-import { t } from '../lib/i18n'
+import { locale, t } from '../lib/i18n'
 
 /**
  * Ветка переписки. Одна и та же у тренера и у клиента — разговор общий,
@@ -124,7 +124,7 @@ export function ChatThread({
 const dayOf = (m: ChatMessage) => new Date(m.created_at).toDateString()
 
 const timeOf = (ts: number) =>
-  new Date(ts).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+  new Date(ts).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })
 
 function Bubble({
   message,

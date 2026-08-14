@@ -74,7 +74,7 @@ export function Home() {
             <div className="strong">
               {todo.length} {plural(todo.length, ['задание', 'задания', 'заданий'])} {t('от тренера')}
             </div>
-            <div className="mute-sm truncate">{todo[0].title}</div>
+            <div className="mute-sm truncate">{t(todo[0].title)}</div>
           </div>
           <IconChevronRight size={16} />
         </button>

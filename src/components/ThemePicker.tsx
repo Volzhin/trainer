@@ -52,7 +52,7 @@ export function ThemePicker() {
             className={pref === value ? 'on' : ''}
             onClick={() => pick(value)}
           >
-            {label}
+            {t(label)}
           </button>
         ))}
       </div>
@@ -67,7 +67,7 @@ export function ThemePicker() {
             className={accent === value ? 'on' : ''}
             onClick={() => pickAccent(value)}
           >
-            {label}
+            {t(label)}
           </button>
         ))}
       </div>

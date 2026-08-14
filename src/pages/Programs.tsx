@@ -88,7 +88,7 @@ export function Programs() {
           <h1>{assigned ? t('Моя программа') : t('Программы')}</h1>
           <div className="sub">
             {assigned
-              ? `От тренера${assigned.trainer ? ` · ${assigned.trainer.name}` : ''}`
+              ? `${t('От тренера')}${assigned.trainer ? ` · ${assigned.trainer.name}` : ''}`
               : t('Готовые сплиты и свои шаблоны')}
           </div>
         </div>
@@ -169,10 +169,10 @@ export function Programs() {
                   <div className="strong" style={{ fontSize: 17 }}>{t(p.name)}</div>
                   <div className="mute-sm" style={{ marginTop: 3 }}>
                     {fromTrainer
-                      ? 'От тренера · '
+                      ? `${t('От тренера')} · `
                       : p.client_id
-                        ? `для ${clientNames.get(p.client_id) ?? 'клиента'} · `
-                        : `${p.goal} · ${p.level} · `}
+                        ? `${t('для')} ${clientNames.get(p.client_id) ?? t('клиента')} · `
+                        : `${t(p.goal)} · ${t(p.level)} · `}
                     {days.length} {plural(days.length, ['день', 'дня', 'дней'])}
                   </div>
                 </div>
@@ -211,7 +211,7 @@ export function Programs() {
               </div>
               {p.description && (
                 <div className="muted mt-2">
-                  {p.description}
+                  {t(p.description)}
                 </div>
               )}
               {days.length > 0 && (

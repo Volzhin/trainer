@@ -61,7 +61,7 @@ export function SessionDetail() {
           <IconBack size={18} />
         </button>
         <div className="grow">
-          <h1 className="detail">{session.title}</h1>
+          <h1 className="detail">{t(session.title)}</h1>
           <div className="sub">{formatDateTime(session.start_time)}</div>
         </div>
         <button

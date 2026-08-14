@@ -125,7 +125,7 @@ export function MeasurementsTable({
                 <tr key={r.key}>
                   <th scope="row">
                     {t(r.label)}
-                    <span className="mute-sm">, {r.unit}</span>
+                    <span className="mute-sm">, {t(r.unit)}</span>
                   </th>
                   {columns.map((c) => {
                     const v = c.metric[r.key]

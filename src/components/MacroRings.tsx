@@ -64,20 +64,20 @@ export function MacroRings({
       </svg>
 
       <div className="mute-sm" style={{ textAlign: 'center', marginTop: 2 }}>
-        {target == null ? 'цель не задана' : `цель ${target} ккал`}
+        {target == null ? t('цель не задана') : `${t('цель')} ${target} ${t('ккал')}`}
       </div>
 
       <div className="stack" style={{ gap: 12, marginTop: 20 }}>
         {rows.map((r) => (
           <div key={r.label}>
             <div className="row between" style={{ marginBottom: 5 }}>
-              <span className="mute-sm">{r.label}</span>
+              <span className="mute-sm">{t(r.label)}</span>
               {/* Без цели показываем только факт: «120 / 0 г» читалось бы
                   как невыполненная норма, которой никто не ставил. */}
               <span className="mute-sm figures">
                 {r.goal == null
-                  ? `${Math.round(r.value)} г`
-                  : `${Math.round(r.value)} / ${r.goal} г`}
+                  ? `${Math.round(r.value)} ${t('г')}`
+                  : `${Math.round(r.value)} / ${r.goal} ${t('г')}`}
               </span>
             </div>
             <div className="bar">

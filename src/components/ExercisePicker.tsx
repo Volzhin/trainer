@@ -95,7 +95,7 @@ export function ExercisePicker({
             <div className="truncate">{exName(ex.name)}</div>
             <div className="mute-sm">
               {t(ex.muscle_group)} · {t(ex.equipment)}
-              {ex.is_custom === 1 ? ' · своё' : ''}
+              {ex.is_custom === 1 ? ` · ${t('своё')}` : ''}
             </div>
           </div>
         </button>

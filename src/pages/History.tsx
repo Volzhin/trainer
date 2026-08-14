@@ -60,7 +60,7 @@ export function History() {
                   <IconCheck size={17} />
                 </span>
                 <span className="grow">
-                  <span className="title">{s.title}</span>
+                  <span className="title">{t(s.title)}</span>
                   <span className="sub">
                     {formatDate(s.start_time)} · {sets.length}{' '}
                     {plural(sets.length, ['подход', 'подхода', 'подходов'])} ·{' '}

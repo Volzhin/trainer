@@ -207,7 +207,7 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
               {pendingSessions.map((s) => (
                 <ReportRow
                   key={s.id}
-                  title={s.title}
+                  title={t(s.title)}
                   subtitle={formatDate(s.start_time)}
                   submitted={false}
                   answered={false}

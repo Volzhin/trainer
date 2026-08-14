@@ -9,6 +9,8 @@
  * иначе на телефоне пришлось бы входить после каждого закрытия вкладки.
  */
 
+import { t } from './i18n'
+
 const TOKEN_KEY = 'trainer.auth'
 
 /** Адрес API. В проде фронт и бэкенд на одном домене, поэтому путь пустой. */
@@ -116,7 +118,7 @@ async function request<T>(path: string, init: RequestInit = {}, retried = false)
       // вернётся в метро в сеть и продолжит работать, а не обнаружит себя
       // разлогиненным.
       if (state === 'expired') {
-        dropReason = 'Вход устарел — войдите ещё раз'
+        dropReason = t('Вход устарел — войдите ещё раз')
         write(null)
       }
     }
@@ -157,11 +159,11 @@ function humanError(data: unknown, status: number): string {
   const fields = d?.data ? Object.entries(d.data) : []
   if (fields.length) {
     const [field, err] = fields[0]
-    const label = FIELD_NAMES[field] ?? field
+    const label = t(FIELD_NAMES[field] ?? field)
     return `${label}: ${translate(err?.message ?? '')}`
   }
-  if (status === 400) return 'Неверная почта или пароль'
-  return translate(d?.message ?? 'Не удалось связаться с сервером')
+  if (status === 400) return t('Неверная почта или пароль')
+  return translate(d?.message ?? t('Не удалось связаться с сервером'))
 }
 
 const FIELD_NAMES: Record<string, string> = {
@@ -182,7 +184,9 @@ const PHRASES: [RegExp, string][] = [
 ]
 
 function translate(msg: string): string {
-  for (const [re, ru] of PHRASES) if (re.test(msg)) return msg.replace(re, ru)
+  // Шаблон переводим до подстановки: в нём стоит $1 из регулярного
+  // выражения, и после замены ключа в словаре уже не будет.
+  for (const [re, ru] of PHRASES) if (re.test(msg)) return msg.replace(re, t(ru))
   return msg
 }
 

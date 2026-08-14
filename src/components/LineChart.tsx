@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { t } from '../lib/i18n'
+import { locale, t } from '../lib/i18n'
 
 /**
  * cells — показания точки по столбцам. Столбцы у всех рядов одинаковые по
@@ -113,7 +113,7 @@ export function LineChart({
   const area = `${path} L${px(data[data.length - 1].x).toFixed(1)},${h - padBottom} L${px(data[0].x).toFixed(1)},${h - padBottom} Z`
 
   const fmtDate = (ts: number) =>
-    new Date(ts).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
+    new Date(ts).toLocaleDateString(locale(), { day: 'numeric', month: 'short' })
 
   const fmtVal = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1))
 
@@ -306,11 +306,11 @@ export function LineChart({
         {!hasSecond ? (
           <>
             <span className="chart-axis tl">
-              макс {Math.round(a.dmax)}
+              {t('макс')} {Math.round(a.dmax)}
               {unit}
             </span>
             <span className="chart-axis tr">
-              мин {Math.round(a.dmin)}
+              {t('мин')} {Math.round(a.dmin)}
               {unit}
             </span>
           </>

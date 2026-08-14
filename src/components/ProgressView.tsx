@@ -42,7 +42,9 @@ export function ProgressView({ userId }: { userId: string }) {
 
   if (!report) return <div className="screen">{t('Загрузка…')}</div>
 
-  const periodLabel = PERIODS.find((p) => p.key === period)!.label.toLowerCase()
+  // Английские подписи периода в строку идут как есть: «over 4 weeks», а не
+  // «over 4 Weeks» — в русском же строчная буква получается сама.
+  const periodLabel = t(PERIODS.find((p) => p.key === period)!.label).toLowerCase()
 
   return (
     <div>
@@ -51,7 +53,7 @@ export function ProgressView({ userId }: { userId: string }) {
           <h1>{t('Прогресс')}</h1>
           <div className="sub">
             {report.sessions}{' '}
-            {plural(report.sessions, ['тренировка', 'тренировки', 'тренировок'])} за{' '}
+            {plural(report.sessions, ['тренировка', 'тренировки', 'тренировок'])} {t('за')}{' '}
             {periodLabel}
           </div>
         </div>
@@ -64,7 +66,7 @@ export function ProgressView({ userId }: { userId: string }) {
             className={`chip${period === p.key ? ' active' : ''}`}
             onClick={() => setPeriod(p.key)}
           >
-            {p.label}
+            {t(p.label)}
           </button>
         ))}
       </div>
@@ -189,7 +191,7 @@ export function ProgressView({ userId }: { userId: string }) {
               return (
                 <div key={m.group}>
                   <div className="row between mb-1">
-                    <span className="muted">{m.group}</span>
+                    <span className="muted">{t(m.group)}</span>
                     <span className="mute-sm t-num">
                       {m.sets} {plural(m.sets, ['подход', 'подхода', 'подходов'])}
                     </span>

@@ -7,6 +7,7 @@ import {
   type WorkoutRoutine,
 } from './db'
 import { estimate1RM, startOfDay } from '../lib/calc'
+import { locale } from '../lib/i18n'
 
 /**
  * Аналитика прогресса клиента. Считается одним проходом, чтобы экран
@@ -319,7 +320,7 @@ export async function loadProgress(
   }
 
   const weekly = buckets.map((value, i) => ({
-    label: new Date(firstBucketWeek + i * 7 * DAY).toLocaleDateString('ru-RU', {
+    label: new Date(firstBucketWeek + i * 7 * DAY).toLocaleDateString(locale(), {
       day: 'numeric',
       month: 'numeric',
     }),

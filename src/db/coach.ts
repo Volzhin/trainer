@@ -24,6 +24,7 @@ import {
 } from './db'
 import { issueRequiredTasks } from './reports'
 import { estimate1RM, startOfDay, weekStart } from '../lib/calc'
+import { locale, t } from '../lib/i18n'
 import {
   createInvite as remoteCreateInvite,
   deleteRemoteAttachment,
@@ -69,7 +70,7 @@ export async function createAccount(input: {
 
 export async function switchAccount(userId: string) {
   const profile = await db.profile.get(userId)
-  if (!profile) throw new Error('Аккаунт не найден')
+  if (!profile) throw new Error(t('Аккаунт не найден'))
   await setActiveUser(userId)
 }
 
@@ -94,7 +95,7 @@ export async function hasSubscription(trainerId = currentUserId()): Promise<bool
  */
 async function requireSubscription(trainerId = currentUserId()) {
   if (!(await hasSubscription(trainerId))) {
-    throw new Error('Нужна подписка: без неё нельзя набирать клиентов и назначать им программы')
+    throw new Error(t('Нужна подписка: без неё нельзя набирать клиентов и назначать им программы'))
   }
 }
 
@@ -129,7 +130,7 @@ function makeCode(): string {
  */
 export async function createInvite(trainerId = currentUserId()): Promise<string> {
   const trainer = await db.profile.get(trainerId)
-  if (trainer?.role !== 'TRAINER') throw new Error('Приглашения выпускает только тренер')
+  if (trainer?.role !== 'TRAINER') throw new Error(t('Приглашения выпускает только тренер'))
   await requireSubscription(trainerId)
 
   let code = makeCode()
@@ -141,7 +142,7 @@ export async function createInvite(trainerId = currentUserId()): Promise<string>
   // телефоне погасить не сможет, а тренер уже прочитает его вслух.
   if (isAuthed()) {
     await remoteCreateInvite(code, trainerId, expiresAt).catch(() => {
-      throw new Error('Код не сохранился на сервере — проверьте связь и попробуйте снова')
+      throw new Error(t('Код не сохранился на сервере — проверьте связь и попробуйте снова'))
     })
   }
 
@@ -169,7 +170,7 @@ export async function listActiveInvites(trainerId = currentUserId()) {
 export async function revokeInvite(code: string) {
   if (isAuthed()) {
     await remoteRevokeInvite(code).catch(() => {
-      throw new Error('Код не отозвался на сервере — проверьте связь и попробуйте снова')
+      throw new Error(t('Код не отозвался на сервере — проверьте связь и попробуйте снова'))
     })
   }
   await db.invites.delete(code)
@@ -227,10 +228,10 @@ export async function redeemInvite(
     }
   }
 
-  if (!invite) throw new Error('Код не найден')
-  if (invite.used_by) throw new Error('Код уже использован')
-  if (invite.expires_at < now()) throw new Error('Срок действия кода истёк')
-  if (invite.trainer_id === clientId) throw new Error('Нельзя пригласить самого себя')
+  if (!invite) throw new Error(t('Код не найден'))
+  if (invite.used_by) throw new Error(t('Код уже использован'))
+  if (invite.expires_at < now()) throw new Error(t('Срок действия кода истёк'))
+  if (invite.trainer_id === clientId) throw new Error(t('Нельзя пригласить самого себя'))
 
   /*
    * Тренер у клиента ровно один.
@@ -245,9 +246,9 @@ export async function redeemInvite(
   const active = links.filter((l) => l.status !== 'PAUSED')
 
   if (active.some((l) => l.trainer_id === invite.trainer_id))
-    throw new Error('Вы уже работаете с этим тренером')
+    throw new Error(t('Вы уже работаете с этим тренером'))
   if (active.length)
-    throw new Error('У вас уже есть тренер — отключите его, прежде чем подключать другого')
+    throw new Error(t('У вас уже есть тренер — отключите его, прежде чем подключать другого'))
 
   const existing = links.find((l) => l.trainer_id === invite.trainer_id)
 
@@ -470,7 +471,7 @@ export async function loadClientDetail(clientId: string): Promise<ClientDetail |
   const thisMonday = weekStart(Date.now())
   const buckets = Array(8).fill(0) as number[]
   const labels = Array.from({ length: 8 }, (_, i) =>
-    new Date(thisMonday - (7 - i) * 7 * 86400_000).toLocaleDateString('ru-RU', {
+    new Date(thisMonday - (7 - i) * 7 * 86400_000).toLocaleDateString(locale(), {
       day: 'numeric',
       month: 'numeric',
     }),
@@ -1004,7 +1005,7 @@ export async function addAttachment(input: {
   userId?: string
 }) {
   if (input.file.size > MAX_VIDEO_BYTES) {
-    throw new Error('Файл больше 60 МБ — снимите ролик покороче')
+    throw new Error(t('Файл больше 60 МБ — снимите ролик покороче'))
   }
   const kind: Attachment['kind'] = input.file.type.startsWith('image/') ? 'photo' : 'video'
   const attachment: Attachment = {

@@ -59,7 +59,7 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
             <div className="grow">
               <div className="truncate">{a.name}</div>
               <div className="mute-sm">
-                {a.role === 'TRAINER' ? 'Тренер' : 'Клиент'}
+                {a.role === 'TRAINER' ? t('Тренер') : t('Клиент')}
                 {a.specialization ? ` · ${a.specialization}` : ''}
               </div>
             </div>
@@ -111,8 +111,9 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
         )}
 
         <div className="mute-sm" style={{ textAlign: 'center' }}>
-          Все аккаунты живут в одной локальной базе — так связку тренер↔клиент видно без
-          сервера.
+          {t(
+            'Все аккаунты живут в одной локальной базе — так связку тренер↔клиент видно без сервера.',
+          )}
         </div>
       </div>
     </Sheet>
