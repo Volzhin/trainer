@@ -1397,6 +1397,10 @@ const EN: Record<string, string> = {
   'Рост, вес, замеры и опыт тренировок — с этого начинается работа.':
     'Height, weight, measurements and training experience — this is where the work starts.',
   'Зачем мне это': 'Why I want this',
+  // Прежний текст задания. Остаётся в словаре: он записан в заданиях, уже
+  // выданных клиентам, и с их строк никуда не денется.
+  'Опиши подробно свою ситуацию сейчас. Как себя чувствуешь? Эмоции? Общее состояние? Уровень энергии? Уровень удовлетворения от текущего состояния? Дальше ответь на вопрос: зачем я хочу изменить тело и привычки и как изменится моя жизнь, когда получится? Сохрани и отправь нам — будем возвращаться к этому в трудные моменты.':
+    'Describe your situation right now in detail. How do you feel? Emotions? General state? Energy level? How satisfied are you with where you are? Then answer this: why do I want to change my body and habits, and how will my life change once I do? Save it and send it to us — we will come back to it on the hard days.',
   'Ответь себе письменно: зачем я хочу изменить тело и привычки и как изменится моя жизнь, когда получится? Сохрани и отправь нам — будем возвращаться к этому в трудные моменты.':
     'Answer in writing: why do I want to change my body and habits, and how will my life change once I do? Save it and send it to us — we will come back to it on the hard days.',
   'Первые замеры': 'First measurements',
