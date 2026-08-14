@@ -102,6 +102,8 @@ export function IntakeForm({ task, onDone }: { task: ClientTask; onDone: () => v
     }
   }
 
+  const injuriesUnfilled = hasInjuries && !(answers[INJURIES_QUESTION] ?? '').trim()
+
   const field = (label: string, value: string, set: (v: string) => void, unit?: string) => (
     <div className="field grow" key={label}>
       <label>{unit ? `${t(label)}, ${t(unit)}` : t(label)}</label>
@@ -194,7 +196,16 @@ export function IntakeForm({ task, onDone }: { task: ClientTask; onDone: () => v
         </div>
       ))}
 
-      <button className="btn primary block" disabled={busy} onClick={save}>
+      {/* Выбранное «есть» без описания — тот же «нет» для тренера, только он
+          об этом не знает и решит, что ограничения неизвестны. */}
+      {injuriesUnfilled && (
+        <div className="mute-sm">{t('Опишите ограничения или выберите «Нет»')}</div>
+      )}
+      <button
+        className="btn primary block"
+        disabled={busy || injuriesUnfilled}
+        onClick={save}
+      >
         {t('Отправить анкету')}
       </button>
     </div>

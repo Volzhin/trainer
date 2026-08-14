@@ -43,6 +43,7 @@ export function ClientReports({ clientId }: { clientId: string }) {
   const seenWorkouts = useLiveQuery(() => reviewedRefs(clientId, 'workout'), [clientId])
   const seenDays = useLiveQuery(() => reviewedRefs(clientId, 'nutrition'), [clientId])
   const tasks = useLiveQuery(() => tasksOf(clientId), [clientId])
+  const seenTasks = useLiveQuery(() => reviewedRefs(clientId, 'task'), [clientId, tasks?.length])
 
   const [reviewing, setReviewing] = useState<ReviewSubject | null>(null)
   // Анкету тренер читает целиком: свободные ответы про мотивацию и поддержку
@@ -56,7 +57,8 @@ export function ClientReports({ clientId }: { clientId: string }) {
     days === undefined ||
     seenWorkouts === undefined ||
     seenDays === undefined ||
-    tasks === undefined
+    tasks === undefined ||
+    seenTasks === undefined
 
   if (loading) return <div className="empty">{t('Загрузка…')}</div>
 
@@ -73,8 +75,13 @@ export function ClientReports({ clientId }: { clientId: string }) {
   // Сданное делится надвое: то, что ждёт тренера, и то, что он уже закрыл.
   // Пока это был один список, принятое смешивалось с новым, и тренер каждый
   // раз перечитывал всё подряд, отыскивая, что появилось.
-  const awaiting = tasks.filter((x) => x.status === 'done' && x.accepted_at == null)
-  const archived = tasks.filter((x) => x.status === 'done' && x.accepted_at != null)
+  // Принято ли задание, знает строка тренера, а не само задание: в нём эта
+  // отметка не удержалась бы при обмене. accepted_at читаем запасным
+  // вариантом — так отмечали до переезда.
+  const isAccepted = (task: ClientTask) =>
+    task.accepted_at != null || (seenTasks?.has(task.id) ?? false)
+  const awaiting = tasks.filter((x) => x.status === 'done' && !isAccepted(x))
+  const archived = tasks.filter((x) => x.status === 'done' && isAccepted(x))
 
   return (
     <div className="mt-4">
@@ -98,13 +105,16 @@ export function ClientReports({ clientId }: { clientId: string }) {
         <>
           <div className="section-title">{t('Ждут проверки')}</div>
           <Group>
+            {/* Строка не кликается целиком: внутри неё живёт кнопка, а кнопка
+                в кнопке — недопустимая вложенность, и нажатие «Принять»
+                заодно открывало анкету. */}
             {awaiting.map((task) => (
-              <Row
-                key={task.id}
-                title={t(task.title)}
-                sub={taskSub(task)}
-                onClick={task.answers ? () => setReading(task) : undefined}
-              >
+              <Row key={task.id} title={t(task.title)} sub={taskSub(task)}>
+                {task.answers && (
+                  <button className="btn sm" onClick={() => setReading(task)}>
+                    {t('Смотреть')}
+                  </button>
+                )}
                 <button
                   className="btn sm primary"
                   onClick={async () => {

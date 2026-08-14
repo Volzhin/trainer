@@ -74,7 +74,6 @@ export function LiveSession() {
    */
   const [frozenElapsed, setFrozenElapsed] = useState<number | null>(null)
   const [askedNotify, setAskedNotify] = useState(false)
-  const [reportComment, setReportComment] = useState('')
   const [reportBusy, setReportBusy] = useState(false)
 
   const session = useLiveQuery(() => db.sessions.get(id), [id])
@@ -154,9 +153,6 @@ export function LiveSession() {
 
   const doneCount = (sets ?? []).filter((s) => s.is_done).length
   const volume = totalVolume(sets ?? [])
-  // «Всё выполнено» — когда подходы есть и неотмеченных не осталось.
-  const allDone = (sets ?? []).length > 0 && doneCount === (sets ?? []).length
-
   /**
    * Упражнения, которые человек действительно сделал. В окне завершения
    * показываем только их: предлагать снять технику того, к чему он даже не
@@ -213,25 +209,6 @@ export function LiveSession() {
       restSeconds ?? profile?.default_rest_seconds ?? 90,
       next ? exName(block.exercise.name) : undefined,
     )
-  }
-
-  /**
-   * Сдать отчёт прямо из тренировки. Тренировка при этом завершается: сдать
-   * отчёт по незаконченной нельзя, а заставлять человека нажать две кнопки
-   * подряд ради одного намерения — лишний шаг.
-   */
-  const onSubmitReport = async () => {
-    setReportBusy(true)
-    try {
-      await finishSession(id, notes.trim() || undefined)
-      await submitWorkoutReport(id, reportComment.trim() || undefined)
-      stopRest()
-      haptics.success()
-      toast(t('Отчёт отправлен тренеру'))
-      nav('/', { replace: true })
-    } finally {
-      setReportBusy(false)
-    }
   }
 
   /**
@@ -494,32 +471,6 @@ export function LiveSession() {
           <IconPlus size={17} /> {t('Добавить упражнение')}
         </button>
 
-        {/* Пункт 4.2: когда всё отмечено, сдать отчёт можно не уходя с
-            тренировки. Блок появляется сам — искать его в другом разделе
-            через час после зала человек не станет. Только с тренером:
-            без него отчёт некому читать. */}
-        {hasTrainer && allDone && (
-          <div className="card mt-4" style={{ borderColor: 'var(--accent)' }}>
-            <div className="strong">{t('Все подходы отмечены')}</div>
-            <div className="mute-sm mt-1">
-              {t('Можно сдать отчёт тренеру. Комментарий необязателен.')}
-            </div>
-            <textarea
-              className="textarea mt-3"
-              style={{ minHeight: 64 }}
-              value={reportComment}
-              onChange={(e) => setReportComment(e.target.value)}
-              placeholder={t('Как прошло: самочувствие, что было тяжело')}
-            />
-            <button
-              className="btn primary block mt-3"
-              disabled={reportBusy}
-              onClick={onSubmitReport}
-            >
-              {reportBusy ? t('Отправляю…') : t('Сдать отчёт')}
-            </button>
-          </div>
-        )}
       </div>
 
       <ExerciseTechniqueSheet exerciseId={techniqueFor} onClose={() => setTechniqueFor(null)} />
@@ -619,22 +570,33 @@ export function LiveSession() {
             подряд: он всё равно сдаёт отчёт, вопрос только в том, с видео,
             без него или позже. Кому сдавать некому, тот просто завершает. */}
         <div className="stack">
-          {videoReport && hasTrainer && doneCount > 0 ? (
+          {hasTrainer && doneCount > 0 ? (
             <>
+              {/* Видео-отчёт предлагаем только онлайн-клиенту: очному технику
+                  тренер видит на занятии, и кнопка «сдать с видео» у него
+                  спрашивала бы то, чего никто не ждёт. */}
+              {videoReport && (
+                <>
+                  <button
+                    className="btn success block"
+                    disabled={reportBusy || attachedCount === 0}
+                    onClick={finishAndSubmit}
+                  >
+                    {t('Сдать видео-отчёт')}
+                  </button>
+                  {attachedCount === 0 && (
+                    <div className="mute-sm" style={{ textAlign: 'center' }}>
+                      {t('Прикрепите хотя бы одно видео выше')}
+                    </div>
+                  )}
+                </>
+              )}
               <button
-                className="btn success block"
-                disabled={reportBusy || attachedCount === 0}
+                className={`btn block${videoReport ? '' : ' success'}`}
+                disabled={reportBusy}
                 onClick={finishAndSubmit}
               >
-                {t('Сдать видео-отчёт')}
-              </button>
-              {attachedCount === 0 && (
-                <div className="mute-sm" style={{ textAlign: 'center' }}>
-                  {t('Прикрепите хотя бы одно видео выше')}
-                </div>
-              )}
-              <button className="btn block" disabled={reportBusy} onClick={finishAndSubmit}>
-                {t('Сдать без видео')}
+                {videoReport ? t('Сдать без видео') : t('Сдать отчёт')}
               </button>
               <button className="btn block" disabled={reportBusy} onClick={finishAndPostpone}>
                 {t('Напомнить позже')}

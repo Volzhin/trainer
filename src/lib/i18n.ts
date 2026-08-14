@@ -1306,6 +1306,9 @@ const EN: Record<string, string> = {
   макс: 'max',
 
   'Удалить заготовку': 'Delete template',
+  Нет: 'No',
+  Смотреть: 'View',
+  'Опишите ограничения или выберите «Нет»': 'Describe the limitations or choose “No”',
 
   /* --- дни рождения клиентов --- */
   'Скоро дни рождения': 'Birthdays soon',

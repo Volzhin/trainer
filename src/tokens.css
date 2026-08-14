@@ -7,7 +7,9 @@
   --bg:#14110f; --surface:rgba(28,25,23,.88); --surface-2:rgba(45,40,36,.78);
   --border:#332d29; --border-strong:#453e38;
   /* text */
-  --text:#f3f1ea; --text-2:#a29a90; --text-3:#756c63;
+  /* --text-3 подтянут до 4.5:1 к поверхности: им набраны подписи в 12px,
+     а на прежнем #756c63 они давали 3.4:1 и в зале читались с трудом. */
+  --text:#f3f1ea; --text-2:#a29a90; --text-3:#8a8078;
   /* акцент — известь, уже узнаваемый цвет приложения */
   --accent:#c9f24d; --accent-press:#b1d93c; --on-accent:#121705; --accent-soft:rgba(201,242,77,.14);
   /* второй акцент — медь, только для личных рекордов: см. .badge.pr, DESIGN.md */
@@ -54,7 +56,7 @@
 [data-theme="light"] {
   --bg:#f4f5f2; --surface:rgba(255,255,255,.9); --surface-2:rgba(232,236,228,.86);
   --border:#e2e5dd; --border-strong:#c8cec1;
-  --text:#12151a; --text-2:#5b6470; --text-3:#8b939f;
+  --text:#12151a; --text-2:#5b6470; --text-3:#697180;
   --accent:#bce837; --accent-press:#a6d022; --on-accent:#12170a; --accent-soft:rgba(140,190,20,.16);
   --copper:#b56a34; --copper-soft:rgba(181,106,52,.14);
   --ok:#12a06a; --ok-soft:rgba(18,160,106,.12);
@@ -78,7 +80,7 @@
   :root:not([data-theme]) {
     --bg:#f4f5f2; --surface:rgba(255,255,255,.9); --surface-2:rgba(232,236,228,.86);
     --border:#e2e5dd; --border-strong:#c8cec1;
-    --text:#12151a; --text-2:#5b6470; --text-3:#8b939f;
+    --text:#12151a; --text-2:#5b6470; --text-3:#697180;
     --accent:#bce837; --accent-press:#a6d022; --on-accent:#12170a; --accent-soft:rgba(140,190,20,.16);
     --copper:#b56a34; --copper-soft:rgba(181,106,52,.14);
     --ok:#12a06a; --ok-soft:rgba(18,160,106,.12);

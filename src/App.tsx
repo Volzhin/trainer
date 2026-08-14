@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { isOnboarded } from './db/db'
@@ -39,6 +39,17 @@ export default function App() {
   const profile = useProfile()
   const location = useLocation()
   const inSession = location.pathname.startsWith('/session/')
+
+  /*
+   * Новый экран открывается сверху.
+   *
+   * Браузер держит положение прокрутки для страницы целиком, а здесь адрес
+   * меняется без перезагрузки: уйдя из середины длинного «Прогресса», человек
+   * попадал в середину «Истории» — и видел её не с начала, а с середины.
+   */
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [location.pathname])
   const isTrainer = profile?.role === 'TRAINER'
 
   const onboarded = useLiveQuery(() => isOnboarded(), [])

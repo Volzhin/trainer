@@ -770,15 +770,27 @@ export async function issueWeeklyMeasurements(
  * оценивать по пунктам, тренер их читает и закрывает. Принятое уходит из
  * очереди в архив и больше на глаза не попадается.
  */
-export async function acceptTask(taskId: string) {
-  await db.tasks.update(taskId, { accepted_at: now(), updated_at: now() })
+export async function acceptTask(taskId: string, clientId?: string) {
+  const task = await db.tasks.get(taskId)
+  if (!task) return
+  // Отметка ложится в строку тренера, а не в само задание: задание
+  // принадлежит клиенту, и при обмене «побеждает последняя запись» его
+  // правка стёрла бы отметку — тот же случай, что со статусом отчёта.
+  await markReportReviewed({
+    clientId: clientId ?? task.client_id,
+    target: 'task',
+    ref: taskId,
+  })
 }
 
 /** Сданные, но ещё не принятые — очередь проверки у тренера. */
 export async function tasksAwaitingCheck(clientId: string): Promise<ClientTask[]> {
   const rows = await db.tasks.where('[client_id+status]').equals([clientId, 'done']).toArray()
+  const seen = await reviewedRefs(clientId, 'task')
+  // accepted_at читаем запасным вариантом: так отмечали до переезда отметки
+  // в строку тренера, и уже принятые задания не должны вернуться в очередь.
   return rows
-    .filter((t) => t.accepted_at == null)
+    .filter((t) => t.accepted_at == null && !seen.has(t.id))
     .sort((a, b) => (a.completed_at ?? 0) - (b.completed_at ?? 0))
 }
 

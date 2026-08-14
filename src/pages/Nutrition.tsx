@@ -179,7 +179,7 @@ export function Nutrition() {
         return (
           <div key={key}>
             <div className="section-title">
-              {t(label)}
+              {label}
               {items.length > 0 && (
                 <span style={{ float: 'right', fontFamily: 'var(--font-num)' }}>
                   {sum.kcal} {t('ккал')}

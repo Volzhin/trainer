@@ -10,7 +10,7 @@ import {
 } from '../db/analytics'
 import { BarChart } from '../components/LineChart'
 import { formatDate, formatTonnage, formatWeight, plural } from '../lib/calc'
-import { t } from '../lib/i18n'
+import { decimal, t } from '../lib/i18n'
 import { exName } from '../lib/exerciseNames'
 
 const WEEKDAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
@@ -79,7 +79,7 @@ export function ProgressView({ userId }: { userId: string }) {
           <div className="label">{t('на этой неделе')}</div>
         </div>
         <div className="stat">
-          <div className="value t-num">{report.perWeek}</div>
+          <div className="value t-num">{decimal(String(report.perWeek))}</div>
           <div className="label">{t('в среднем за неделю')}</div>
         </div>
         <div className="stat">
@@ -98,7 +98,7 @@ export function ProgressView({ userId }: { userId: string }) {
           >
             {report.weightPerWeek == null
               ? '—'
-              : `${report.weightPerWeek > 0 ? '+' : ''}${report.weightPerWeek}`}
+              : `${report.weightPerWeek > 0 ? '+' : ''}${decimal(String(report.weightPerWeek))}`}
           </div>
           <div className="label">{t('вес, кг в неделю')}</div>
         </div>
@@ -368,7 +368,7 @@ export function ExerciseRow({ row, onOpen }: { row: ExerciseProgress; onOpen: ()
               color: deltaKg > 0 ? 'var(--ok)' : 'var(--danger)',
             }}
           >
-            {deltaKg > 0 ? '↑' : '↓'} {Math.abs(deltaKg)} {t('кг')}
+            {deltaKg > 0 ? '↑' : '↓'} {decimal(String(Math.abs(deltaKg)))} {t('кг')}
           </div>
         )}
       </div>
