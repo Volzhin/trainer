@@ -1307,6 +1307,32 @@ const EN: Record<string, string> = {
 
   'Удалить заготовку': 'Delete template',
 
+  /* --- стартовая анкета --- */
+  Пол: 'Sex',
+  Женский: 'Female',
+  Мужской: 'Male',
+  'Дата рождения': 'Date of birth',
+  шея: 'neck',
+  'Опытный, 12+ мес': 'Experienced, 12+ months',
+  'Профи, 2+ года': 'Pro, 2+ years',
+  'Есть ли травмы, противопоказания, ограничения?':
+    'Any injuries, contraindications or limitations?',
+  'Есть, опишу': 'Yes, I will describe',
+  'Что беспокоит и чего избегать': 'What hurts and what to avoid',
+  'Отправить анкету': 'Send the form',
+  'Анкета заполнена': 'Form completed',
+  'Как комфортнее, чтобы к вам обращались? Можно несколько вариантов.':
+    'How would you like to be addressed? More than one option is fine.',
+  'Как удобнее общаться: коротко и по делу или с поддержкой и заботой?':
+    'How should we talk: short and to the point, or with care and encouragement?',
+  'Что может снизить вашу мотивацию?': 'What could sap your motivation?',
+  'Если устали и мотивация упала — как вас поддержать? Какими словами?':
+    'If you are tired and motivation drops — how should we support you? In what words?',
+  'Какой цели хотите достичь? Как поймёте, что достигли её?':
+    'What goal do you want to reach? How will you know you have reached it?',
+  'Почему решили обратиться именно ко мне и почему именно сейчас?':
+    'Why did you come to me, and why now?',
+
   /* --- задания: фото до/после, проверка у тренера, архив --- */
   'Фото до/после': 'Before/after photos',
   'Фото в белье или купальнике, при дневном свете, камера на уровне пупка. Четыре кадра: спереди, с двух боков и сзади.':

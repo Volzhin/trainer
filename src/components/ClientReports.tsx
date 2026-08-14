@@ -45,6 +45,9 @@ export function ClientReports({ clientId }: { clientId: string }) {
   const tasks = useLiveQuery(() => tasksOf(clientId), [clientId])
 
   const [reviewing, setReviewing] = useState<ReviewSubject | null>(null)
+  // Анкету тренер читает целиком: свободные ответы про мотивацию и поддержку
+  // нигде больше не показываются, а собирали их ради него.
+  const [reading, setReading] = useState<ClientTask | null>(null)
   const [taskOpen, setTaskOpen] = useState(false)
 
 
@@ -96,7 +99,12 @@ export function ClientReports({ clientId }: { clientId: string }) {
           <div className="section-title">{t('Ждут проверки')}</div>
           <Group>
             {awaiting.map((task) => (
-              <Row key={task.id} title={t(task.title)} sub={taskSub(task)}>
+              <Row
+                key={task.id}
+                title={t(task.title)}
+                sub={taskSub(task)}
+                onClick={task.answers ? () => setReading(task) : undefined}
+              >
                 <button
                   className="btn sm primary"
                   onClick={async () => {
@@ -141,6 +149,19 @@ export function ClientReports({ clientId }: { clientId: string }) {
         onClose={() => setReviewing(null)}
         onDone={() => toast(t('Отчёт разобран'))}
       />
+      <Sheet open={!!reading} title={reading ? t(reading.title) : ''} onClose={() => setReading(null)}>
+        {reading?.answers && (
+          <div className="stack">
+            {Object.entries(reading.answers).map(([question, value]) => (
+              <div key={question}>
+                <div className="mute-sm">{t(question)}</div>
+                <div className="mt-1">{value}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Sheet>
+
       <TaskSheet
         open={taskOpen}
         clientId={clientId}

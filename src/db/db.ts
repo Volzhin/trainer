@@ -175,6 +175,12 @@ export interface UserProfile {
   role: Role
   gender?: 'м' | 'ж'
   birth_year?: number
+  /**
+   * Дата рождения из стартовой анкеты. Год дублируется в birth_year: по нему
+   * считается возраст в расчёте расхода, и переучивать этот код ради полной
+   * даты незачем — а тренеру в карточке нужен именно день рождения.
+   */
+  birth_date?: string
   height_cm?: number
   /**
    * Обхват шеи. Живёт рядом с ростом, а не в замерах: он нужен формуле
@@ -183,7 +189,19 @@ export interface UserProfile {
    */
   neck_cm?: number
   goal_weight_kg?: number
+  /**
+   * Уровень для подбора программ каталога. Совпадает по словам с уровнем
+   * программы — это он и есть.
+   */
   experience?: 'Новичок' | 'Средний' | 'Продвинутый'
+  /**
+   * Стаж по стартовой анкете. Отдельно от experience: у программ каталога
+   * уровень означает сложность плана, а здесь — сколько человек тренируется,
+   * и мерить их одной шкалой значит путать две разные вещи.
+   */
+  training_level?: TrainingLevel
+  /** Травмы и ограничения из анкеты. Пусто — человек ответил «нет». */
+  limitations?: string
   /** Только для тренера: специализация и описание в карточке. */
   specialization?: string
   bio?: string
@@ -212,6 +230,15 @@ export interface UserProfile {
   notifications?: Partial<Record<NotificationKind, boolean>>
   updated_at: number
 }
+
+/** Стаж клиента — как он сам его оценил в стартовой анкете. */
+export type TrainingLevel = 'beginner' | 'experienced' | 'pro'
+
+export const TRAINING_LEVELS: { value: TrainingLevel; label: string }[] = [
+  { value: 'beginner', label: 'Новичок' },
+  { value: 'experienced', label: 'Опытный, 12+ мес' },
+  { value: 'pro', label: 'Профи, 2+ года' },
+]
 
 /** Типы напоминаний. Каждый отключается отдельно. */
 export type NotificationKind =
@@ -582,6 +609,13 @@ export interface ClientTask {
   status: TaskStatus
   /** Ответ клиента — для эссе это его текст. */
   answer?: string
+  /**
+   * Ответы анкеты: вопрос — ответ. Полем в самом задании, а не отдельной
+   * таблицей: анкета заполняется один раз, живёт ровно столько, сколько
+   * задание, и уезжает к тренеру вместе с ним. Своя таблица потребовала бы
+   * ещё одного правила доступа ради одной строки на человека.
+   */
+  answers?: Record<string, string>
   completed_at?: number
   /** Обязательные задания нельзя отложить: они выданы при старте работы. */
   required: 0 | 1

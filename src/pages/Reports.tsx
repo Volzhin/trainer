@@ -32,6 +32,7 @@ import { Sheet } from '../components/Sheet'
 import { WeightSheet } from '../components/WeightCard'
 import { isOverdue } from '../components/ClientReports'
 import { MeasurementEntry } from '../components/MeasurementEntry'
+import { IntakeForm } from '../components/IntakeForm'
 import { ShotThumb } from '../components/ShotThumb'
 import { addTaskPhoto, taskPhotos } from '../db/coach'
 import { IconCheck, IconChevronRight, IconPlus, IconTrash } from '../components/Icons'
@@ -764,6 +765,11 @@ function TaskSheet({ task, onClose }: { task: ClientTask | null; onClose: () => 
     <Sheet open={!!task} title={t(task.title)} onClose={onClose}>
       {task.description && <div className="muted">{t(task.description)}</div>}
 
+      {/* Анкета — не «ответ текстом», а форма: часть её вопросов заводит
+          профиль и первую точку веса, и свободным полем это не собрать. */}
+      {task.kind === 'intake' ? (
+        <IntakeForm task={task} onDone={onClose} />
+      ) : (
       <div className="stack mt-4">
         {wantsPhotos && <TaskPhotos taskId={task.id} />}
 
@@ -798,6 +804,7 @@ function TaskSheet({ task, onClose }: { task: ClientTask | null; onClose: () => 
           {t('Готово')}
         </button>
       </div>
+      )}
     </Sheet>
   )
 }

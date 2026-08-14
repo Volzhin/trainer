@@ -681,11 +681,20 @@ export async function deleteTaskTemplate(id: string) {
   await db.taskTemplates.delete(id)
 }
 
-export async function completeTask(taskId: string, answer?: string) {
+export async function completeTask(
+  taskId: string,
+  answer?: string,
+  answers?: Record<string, string>,
+) {
   const ts = now()
   await db.tasks.update(taskId, {
     status: 'done',
     answer: answer?.trim() || undefined,
+    // Пустые ответы анкеты не храним: пропущенный вопрос и вопрос с пустой
+    // строкой — одно и то же, а тренеру в анкете нужно видеть, где ответили.
+    answers: answers
+      ? Object.fromEntries(Object.entries(answers).filter(([, v]) => v.trim()))
+      : undefined,
     completed_at: ts,
     updated_at: ts,
   })

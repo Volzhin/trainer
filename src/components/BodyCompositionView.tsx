@@ -1234,11 +1234,10 @@ export function ManualMeasurementSheet({
   const heightCm = num('height_cm') ?? profile?.height_cm
   const sex = profile?.gender ?? 'м'
   /**
-   * Шея почти не меняется, поэтому её вносят один раз — как рост. Спрашиваем
-   * только пока её нет; дальше берём из профиля, а исправляют в настройках.
+   * Шея берётся из профиля: её вносят один раз в стартовой анкете, потому что
+   * она почти не меняется. Здесь она нужна только формуле процента жира.
    */
-  const neckCm = profile?.neck_cm ?? num('neck_cm')
-  const askNeck = profile?.neck_cm == null
+  const neckCm = profile?.neck_cm
 
   // Считаем на лету: человек должен видеть, что даёт очередной обхват,
   // а не узнавать результат после сохранения.
@@ -1273,16 +1272,15 @@ export function ManualMeasurementSheet({
   const fatOutOfRange =
     ownFat != null && (ownFat < BODY_FAT_RANGE.min || ownFat > BODY_FAT_RANGE.max)
 
+  /*
+   * Шеи здесь нет.
+   *
+   * Её спрашивают один раз в стартовой анкете: обхват шеи почти не меняется,
+   * а в еженедельном замере лишнее поле означает лишний сантиметр, который
+   * человек мерит наспех и портит расчёт процента жира. Кто заполнял анкету
+   * до появления этого поля, правит шею в профиле.
+   */
   const girthFields: { key: string; label: string; hint?: string }[] = [
-    ...(askNeck
-      ? [
-          {
-            key: 'neck_cm',
-            label: 'Шея',
-            hint: 'один раз на старте, потом меняется в настройках',
-          },
-        ]
-      : []),
     { key: 'waist_cm', label: 'Талия', hint: 'на уровне пупка, не втягивая живот' },
     { key: 'hip_cm', label: 'Таз', hint: 'по самой широкой части ягодиц' },
     { key: 'chest_cm', label: 'Грудь' },

@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, modeOf, type Program, type TrainerLink } from '../../db/db'
+import {
+  db,
+  modeOf,
+  TRAINING_LEVELS,
+  type Program,
+  type TrainerLink,
+  type UserProfile,
+} from '../../db/db'
 import {
   assignProgram,
   createPersonalProgram,
@@ -21,7 +28,7 @@ import { ClientWorkouts } from '../../components/ClientWorkouts'
 import { IconBack, IconCheck, IconChevronRight } from '../../components/Icons'
 import { formatDate, plural, startOfDay } from '../../lib/calc'
 import { useApp } from '../../store/app'
-import { t } from '../../lib/i18n'
+import { locale, t } from '../../lib/i18n'
 
 /**
  * Разделы карточки клиента. Порядок из пункта 5.1 спецификации: профиль,
@@ -42,6 +49,29 @@ const TABS = [
 ] as const
 
 type Tab = (typeof TABS)[number][0]
+
+/**
+ * Строка фактов о клиенте. Возраст считаем на сегодня: дата рождения в
+ * карточке без него заставляет тренера вычитать в уме.
+ */
+function clientFacts(client: UserProfile): string {
+  const parts: string[] = []
+  const level = client.training_level
+    ? TRAINING_LEVELS.find((l) => l.value === client.training_level)?.label
+    : client.experience
+  parts.push(level ? t(level) : t('опыт не указан'))
+
+  if (client.birth_date) {
+    const d = new Date(`${client.birth_date}T12:00:00`)
+    const age = Math.floor((Date.now() - d.getTime()) / (365.25 * 86400_000))
+    // С годом: «15 марта» у даты рождения читается как приближающийся день
+    // рождения, а не как год, по которому тренер и прикидывает возраст.
+    parts.push(`${d.toLocaleDateString(locale())} (${age})`)
+  }
+  if (client.height_cm) parts.push(`${client.height_cm} ${t('см')}`)
+  if (client.neck_cm) parts.push(`${t('шея')} ${client.neck_cm}`)
+  return parts.join(' · ')
+}
 
 export function TrainerClientDetail() {
   const { id = '' } = useParams()
@@ -89,10 +119,9 @@ export function TrainerClientDetail() {
         </button>
         <div className="grow">
           <h1 className="detail">{client.name}</h1>
-          <div className="sub">
-            {client.experience ? t(client.experience) : t('опыт не указан')}
-            {client.height_cm ? ` · ${client.height_cm} ${t('см')}` : ''}
-          </div>
+          {/* Что тренер должен знать до того, как соберёт программу: возраст,
+              рост, шея и стаж — из анкеты, а не из расспросов в переписке. */}
+          <div className="sub">{clientFacts(client)}</div>
         </div>
       </div>
 
