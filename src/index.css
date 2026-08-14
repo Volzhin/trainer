@@ -371,7 +371,8 @@ a {
 }
 
 .btn.sm {
-  min-height: 36px;
+  position: relative;
+  min-height: 44px;
   padding: 8px 14px;
   font-size: 13px;
   border-radius: var(--r-md);
@@ -386,9 +387,18 @@ a {
   pointer-events: none;
 }
 
+/*
+ * 44 пикселя — размер, на который нацелен палец.
+ *
+ * Сначала пробовал оставить рисунок 36-м и расширить зону невидимым
+ * псевдоэлементом, но ряды чипов прокручиваются по горизонтали и обрезают
+ * всё, что выходит за их край: половина расширения пропадала. Проще и
+ * честнее держать сам размер.
+ */
 .icon-btn {
-  width: 36px;
-  height: 36px;
+  position: relative;
+  width: 44px;
+  height: 44px;
   border-radius: var(--r-sm);
   display: grid;
   place-items: center;
@@ -451,7 +461,11 @@ a {
 }
 
 .chip {
+  position: relative;
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   padding: 7px 14px;
   border-radius: 999px;
   background: var(--surface);
@@ -491,6 +505,23 @@ a {
   background: var(--accent-soft);
   color: var(--accent-ink);
   border-color: transparent;
+}
+
+/*
+ * Невидимое расширение зоны нажатия до 44 пикселей — рекомендация для
+ * пальца. Псевдоэлемент не влияет на раскладку: он выходит за границы
+ * кнопки, не раздвигая соседей.
+ */
+/*
+ * Переключателю высоту не поднять — 28 пикселей это его рисунок, а не
+ * отступы. Зону нажатия расширяем невидимой областью: он стоит в обычной
+ * строке, а она ничего не обрезает.
+ */
+.toggle::after,
+.tap-wide::after {
+  content: '';
+  position: absolute;
+  inset: -9px;
 }
 
 /* ------------------------------- поля ------------------------------- */
@@ -1505,6 +1536,7 @@ button.group-row:active {
 
 .segmented button {
   flex: 1;
+  min-height: 44px;
   padding: 8px 10px;
   border-radius: 9px;
   font-size: 13px;

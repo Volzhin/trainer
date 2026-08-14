@@ -185,8 +185,8 @@ export function WorkoutCalendar() {
         <div>
           <div style={{ fontWeight: 700, textTransform: 'capitalize' }}>{monthLabel}</div>
           <button
-            className="mute-sm"
-            style={{ padding: 0 }}
+            className="mute-sm tap-wide"
+            style={{ padding: '4px 0', position: 'relative' }}
             onClick={() => {
               setAnchor(today)
               setSelected(today)

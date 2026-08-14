@@ -79,6 +79,20 @@ export default defineConfig({
          * Чиним на своей стороне, а не в конфиге сервера: тогда починка
          * едет вместе со сборкой и не теряется при переезде на другую машину.
          */
+        /**
+         * Библиотеки — отдельным куском.
+         *
+         * React, роутер и Dexie между выкладками не меняются, а код
+         * приложения меняется каждый раз. В одном файле обновление кода
+         * заставляет скачивать заново и их — при том что они уже лежат в
+         * кэше браузера.
+         */
+        manualChunks: (id: string) => {
+          if (!id.includes('node_modules')) return undefined
+          if (/react|scheduler/.test(id)) return 'vendor-react'
+          if (/dexie/.test(id)) return 'vendor-dexie'
+          return undefined
+        },
         assetFileNames: (info) => {
           const source = info.names?.[0] ?? info.name ?? ''
           if (source.endsWith('.mjs')) return 'assets/[name]-[hash].js'

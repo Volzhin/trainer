@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { isOnboarded } from './db/db'
@@ -17,22 +17,42 @@ import { ExerciseDetail } from './pages/ExerciseDetail'
 import { LiveSession } from './pages/LiveSession'
 import { SessionDetail } from './pages/SessionDetail'
 import { History } from './pages/History'
-import { Progress } from './pages/Progress'
-import { BodyComposition } from './pages/BodyComposition'
-import { Nutrition } from './pages/Nutrition'
-import { MyFoods } from './pages/MyFoods'
-import { NutritionSettings } from './pages/NutritionSettings'
 import { Chat } from './pages/Chat'
-import { Reports } from './pages/Reports'
 import { Profile } from './pages/Profile'
 import { Settings } from './pages/Settings'
-import { TrainerClients } from './pages/trainer/TrainerClients'
-import { TrainerClientDetail } from './pages/trainer/TrainerClientDetail'
-import { TrainerProfile } from './pages/trainer/TrainerProfile'
 import { useApp, useProfile } from './store/app'
 import { getActiveSession } from './db/repo'
 import { IconPlay, IconRecord } from './components/Icons'
 import { t } from './lib/i18n'
+
+/*
+ * Тяжёлые экраны грузятся по требованию.
+ *
+ * Кабинет тренера, состав тела и питание тянут за собой разбор PDF, графики
+ * и таблицы продуктов — вместе это больше половины сборки. Клиенту, который
+ * открыл приложение, чтобы отметить подход, всё это скачивать незачем: на
+ * слабой сети в подвальном зале лишние сотни килобайт превращаются в
+ * секунды ожидания первого экрана.
+ */
+const BodyComposition = lazy(() =>
+  import('./pages/BodyComposition').then((m) => ({ default: m.BodyComposition })),
+)
+const Nutrition = lazy(() => import('./pages/Nutrition').then((m) => ({ default: m.Nutrition })))
+const MyFoods = lazy(() => import('./pages/MyFoods').then((m) => ({ default: m.MyFoods })))
+const NutritionSettings = lazy(() =>
+  import('./pages/NutritionSettings').then((m) => ({ default: m.NutritionSettings })),
+)
+const Reports = lazy(() => import('./pages/Reports').then((m) => ({ default: m.Reports })))
+const Progress = lazy(() => import('./pages/Progress').then((m) => ({ default: m.Progress })))
+const TrainerClients = lazy(() =>
+  import('./pages/trainer/TrainerClients').then((m) => ({ default: m.TrainerClients })),
+)
+const TrainerClientDetail = lazy(() =>
+  import('./pages/trainer/TrainerClientDetail').then((m) => ({ default: m.TrainerClientDetail })),
+)
+const TrainerProfile = lazy(() =>
+  import('./pages/trainer/TrainerProfile').then((m) => ({ default: m.TrainerProfile })),
+)
 
 export default function App() {
   const { toasts, userId } = useApp()
@@ -73,6 +93,9 @@ export default function App() {
       {/* key по аккаунту: смена профиля перемонтирует дерево, и все
           запросы к базе перечитываются от имени нового пользователя. */}
       <ErrorBoundary key={`${userId}-${location.pathname}`}>
+        {/* Пока подгружается кусок, держим пустой холст того же цвета:
+            мигание белым на тёмной теме заметнее самой задержки. */}
+        <Suspense fallback={<div className="screen" />}>
         <Routes>
           {isTrainer ? (
             <>
@@ -109,6 +132,7 @@ export default function App() {
             </>
           )}
         </Routes>
+        </Suspense>
       </ErrorBoundary>
 
       {!inSession && !isTrainer && <ActiveSessionBanner />}
