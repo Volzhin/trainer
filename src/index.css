@@ -906,7 +906,10 @@ a {
      Sheet.tsx), а vh считается от разметочной и с клавиатурой не меняется —
      шторка уезжала под клавиатуру вместе с полем ввода. */
   max-height: 86%;
-  background: var(--surface);
+  /* Непрозрачная поверхность: шторка перекрывает экран, и просвет здесь —
+     не приём, а ошибка. Сквозь --surface читались строки того экрана и лезли
+     между строками самой шторки. */
+  background: var(--surface-solid);
   box-shadow: var(--shadow-sheet);
   border-radius: var(--r-2xl) var(--r-2xl) 0 0;
   border-top: 1px solid var(--border);

@@ -5,6 +5,12 @@
   /* surfaces — тёплый почти-чёрный («графит»), не холодный сине-чёрный:
      меньше похоже на стоковый дев-тул-дарк-мод. */
   --bg:#14110f; --surface:rgba(28,25,23,.88); --surface-2:rgba(45,40,36,.78);
+  /* Та же поверхность, но без просвета. Полупрозрачность карточек — приём
+     намеренный, они лежат на фоне экрана и слегка его показывают. Для
+     модальной шторки это ошибка: сквозь неё читался экран, который она
+     перекрывает, и строки под ней лезли между её собственными. Цвет подобран
+     так, чтобы поверх --bg выглядеть как прежде. */
+  --surface-solid:#1c1917;
   --border:#332d29; --border-strong:#453e38;
   /* text */
   /* --text-3 подтянут до 4.5:1 к поверхности: им набраны подписи в 12px,
@@ -55,6 +61,7 @@
 
 [data-theme="light"] {
   --bg:#f4f5f2; --surface:rgba(255,255,255,.9); --surface-2:rgba(232,236,228,.86);
+  --surface-solid:#fff;
   --border:#e2e5dd; --border-strong:#c8cec1;
   --text:#12151a; --text-2:#5b6470; --text-3:#697180;
   --accent:#bce837; --accent-press:#a6d022; --on-accent:#12170a; --accent-soft:rgba(140,190,20,.16);
@@ -79,6 +86,7 @@
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
     --bg:#f4f5f2; --surface:rgba(255,255,255,.9); --surface-2:rgba(232,236,228,.86);
+    --surface-solid:#fff;
     --border:#e2e5dd; --border-strong:#c8cec1;
     --text:#12151a; --text-2:#5b6470; --text-3:#697180;
     --accent:#bce837; --accent-press:#a6d022; --on-accent:#12170a; --accent-soft:rgba(140,190,20,.16);
