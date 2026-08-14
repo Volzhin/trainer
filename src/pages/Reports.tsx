@@ -407,6 +407,9 @@ const hoursToMinutes = (v: string) => {
 const minutesToHours = (m?: number) =>
   m === undefined ? '' : String(Math.round((m / 60) * 10) / 10)
 
+/** Тысячи разделяем: «8 240» читается с одного взгляда, «8240» — нет. */
+const formatSteps = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0')
+
 function ActivityCard({ date, userId }: { date: string; userId: string }) {
   const { toast } = useApp()
   const saved = useLiveQuery(() => activityFor(date, userId), [date, userId])
@@ -421,6 +424,15 @@ function ActivityCard({ date, userId }: { date: string; userId: string }) {
    * под руку старое значение после сохранения нельзя.
    */
   const [draft, setDraft] = useState<{ steps: string; sleep: string } | null>(null)
+  /**
+   * Записанный день показываем итогом, а не открытой формой.
+   *
+   * Форма с заполненными полями и активной кнопкой выглядит как несделанное
+   * дело: человек не знает, ушло ли уже число, и вводит его заново. Итог
+   * отвечает на этот вопрос сразу, а править по-прежнему можно — но это
+   * отдельное решение, а не случайный тап по полю.
+   */
+  const [editing, setEditing] = useState(false)
   const savedSteps = saved?.steps === undefined ? '' : String(saved.steps)
   const savedSleep = minutesToHours(saved?.sleep_minutes)
   const steps = draft?.steps ?? savedSteps
@@ -452,8 +464,45 @@ function ActivityCard({ date, userId }: { date: string; userId: string }) {
     })
     // Черновик снимаем: дальше поля показывают то, что действительно записано.
     setDraft(null)
+    setEditing(false)
     haptics.success()
     toast(t('Записано'))
+  }
+
+  // Ноль шагов и ноль часов сна — записанные значения, поэтому проверяем
+  // наличие поля, а не его истинность.
+  const hasSteps = saved?.steps !== undefined
+  const hasSleep = saved?.sleep_minutes !== undefined
+  const recorded = hasSteps || hasSleep
+
+  if (recorded && !editing) {
+    return (
+      <div className="card">
+        <div className="row between">
+          <div className="strong">{t('Записано за сегодня')}</div>
+          <span className="badge">{t('записано')}</span>
+        </div>
+
+        <div className="group mt-3">
+          <div className="group-row">
+            <span className="grow title">{t('Шаги')}</span>
+            <span className="value figures">
+              {hasSteps ? formatSteps(saved!.steps!) : t('не введено')}
+            </span>
+          </div>
+          <div className="group-row">
+            <span className="grow title">{t('Сон')}</span>
+            <span className="value figures">
+              {hasSleep ? `${minutesToHours(saved!.sleep_minutes)} ${t('ч')}` : t('не введено')}
+            </span>
+          </div>
+        </div>
+
+        <button className="btn block mt-3" onClick={() => setEditing(true)}>
+          {t('Изменить')}
+        </button>
+      </div>
+    )
   }
 
   return (
@@ -502,6 +551,20 @@ function ActivityCard({ date, userId }: { date: string; userId: string }) {
       >
         {t('Сохранить')}
       </button>
+
+      {/* Выход из правки нужен только тогда, когда есть куда возвращаться:
+          на пустом дне отменять нечего, и кнопка была бы тупиком. */}
+      {recorded && (
+        <button
+          className="btn block mt-2"
+          onClick={() => {
+            setDraft(null)
+            setEditing(false)
+          }}
+        >
+          {t('Отмена')}
+        </button>
+      )}
     </div>
   )
 }
