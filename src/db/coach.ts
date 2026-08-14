@@ -23,6 +23,7 @@ import {
   type WorkoutSession,
 } from './db'
 import { issueRequiredTasks } from './reports'
+import { syncCatalogPrograms } from './seed'
 import { estimate1RM, startOfDay, weekStart } from '../lib/calc'
 import { locale, t } from '../lib/i18n'
 import {
@@ -551,8 +552,21 @@ async function programForClient(
   if (!program) return keep
   // Свой план поверх каталога копировать незачем — программа уже на устройстве.
   if (clientId === trainerId) return keep
-  if (program.author_id === 'system') return keep
   if (program.client_id === clientId) return keep
+
+  /*
+   * Программу каталога копируем наравне с остальными.
+   *
+   * Раньше её не копировали: каталог одинаков у всех, а назначение ссылалось
+   * на выведенный идентификатор («prog-5»), и лишние строки казались тратой.
+   * На деле каталог одинаков только у одинаковых сборок: у клиента с версией
+   * постарше нужной программы нет вовсе, ссылка ведёт в пустоту, и человек
+   * видит пустой календарь, пока тренер видит «назначено». Проверить это со
+   * стороны тренера невозможно — на его устройстве всё сходится.
+   *
+   * Копия стоит десятка строк на назначение и снимает зависимость от того,
+   * какая версия приложения стоит у клиента.
+   */
 
   // Тот же шаблон тому же клиенту переназначают не раз — при паузе, смене
   // расписания, продлении. Копию на это заводим одну: иначе в кабинете
@@ -879,6 +893,36 @@ export async function cancelAssignment(assignmentId: string) {
 }
 
 /** Активное назначение клиента — показывается у него на главной. */
+/**
+ * Назначение, программа которого не доехала до устройства.
+ *
+ * Раньше такой случай выглядел как отсутствие назначения вовсе:
+ * activeAssignmentFor возвращает null, если строки программы нет, и человек
+ * видел пустой календарь, пока тренер видел «программа назначена».
+ *
+ * Причин у пропажи две. Программу каталога тренер не копирует — она
+ * одинакова у всех и ссылается по выведенному идентификатору («prog-5»);
+ * если на устройстве стоит сборка постарше, где этой программы ещё нет,
+ * ссылка ведёт в пустоту. Личную программу тренер копирует, и её строки
+ * едут обменом — они могут просто не успеть.
+ *
+ * Первое лечится досылкой каталога прямо здесь, второе — временем; и в том,
+ * и в другом случае человеку надо сказать, что происходит, а не показывать
+ * пустоту.
+ */
+export async function pendingAssignmentFor(clientId = currentUserId()) {
+  const assignment = await db.assignments
+    .where('client_id')
+    .equals(clientId)
+    .and((a) => a.status === 'ACTIVE')
+    .first()
+  if (!assignment) return null
+  if (await db.programs.get(assignment.program_id)) return null
+
+  await syncCatalogPrograms().catch(() => undefined)
+  return (await db.programs.get(assignment.program_id)) ? null : assignment
+}
+
 export async function activeAssignmentFor(clientId = currentUserId()) {
   const assignment = await db.assignments
     .where('client_id')

@@ -8,7 +8,13 @@ import {
   startSessionFromRoutine,
   startEmptySession,
 } from '../db/repo'
-import { activeAssignmentFor, planQueue, plannedDates, plannedForDate } from '../db/coach'
+import {
+  activeAssignmentFor,
+  pendingAssignmentFor,
+  planQueue,
+  plannedDates,
+  plannedForDate,
+} from '../db/coach'
 import { IconBack, IconChevronRight, IconDumbbell, IconPlay, IconRepeat } from '../components/Icons'
 import { Sheet } from './Sheet'
 import { formatDuration, plural, startOfDay, totalVolume } from '../lib/calc'
@@ -55,6 +61,9 @@ export function WorkoutCalendar() {
   const sessions = useLiveQuery(() => listMySessions(), [userId], [] as WorkoutSession[])
   const allSets = useLiveQuery(() => db.sets.toArray(), [], [])
   const plan = useLiveQuery(() => activeAssignmentFor(userId), [userId])
+  // Назначение есть, а программы к нему нет — человеку надо сказать об этом,
+  // иначе у него пусто, а у тренера «назначено».
+  const pending = useLiveQuery(() => pendingAssignmentFor(userId), [userId, plan?.assignment.id])
 
   /** Тренировки, разложенные по дням — основа и маркеров, и списка. */
   const byDay = useMemo(() => {
@@ -332,6 +341,18 @@ export function WorkoutCalendar() {
             )
           })}
         </div>
+      )}
+
+      {pending && (
+        <>
+          <div className="section-title">{t('План')}</div>
+          <div className="card" style={{ borderColor: 'var(--warn)' }}>
+            <div className="strong">{t('Тренер назначил программу')}</div>
+            <div className="mute-sm mt-1">
+              {t('Она ещё не загрузилась на это устройство. Проверьте связь и обновите приложение — программа появится сама.')}
+            </div>
+          </div>
+        </>
       )}
 
       {plan && (

@@ -1306,6 +1306,9 @@ const EN: Record<string, string> = {
   макс: 'max',
 
   'Удалить заготовку': 'Delete template',
+  'Тренер назначил программу': 'Your trainer assigned a program',
+  'Она ещё не загрузилась на это устройство. Проверьте связь и обновите приложение — программа появится сама.':
+    'It has not reached this device yet. Check your connection and update the app — the program will appear on its own.',
   Нет: 'No',
   Смотреть: 'View',
   'Опишите ограничения или выберите «Нет»': 'Describe the limitations or choose “No”',

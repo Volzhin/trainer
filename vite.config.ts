@@ -89,8 +89,11 @@ export default defineConfig({
          */
         manualChunks: (id: string) => {
           if (!id.includes('node_modules')) return undefined
-          if (/react|scheduler/.test(id)) return 'vendor-react'
+          // dexie-react-hooks проверяем до react: в имени есть оба слова, и
+          // при обратном порядке пакет уезжал к react, а тот начинал
+          // ссылаться на dexie — куски получались взаимозависимыми.
           if (/dexie/.test(id)) return 'vendor-dexie'
+          if (/react|scheduler/.test(id)) return 'vendor-react'
           return undefined
         },
         assetFileNames: (info) => {
