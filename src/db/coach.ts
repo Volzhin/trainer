@@ -998,6 +998,27 @@ export async function addFeedback(input: {
 /** Ограничение размера: IndexedDB не резиновая, а тренеру нужен короткий клип. */
 export const MAX_VIDEO_BYTES = 60 * 1024 * 1024
 
+/**
+ * Фото, которым тренер поясняет разбор упражнения.
+ *
+ * Владельцем записываем клиента, а не тренера: сервер отдаёт человеку его
+ * собственные строки, и снимок, оставшийся за тренером, до клиента бы не
+ * доехал — как и подпись под ним. То же правило, что у ответа на отчёт.
+ */
+export async function addTrainerPhoto(input: {
+  clientId: string
+  sessionId: string
+  exerciseId: string
+  file: File
+}) {
+  return addAttachment({
+    sessionId: input.sessionId,
+    exerciseId: input.exerciseId,
+    file: input.file,
+    userId: input.clientId,
+  })
+}
+
 export async function addAttachment(input: {
   sessionId: string
   exerciseId: string

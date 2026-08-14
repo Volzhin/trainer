@@ -7,6 +7,7 @@ import {
   type ClientTask,
   type ReportReply,
   type DailyActivity,
+  type Feedback,
   type NutritionDay,
   type NutritionTarget,
   type Progression,
@@ -65,6 +66,41 @@ export async function submitWorkoutReport(sessionId: string, comment?: string) {
     submitted_at: ts,
     updated_at: ts,
   })
+}
+
+/** Через сколько напомнить о несданном отчёте. */
+const REPORT_REMINDER_MS = 4 * 3600_000
+
+/**
+ * Отложить сдачу: тренировка остаётся несданной и ждёт в «Отчётах».
+ *
+ * Время напоминания храним от момента отказа, а не от конца тренировки:
+ * человек мог открыть шторку через час после зала, и напоминание,
+ * отсчитанное от тренировки, пришло бы почти сразу.
+ */
+export async function postponeWorkoutReport(sessionId: string) {
+  const report = await ensureWorkoutReport(sessionId)
+  await db.workoutReports.update(report.id, {
+    remind_at: now() + REPORT_REMINDER_MS,
+    updated_at: now(),
+  })
+}
+
+/**
+ * Отчёт, о котором пора напомнить, — для показа при открытии приложения.
+ *
+ * Браузерное приложение не может разбудить себя через четыре часа при
+ * закрытой вкладке, поэтому напоминание ждёт возвращения человека, а не
+ * приходит уведомлением. Обещать второе значило бы обещать несбыточное.
+ */
+export async function dueReportReminder(
+  userId = currentUserId(),
+): Promise<WorkoutReport | undefined> {
+  const ts = now()
+  const rows = await db.workoutReports.where('user_id').equals(userId).toArray()
+  return rows
+    .filter((r) => r.status === 'not_submitted' && r.remind_at != null && r.remind_at <= ts)
+    .sort((a, b) => (a.remind_at ?? 0) - (b.remind_at ?? 0))[0]
 }
 
 /** Что о своём отчёте знает клиент. Больше знать и нечего. */
@@ -205,6 +241,26 @@ export async function reviewReport(input: {
   trainerId?: string
 }) {
   const trainerId = input.trainerId ?? currentUserId()
+  const id = await markReportReviewed({ ...input, trainerId })
+  await setReportReply({ ...input, trainerId })
+  return id
+}
+
+/**
+ * Поставить отметку о разборе, не трогая ответ клиенту.
+ *
+ * Тренировку тренер разбирает по упражнениям: комментарии и вес он оставляет
+ * там, а не одним текстом на весь отчёт. Звать здесь `reviewReport` нельзя —
+ * он передаёт ответ дальше, и пустой ответ снял бы тот, что тренер написал
+ * во вкладке «Отчёты».
+ */
+export async function markReportReviewed(input: {
+  clientId: string
+  target: ReviewTarget
+  ref: string
+  trainerId?: string
+}) {
+  const trainerId = input.trainerId ?? currentUserId()
   const ts = now()
   const id = `${trainerId}:${input.clientId}:${input.target}:${input.ref}`
 
@@ -218,7 +274,6 @@ export async function reviewReport(input: {
     updated_at: ts,
   })
 
-  await setReportReply({ ...input, trainerId })
   return id
 }
 
@@ -934,6 +989,25 @@ export async function progressionFor(
  * отбирала строки, где progression заполнен. Тренер, написавший «пауза
  * внизу» и не тронувший вес, разговаривал сам с собой.
  */
+/**
+ * Вся переписка тренера по одному упражнению, свежее сверху.
+ *
+ * Последнего указания мало: «прибавить» имеет смысл рядом с тем, что тренер
+ * говорил про технику неделю назад, а без истории каждое указание читается
+ * как первое.
+ */
+export async function coachNotesFor(
+  exerciseId: string,
+  clientId = currentUserId(),
+): Promise<Feedback[]> {
+  const rows = await db.feedback
+    .where('exercise_id')
+    .equals(exerciseId)
+    .and((f) => f.client_id === clientId && (!!f.progression || !!f.text.trim()))
+    .toArray()
+  return rows.sort((a, b) => b.created_at - a.created_at)
+}
+
 export async function coachNoteFor(
   exerciseId: string,
   clientId = currentUserId(),
@@ -945,11 +1019,17 @@ export async function coachNoteFor(
     .toArray()
   if (!rows.length) return null
 
-  const last = rows.sort((a, b) => b.created_at - a.created_at)[0]
+  // Вес и техника живут в разных строках: рекомендация уходит нажатием на
+  // переключатель, комментарий — отдельной кнопкой. Брать поля одной
+  // последней строки нельзя — написанный следом комментарий гасил бы
+  // «прибавить», и человек у снаряда оставался без указания по весу.
+  const sorted = rows.sort((a, b) => b.created_at - a.created_at)
+  const lastWeight = sorted.find((r) => r.progression)
+  const lastText = sorted.find((r) => r.text.trim())
   return {
-    progression: last.progression,
-    text: last.text.trim() || undefined,
-    at: last.created_at,
+    progression: lastWeight?.progression,
+    text: lastText?.text.trim() || undefined,
+    at: sorted[0].created_at,
   }
 }
 

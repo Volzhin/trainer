@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   db,
@@ -9,11 +9,16 @@ import {
   type WorkoutSession,
 } from '../db/db'
 import { useExercises } from '../db/catalog'
-import { addFeedback, attachmentsForSession, feedbackForSession } from '../db/coach'
-import { progressionFor, setExerciseProgression } from '../db/reports'
+import {
+  addFeedback,
+  addTrainerPhoto,
+  attachmentsForSession,
+  feedbackForSession,
+} from '../db/coach'
+import { markReportReviewed, progressionFor, setExerciseProgression } from '../db/reports'
 import { AttachmentPlayer } from './ExerciseVideo'
 import { Sheet } from './Sheet'
-import { IconChat, IconRecord } from './Icons'
+import { IconChat, IconGallery, IconRecord } from './Icons'
 import { formatDateTime, formatDuration, formatWeight, plural, totalVolume } from '../lib/calc'
 import { estimate1RM } from '../lib/calc'
 import { useApp } from '../store/app'
@@ -51,6 +56,13 @@ export function SessionReview({
     [session?.id],
     [],
   )
+  // Отчёт нужен, чтобы поставить отметку о разборе: она живёт не в самой
+  // тренировке, а в строке отчёта, которая и красит клетку календаря.
+  const report = useLiveQuery(
+    async () =>
+      session ? await db.workoutReports.where('session_id').equals(session.id).first() : undefined,
+    [session?.id],
+  )
   const media = useLiveQuery(
     async () => (session ? await attachmentsForSession(session.id) : []),
     [session?.id],
@@ -68,13 +80,28 @@ export function SessionReview({
   }
   const blocks = [...grouped.entries()].sort((a, b) => a[0] - b[0])
 
+  /**
+   * Отправить итог и закрыть разбор.
+   *
+   * Отметка ставится здесь же, а не отдельной кнопкой в другой вкладке:
+   * тренер, разобравший тренировку по упражнениям, вправе считать её
+   * разобранной — иначе клетка в календаре остаётся жёлтой, и он ищет, что
+   * ещё от него хотят.
+   *
+   * Общий комментарий необязателен: разбор мог целиком уместиться в
+   * указания по упражнениям, а «посмотрел, вопросов нет» — тоже разбор.
+   */
   const send = async () => {
-    if (!text.trim()) return
     setBusy(true)
     try {
-      await addFeedback({ clientId, sessionId: session.id, text, trainerId: userId })
+      if (text.trim()) {
+        await addFeedback({ clientId, sessionId: session.id, text, trainerId: userId })
+      }
+      if (report) {
+        await markReportReviewed({ clientId, target: 'workout', ref: report.id })
+      }
       haptics.success()
-      toast(t('Комментарий отправлен клиенту'))
+      toast(text.trim() ? t('Отправлено, тренировка разобрана') : t('Тренировка разобрана'))
       setText('')
       onClose()
     } finally {
@@ -178,12 +205,8 @@ export function SessionReview({
         onChange={(e) => setText(e.target.value)}
         placeholder={t('Общий комментарий: самочувствие, нагрузка, что меняем')}
       />
-      <button
-        className="btn primary block mt-3"
-        disabled={busy || !text.trim()}
-        onClick={send}
-      >
-        {t('Отправить клиенту')}
+      <button className="btn primary block mt-3" disabled={busy} onClick={send}>
+        {text.trim() ? t('Отправить и отметить разобранным') : t('Отметить разобранным')}
       </button>
     </Sheet>
   )
@@ -207,6 +230,10 @@ function ExerciseReview({
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const [progression, setProgression] = useState<Progression | null>(null)
+  // Фото прикладывается к тому же комментарию: показать угол в спине проще
+  // снимком, чем описать словами.
+  const [photo, setPhoto] = useState<File | null>(null)
+  const photoRef = useRef<HTMLInputElement>(null)
 
   // Что тренер уже говорил про вес по этому упражнению — чтобы не выставлять
   // вслепую и видеть, что рекомендация дошла.
@@ -234,11 +261,17 @@ function ExerciseReview({
   }
 
   const send = async () => {
-    if (!text.trim()) return
-    await addFeedback({ clientId, sessionId, exerciseId, text, trainerId: userId })
+    if (!text.trim() && !photo) return
+    if (photo) {
+      await addTrainerPhoto({ clientId, sessionId, exerciseId, file: photo })
+    }
+    if (text.trim()) {
+      await addFeedback({ clientId, sessionId, exerciseId, text, trainerId: userId })
+    }
     haptics.success()
     toast(t('Разбор отправлен'))
     setText('')
+    setPhoto(null)
     setOpen(false)
   }
 
@@ -284,7 +317,7 @@ function ExerciseReview({
                 className={active ? 'on' : ''}
                 onClick={() => void setWeightAdvice(value)}
               >
-                {label}
+                {t(label)}
               </button>
             )
           })}
@@ -301,11 +334,32 @@ function ExerciseReview({
             placeholder={t('Что поправить в технике')}
             autoFocus
           />
+          <input
+            ref={photoRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+          />
+          <button className="btn sm block" onClick={() => photoRef.current?.click()}>
+            <IconGallery size={15} />
+            {photo ? photo.name : t('Приложить фото')}
+          </button>
           <div className="row" style={{ gap: 8 }}>
-            <button className="btn sm grow" onClick={() => setOpen(false)}>
+            <button
+              className="btn sm grow"
+              onClick={() => {
+                setPhoto(null)
+                setOpen(false)
+              }}
+            >
               {t('Отмена')}
             </button>
-            <button className="btn sm primary grow" disabled={!text.trim()} onClick={send}>
+            <button
+              className="btn sm primary grow"
+              disabled={!text.trim() && !photo}
+              onClick={send}
+            >
               {t('Отправить')}
             </button>
           </div>

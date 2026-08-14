@@ -1,9 +1,9 @@
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, currentUserId } from '../db/db'
+import { db, currentUserId, notificationOn } from '../db/db'
 import { getActiveSession, listMySessions } from '../db/repo'
 import { activeAssignmentFor } from '../db/coach'
-import { openTasks } from '../db/reports'
+import { dueReportReminder, openTasks } from '../db/reports'
 import { plural, weekStart } from '../lib/calc'
 import { WorkoutCalendar } from '../components/WorkoutCalendar'
 import { IconChevronRight, IconPlay } from '../components/Icons'
@@ -25,6 +25,14 @@ export function Home() {
   const active = useLiveQuery(() => getActiveSession(), [])
   const assigned = useLiveQuery(() => activeAssignmentFor(currentUserId()), [sessions?.length])
   const tasks = useLiveQuery(() => openTasks(currentUserId()), [])
+  // Отложенный отчёт напоминает о себе здесь, а не уведомлением: разбудить
+  // себя через четыре часа при закрытой вкладке приложение не может, и
+  // единственный честный момент — когда человек вернулся сам.
+  const reminder = useLiveQuery(
+    async () =>
+      notificationOn(profile, 'workout_report') ? await dueReportReminder() : undefined,
+    [profile?.notifications, sessions?.length],
+  )
 
   // Неделя тут календарная, как и в сетке под этой строкой: со скользящими
   // семью днями в понедельник счёт включал бы тренировки прошлой недели,
@@ -62,6 +70,16 @@ export function Home() {
           onClick={() => nav(`/session/${active.id}`)}
         >
           <IconPlay size={18} /> {t('Вернуться к тренировке')}
+        </button>
+      )}
+
+      {reminder && (
+        <button className="list-item mb-4" onClick={() => nav('/reports')}>
+          <div className="grow">
+            <div className="strong">{t('Отчёт по тренировке не сдан')}</div>
+            <div className="mute-sm truncate">{t('Вы отложили сдачу — можно сдать сейчас')}</div>
+          </div>
+          <IconChevronRight size={16} />
         </button>
       )}
 

@@ -1307,6 +1307,26 @@ const EN: Record<string, string> = {
 
   'Удалить заготовку': 'Delete template',
 
+  /* --- завершение тренировки у онлайн-клиента: выбор из трёх --- */
+  'Сдать видео-отчёт': 'Submit video report',
+  'Сдать без видео': 'Submit without video',
+  'Напомнить позже': 'Remind me later',
+  'Прикрепите хотя бы одно видео выше': 'Attach at least one video above',
+  'Тренировка сохранена — отчёт ждёт в «Отчётах»':
+    'Workout saved — the report is waiting in Reports',
+  'Отчёт по тренировке не сдан': 'A workout report is still unsubmitted',
+  'Вы отложили сдачу — можно сдать сейчас': 'You put it off — you can submit it now',
+
+  /* --- разбор тренировки у тренера --- */
+  'Отправить и отметить разобранным': 'Send and mark reviewed',
+  'Отправлено, тренировка разобрана': 'Sent, workout reviewed',
+  'Тренировка разобрана': 'Workout reviewed',
+  'Приложить фото': 'Attach a photo',
+
+  /* --- переписка по упражнению --- */
+  'История комментариев': 'Comment history',
+  'Пока ничего не сказано': 'Nothing said yet',
+
   /* --- шаги и сон: сданный день показывается итогом, а не формой --- */
   'Записано за сегодня': 'Recorded today',
   записано: 'recorded',

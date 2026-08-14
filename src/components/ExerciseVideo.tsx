@@ -179,7 +179,7 @@ export function VideoUploader({
           onClick={() => inputRef.current?.click()}
         >
           <IconVideo size={15} />
-          {busy ? 'Сохраняю…' : 'Снять'}
+          {busy ? t('Сохраняю…') : t('Снять')}
         </button>
         <button
           className="btn sm grow"

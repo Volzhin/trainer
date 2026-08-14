@@ -714,7 +714,7 @@ function WorkoutReportSheet({
       toast(submitted ? t('Отчёт обновлён') : t('Отчёт сдан'))
       onClose()
     } catch {
-      toast('Не удалось сдать отчёт — попробуйте ещё раз')
+      toast(t('Не удалось сдать отчёт — попробуйте ещё раз'))
     } finally {
       setBusy(false)
     }

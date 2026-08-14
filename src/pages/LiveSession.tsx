@@ -40,8 +40,8 @@ import { VideoUploader } from '../components/ExerciseVideo'
 import { CoachHint } from '../components/CoachHint'
 import { ExerciseBrief } from '../components/ExerciseBrief'
 import { ExerciseStatsSheet } from '../components/ExerciseStatsSheet'
-import { submitWorkoutReport } from '../db/reports'
-import { trainerOfClient } from '../db/coach'
+import { postponeWorkoutReport, submitWorkoutReport } from '../db/reports'
+import { attachmentsForSession, trainerOfClient } from '../db/coach'
 import { Sheet } from '../components/Sheet'
 import { useApp, useClientMode, useProfile } from '../store/app'
 import { ensureNotificationPermission, haptics } from '../lib/native'
@@ -82,6 +82,13 @@ export function LiveSession() {
   // видео некому смотреть, а на очной работе технику он видит сам —
   // просить запись значит просить лишнее.
   const videoReport = useClientMode() === 'online'
+  // Сколько роликов уже приложено: «сдать видео-отчёт» без единого видео —
+  // не видео-отчёт, и кнопка не должна делать вид, что он собран.
+  const attachedCount = useLiveQuery(
+    async () => (await attachmentsForSession(id)).length,
+    [id],
+    0,
+  )
   const hasTrainer = !!useLiveQuery(() => trainerOfClient(), [])
   const sets = useLiveQuery(
     () => db.sets.where('workout_session_id').equals(id).toArray(),
@@ -274,6 +281,44 @@ export function LiveSession() {
     haptics.success()
     toast(saved ? t('Тренировка завершена') : t('Тренировка отменена — ни одного подхода'))
     nav('/', { replace: true })
+  }
+
+  /**
+   * Сдать отчёт прямо из шторки завершения.
+   *
+   * Ролики к этому моменту уже разложены по упражнениям выше: отдельного
+   * шага «приложить видео» нет — есть решение, сдавать ли с ними.
+   */
+  const finishAndSubmit = async () => {
+    setReportBusy(true)
+    try {
+      await finishSession(id, notes.trim() || undefined)
+      await submitWorkoutReport(id)
+      stopRest()
+      haptics.success()
+      toast(t('Отчёт отправлен тренеру'))
+      nav('/', { replace: true })
+    } finally {
+      setReportBusy(false)
+    }
+  }
+
+  /**
+   * Отложить сдачу. Тренировка сохраняется и ждёт в «Отчётах», а через
+   * четыре часа приложение напомнит о ней при следующем открытии.
+   */
+  const finishAndPostpone = async () => {
+    setReportBusy(true)
+    try {
+      await finishSession(id, notes.trim() || undefined)
+      await postponeWorkoutReport(id)
+      stopRest()
+      haptics.success()
+      toast(t('Тренировка сохранена — отчёт ждёт в «Отчётах»'))
+      nav('/', { replace: true })
+    } finally {
+      setReportBusy(false)
+    }
   }
 
   const onDiscard = async () => {
@@ -570,10 +615,36 @@ export function LiveSession() {
             {t('Ни один подход не отмечен галочкой — сохранять нечего, и в календаре тренировка не появится. Отметьте выполненные подходы и завершите снова.')}
           </div>
         )}
+        {/* У онлайн-клиента завершение и сдача — одно решение, а не два
+            подряд: он всё равно сдаёт отчёт, вопрос только в том, с видео,
+            без него или позже. Кому сдавать некому, тот просто завершает. */}
         <div className="stack">
-          <button className="btn success block" onClick={onFinish}>
-            {doneCount === 0 ? t('Выйти без сохранения') : t('Завершить тренировку')}
-          </button>
+          {videoReport && hasTrainer && doneCount > 0 ? (
+            <>
+              <button
+                className="btn success block"
+                disabled={reportBusy || attachedCount === 0}
+                onClick={finishAndSubmit}
+              >
+                {t('Сдать видео-отчёт')}
+              </button>
+              {attachedCount === 0 && (
+                <div className="mute-sm" style={{ textAlign: 'center' }}>
+                  {t('Прикрепите хотя бы одно видео выше')}
+                </div>
+              )}
+              <button className="btn block" disabled={reportBusy} onClick={finishAndSubmit}>
+                {t('Сдать без видео')}
+              </button>
+              <button className="btn block" disabled={reportBusy} onClick={finishAndPostpone}>
+                {t('Напомнить позже')}
+              </button>
+            </>
+          ) : (
+            <button className="btn success block" onClick={onFinish}>
+              {doneCount === 0 ? t('Выйти без сохранения') : t('Завершить тренировку')}
+            </button>
+          )}
           <button className="btn ghost danger block" onClick={onDiscard}>
             {t('Отменить тренировку')}
           </button>
