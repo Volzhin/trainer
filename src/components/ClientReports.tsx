@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
+  acceptTask,
   addTask,
   deleteTaskTemplate,
   listTaskTemplates,
@@ -66,7 +67,11 @@ export function ClientReports({ clientId }: { clientId: string }) {
    * что-то не разобрано, нельзя.
    */
   const openTasks = tasks.filter((x) => x.status === 'open')
-  const doneTasks = tasks.filter((x) => x.status === 'done')
+  // Сданное делится надвое: то, что ждёт тренера, и то, что он уже закрыл.
+  // Пока это был один список, принятое смешивалось с новым, и тренер каждый
+  // раз перечитывал всё подряд, отыскивая, что появилось.
+  const awaiting = tasks.filter((x) => x.status === 'done' && x.accepted_at == null)
+  const archived = tasks.filter((x) => x.status === 'done' && x.accepted_at != null)
 
   return (
     <div className="mt-4">
@@ -79,27 +84,52 @@ export function ClientReports({ clientId }: { clientId: string }) {
           <div className="label">{t('заданий не выполнено')}</div>
         </div>
         <div className="stat">
-          <div className="value">{doneTasks.length}</div>
-          <div className="label">{t('выполнено')}</div>
+          <div className="value">{awaiting.length}</div>
+          <div className="label">{t('ждут проверки')}</div>
         </div>
       </div>
 
-      <div className="section-title">{t('Задания')}</div>
-      {openTasks.length === 0 && doneTasks.length === 0 ? (
-        <div className="empty compact">{t('Заданий нет.')}</div>
+      {/* Ждущее проверки — первым блоком и с кнопкой: это единственное, что
+          требует действия. Пустеет — и блока нет. */}
+      {awaiting.length > 0 && (
+        <>
+          <div className="section-title">{t('Ждут проверки')}</div>
+          <Group>
+            {awaiting.map((task) => (
+              <Row key={task.id} title={t(task.title)} sub={taskSub(task)}>
+                <button
+                  className="btn sm primary"
+                  onClick={async () => {
+                    await acceptTask(task.id)
+                    haptics.success()
+                    toast(t('Задание принято'))
+                  }}
+                >
+                  {t('Принять')}
+                </button>
+              </Row>
+            ))}
+          </Group>
+        </>
+      )}
+
+      <div className="section-title">{t('Выданные задания')}</div>
+      {openTasks.length === 0 ? (
+        <div className="empty compact">{t('Всё выполнено.')}</div>
       ) : (
         <Group>
-          {[...openTasks, ...doneTasks].map((task) => (
+          {openTasks.map((task) => (
             <Row
               key={task.id}
               title={t(task.title)}
               sub={taskSub(task)}
-              value={task.status === 'done' ? <IconCheck size={16} /> : undefined}
               danger={isOverdue(task)}
             />
           ))}
         </Group>
       )}
+
+      {archived.length > 0 && <ArchivedTasks tasks={archived} />}
       <button className="btn block mt-3" onClick={() => setTaskOpen(true)}>
         <IconPlus size={16} /> {t('Выдать задание')}
       </button>
@@ -147,6 +177,30 @@ function taskSub(task: ClientTask): string {
   const base = task.required === 1 ? t('Обязательное · не выполнено') : t('Не выполнено')
   if (task.due_at == null) return base
   return `${base} · ${isOverdue(task) ? t('просрочено') : t('до')} ${formatDate(task.due_at)}`
+}
+
+/** Принятые задания. Свёрнуты: это архив, за ним приходят намеренно. */
+function ArchivedTasks({ tasks }: { tasks: ClientTask[] }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button className="btn block mt-3" onClick={() => setOpen((v) => !v)}>
+        {t('Сданные задания')} ({tasks.length})
+      </button>
+      {open && (
+        <Group>
+          {tasks.map((task) => (
+            <Row
+              key={task.id}
+              title={t(task.title)}
+              sub={task.answer ? `${t('Принято')} · ${task.answer}` : t('Принято')}
+              value={<IconCheck size={16} />}
+            />
+          ))}
+        </Group>
+      )}
+    </>
+  )
 }
 
 /* ------------------------------- задание ------------------------------- */
@@ -229,8 +283,11 @@ function TaskSheet({
                     <span className="title">{tpl.title}</span>
                     {tpl.description && <span className="sub truncate">{tpl.description}</span>}
                   </button>
+                  {/* Встроенную заготовку удалять нечего: она не хранится, а
+                      подставляется всем одинаково. */}
                   <button
                     className="icon-btn"
+                    hidden={tpl.id.startsWith('builtin-')}
                     aria-label={`${t('Удалить заготовку')} «${tpl.title}»`}
                     onClick={() => deleteTaskTemplate(tpl.id)}
                   >

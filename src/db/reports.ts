@@ -530,11 +530,21 @@ export async function activityRange(clientId: string, from: string, to: string) 
 /* ------------------------------- задания ------------------------------- */
 
 /** Обязательные задания, которые выдаются при привязке к тренеру. */
-const REQUIRED_TASKS: { kind: TaskKind; title: string; description?: string }[] = [
+/** Неделя на обязательное задание — столько же, сколько на первый цикл. */
+const REQUIRED_TASK_DUE_MS = 7 * 86400_000
+
+const REQUIRED_TASKS: {
+  kind: TaskKind
+  title: string
+  description?: string
+  /** Срок ставится не всем: замеры и InBody живут своими циклами. */
+  due?: boolean
+}[] = [
   {
     kind: 'intake',
     title: 'Стартовая анкета',
     description: 'Рост, вес, замеры и опыт тренировок — с этого начинается работа.',
+    due: true,
   },
   {
     kind: 'essay',
@@ -543,6 +553,15 @@ const REQUIRED_TASKS: { kind: TaskKind; title: string; description?: string }[] 
       'Ответь себе письменно: зачем я хочу изменить тело и привычки и как изменится моя ' +
       'жизнь, когда получится? Сохрани и отправь нам — будем возвращаться к этому в ' +
       'трудные моменты.',
+    due: true,
+  },
+  {
+    kind: 'photos',
+    title: 'Фото до/после',
+    description:
+      'Фото в белье или купальнике, при дневном свете, камера на уровне пупка. ' +
+      'Четыре кадра: спереди, с двух боков и сзади.',
+    due: true,
   },
   { kind: 'measurements', title: 'Первые замеры', description: 'Дальше — еженедельно.' },
   {
@@ -569,6 +588,7 @@ export async function issueRequiredTasks(clientId: string, trainerId: string) {
     kind: t.kind,
     title: t.title,
     description: t.description,
+    due_at: t.due ? ts + REQUIRED_TASK_DUE_MS : undefined,
     status: 'open',
     required: 1,
     created_at: ts,
@@ -607,9 +627,34 @@ export async function addTask(input: {
 
 /* --------------------------- шаблоны заданий --------------------------- */
 
+/**
+ * Готовая заготовка, которая есть у каждого тренера.
+ *
+ * InBody назначают повторно — раз в месяц-полтора, всем и одинаковыми
+ * словами. Заставлять каждого тренера набирать её руками значит гарантировать
+ * пять разных формулировок одного и того же.
+ */
+const BUILTIN_TEMPLATES = [
+  {
+    id: 'builtin-inbody',
+    title: 'Анализ состава тела InBody',
+    description: 'Сделайте замер и загрузите PDF из зала — состав тела разберётся сам.',
+    due_days: 7,
+  },
+]
+
 export async function listTaskTemplates(trainerId = currentUserId()) {
   const rows = await db.taskTemplates.where('trainer_id').equals(trainerId).toArray()
-  return rows.sort((a, b) => b.created_at - a.created_at)
+  const own = rows.sort((a, b) => b.created_at - a.created_at)
+  const builtin = BUILTIN_TEMPLATES.map((b) => ({
+    ...b,
+    trainer_id: trainerId,
+    created_at: 0,
+    updated_at: 0,
+  }))
+  // Свои сверху: встроенная заготовка одна и всегда на месте, а искать среди
+  // неё то, что тренер написал сам, он не должен.
+  return [...own, ...builtin]
 }
 
 export async function saveTaskTemplate(input: {
@@ -644,6 +689,86 @@ export async function completeTask(taskId: string, answer?: string) {
     completed_at: ts,
     updated_at: ts,
   })
+}
+
+/**
+ * Еженедельные замеры: задание на текущую неделю, если его ещё не было.
+ *
+ * Выдаётся при открытии приложения, а не по таймеру в полночь понедельника:
+ * будить себя приложение не умеет, а результат тот же — в понедельник
+ * человек видит задание, как только зашёл. Ключ недели считается от
+ * понедельника, поэтому в одну неделю задание выдаётся ровно раз, сколько бы
+ * раз приложение ни открывали.
+ */
+export async function issueWeeklyMeasurements(
+  clientId = currentUserId(),
+  trainerId?: string,
+): Promise<boolean> {
+  const from = weekStart(now())
+  /*
+   * Идентификатор выводится из недели и клиента, а не выдаётся случайно.
+   *
+   * Проверить и вставить — это два шага, и между ними успевает пройти второй
+   * вызов: в дев-режиме React выполняет эффект дважды, да и экран открывают
+   * в двух вкладках. С выведенным ключом повторная вставка просто не
+   * проходит, и недельное задание остаётся ровно одно.
+   */
+  const id = `wk-${from}-${clientId}`
+  if (await db.tasks.get(id)) return false
+
+  /*
+   * Тренера берём из связи, а не из прошлых заданий: у клиента, которому
+   * ещё ничего не выдавали, задания взяться неоткуда, и еженедельные замеры
+   * не появились бы у него никогда.
+   *
+   * Строку связи читаем здесь напрямую: coach.ts уже зовёт этот модуль
+   * ради обязательных заданий, и обратный импорт замкнул бы их друг на друга.
+   */
+  const link =
+    trainerId ??
+    (await db.links.where('client_id').equals(clientId).first())?.trainer_id
+  if (!link) return false
+  const trainer = link
+
+  const ts = now()
+  try {
+    await db.tasks.add({
+      id,
+      client_id: clientId,
+      trainer_id: trainer,
+      kind: 'measurements',
+      title: 'Замеры за неделю',
+      description: 'Обхваты и вес — раз в неделю, чтобы видеть динамику.',
+      due_at: from + 7 * 86400_000,
+      status: 'open',
+      required: 1,
+      created_at: ts,
+      updated_at: ts,
+    })
+    return true
+  } catch {
+    // Ключ уже занят — значит задание за эту неделю кто-то успел завести.
+    return false
+  }
+}
+
+/**
+ * Тренер принял выполненное задание.
+ *
+ * Проверка здесь — это именно «принято», а не разбор: у анкеты и эссе нечего
+ * оценивать по пунктам, тренер их читает и закрывает. Принятое уходит из
+ * очереди в архив и больше на глаза не попадается.
+ */
+export async function acceptTask(taskId: string) {
+  await db.tasks.update(taskId, { accepted_at: now(), updated_at: now() })
+}
+
+/** Сданные, но ещё не принятые — очередь проверки у тренера. */
+export async function tasksAwaitingCheck(clientId: string): Promise<ClientTask[]> {
+  const rows = await db.tasks.where('[client_id+status]').equals([clientId, 'done']).toArray()
+  return rows
+    .filter((t) => t.accepted_at == null)
+    .sort((a, b) => (a.completed_at ?? 0) - (b.completed_at ?? 0))
 }
 
 /** Невыполненные задания клиента — они висят у него на главной. */

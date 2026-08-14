@@ -318,6 +318,23 @@ export type NutritionPlan = {
 }
 
 /**
+ * Среднее число шагов за последнюю неделю.
+ *
+ * Среднее, а не вчерашнее: один выходной на диване не повод срезать норму,
+ * а один поход в горы — не повод её поднимать.
+ */
+async function weeklyStepsAverage(userId: string): Promise<number> {
+  const from = localDate(Date.now() - 6 * 86400_000)
+  const rows = await db.dailyActivity
+    .where('[user_id+date]')
+    .between([userId, from], [userId, localDate()], true, true)
+    .toArray()
+  const withSteps = rows.filter((r) => r.steps != null)
+  if (!withSteps.length) return 0
+  return Math.round(withSteps.reduce((acc, r) => acc + (r.steps ?? 0), 0) / withSteps.length)
+}
+
+/**
  * Текущий план: расход, цель и макросы. Пока фактических данных мало,
  * опирается на формулу; дальше — на наблюдаемый баланс энергии.
  */
@@ -336,7 +353,19 @@ export async function loadPlan(userId = currentUserId()): Promise<NutritionPlan>
     age,
     sex: user?.gender ?? 'м',
   })
-  const formula = Math.round(base * profile.activity)
+  /*
+   * Шаги добавляются к формуле, а не заменяют коэффициент активности.
+   *
+   * Коэффициент описывает образ жизни целиком — работу, дорогу, быт; шаги
+   * из них видны лишь частью. Заменять им коэффициент значит считать, что
+   * человек без телефона в кармане лежит. Поэтому берём среднее за неделю и
+   * прибавляем только то, что выходит за обычные три тысячи шагов, по
+   * привычной оценке в 0,04 ккал на шаг на килограмм веса.
+   */
+  const stepsAvg = await weeklyStepsAverage(userId)
+  const extraSteps = Math.max(0, stepsAvg - 3000)
+  const stepsKcal = Math.round(extraSteps * 0.04 * ((lastWeight ?? 75) / 70))
+  const formula = Math.round(base * profile.activity) + stepsKcal
 
   const expenditure = estimateExpenditure(days, formula)
   const tdee = expenditure.tdee + (profile.manual_offset ?? 0)

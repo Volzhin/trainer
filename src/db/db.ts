@@ -568,7 +568,7 @@ export interface DailyActivity {
  * анкета, эссе, замеры. Обязательные заводятся при привязке к тренеру и
  * висят на главной, пока не выполнены.
  */
-export type TaskKind = 'intake' | 'essay' | 'measurements' | 'inbody' | 'custom'
+export type TaskKind = 'intake' | 'essay' | 'photos' | 'measurements' | 'inbody' | 'custom'
 export type TaskStatus = 'open' | 'done'
 
 export interface ClientTask {
@@ -585,6 +585,16 @@ export interface ClientTask {
   completed_at?: number
   /** Обязательные задания нельзя отложить: они выданы при старте работы. */
   required: 0 | 1
+  /**
+   * Когда тренер принял выполненное задание.
+   *
+   * Отдельным полем, а не третьим значением статуса: `status` лежит в
+   * индексе и в парном ключе `[client_id+status]`, по которым считают
+   * невыполненное. Третье значение пришлось бы учесть в каждом таком месте,
+   * а вопрос «сдано ли» и вопрос «принято ли» — разные, и первый принадлежит
+   * клиенту, второй тренеру.
+   */
+  accepted_at?: number
   created_at: number
   updated_at: number
 }
@@ -755,6 +765,14 @@ export interface Attachment {
    * увезёт.
    */
   doc_kind?: ConsentKind
+  /** Задание, к которому приложен файл, — например фото до/после. */
+  task_id?: string
+  /**
+   * Ракурс съёмки. Нужен только фото тела: четыре кадра одинаковы по типу и
+   * различаются лишь тем, с какой стороны сняты, а без подписи сравнивать их
+   * через месяц бесполезно.
+   */
+  pose?: 'front' | 'side_left' | 'side_right' | 'back'
   kind: 'video' | 'photo' | 'document'
   /** Оригинал на устройстве. У приехавшего с сервера файла его нет. */
   blob?: Blob

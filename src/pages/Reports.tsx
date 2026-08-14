@@ -2,12 +2,20 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db'
-import type { ClientTask, NutritionTarget, WorkoutReport, WorkoutSession } from '../db/db'
+import type {
+  Attachment,
+  ClientTask,
+  NutritionTarget,
+  WorkoutReport,
+  WorkoutSession,
+} from '../db/db'
 import { listMySessions } from '../db/repo'
 import {
   activityFor,
   completeTask,
   currentTargets,
+  issueWeeklyMeasurements,
+  myNutritionDayState,
   openTasks,
   repliesOf,
   replyText,
@@ -24,7 +32,9 @@ import { Sheet } from '../components/Sheet'
 import { WeightSheet } from '../components/WeightCard'
 import { isOverdue } from '../components/ClientReports'
 import { MeasurementEntry } from '../components/MeasurementEntry'
-import { IconCheck, IconChevronRight, IconTrash } from '../components/Icons'
+import { ShotThumb } from '../components/ShotThumb'
+import { addTaskPhoto, taskPhotos } from '../db/coach'
+import { IconCheck, IconChevronRight, IconPlus, IconTrash } from '../components/Icons'
 import { useApp, useTrainerLink } from '../store/app'
 import { haptics } from '../lib/native'
 import { t } from '../lib/i18n'
@@ -88,6 +98,13 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
 
   const today = localDate()
 
+  // Замеры выдаются раз в неделю и появляются, как только человек зашёл на
+  // этой неделе впервые. Календарного будильника у браузера нет, а результат
+  // тот же — в понедельник задание уже на месте.
+  useEffect(() => {
+    void issueWeeklyMeasurements(userId)
+  }, [userId])
+
   const [openSession, setOpenSession] = useState<WorkoutSession | null>(null)
   const [openTask, setOpenTask] = useState<ClientTask | null>(null)
   const [weightOpen, setWeightOpen] = useState(false)
@@ -109,6 +126,11 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
   )
 
   const pendingSessions = recent.filter((s) => reportOf.get(s.id)?.status !== 'submitted')
+  const nutritionSubmitted = useLiveQuery(
+    async () => (await myNutritionDayState(today)) === 'submitted',
+    [today],
+    false,
+  )
   const pending = pendingSessions.length
 
   return (
@@ -222,13 +244,21 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
           {/* Дни питания сдаются в самом дневнике, под тем, что за день
               съедено: отчёт о еде осмыслен рядом с едой, а не списком дат в
               отрыве от неё. Форма — components/NutritionDayReport. */}
+          {/* Сдан ли день, видно отсюда: иначе за ответом приходится идти в
+              дневник, а вопрос «я сегодня отчитался?» задают именно здесь. */}
           <div className="section-title">{t('Питание')}</div>
           <button className="list-item" onClick={() => nav('/nutrition')}>
             <div className="grow">
-              <div className="strong">{t('Открыть дневник')}</div>
-              <div className="mute-sm">{t('Отчёт за день сдаётся под записями о еде')}</div>
+              <div className="strong">
+                {nutritionSubmitted ? t('Отчёт за сегодня сдан') : t('Открыть дневник')}
+              </div>
+              <div className="mute-sm">
+                {nutritionSubmitted
+                  ? t('Можно поправить в дневнике')
+                  : t('Отчёт за день сдаётся под записями о еде')}
+              </div>
             </div>
-            <IconChevronRight size={16} />
+            {nutritionSubmitted ? <IconCheck size={16} /> : <IconChevronRight size={16} />}
           </button>
 
           <SubmittedList userId={userId} onToast={toast} />
@@ -269,20 +299,26 @@ function SubmittedList({
   onToast: (text: string) => void
 }) {
   const [open, setOpen] = useState(false)
+  const [tasksOpen, setTasksOpen] = useState(false)
   const entries = useLiveQuery(() => (open ? submittedEntries(userId) : undefined), [userId, open])
 
   return (
     <>
-      <div className="section-title">{t('Сданные отчёты')}</div>
-      {!open ? (
-        <button className="list-item" onClick={() => setOpen(true)}>
-          <div className="grow">
-            <div className="strong">{t('Показать сданное')}</div>
-            <div className="mute-sm">{t('Вес, замеры, InBody, шаги и сон — с возможностью удалить')}</div>
-          </div>
-          <IconChevronRight size={16} />
+      {/* Отчёты и задания разведены: это разные вопросы — «что я сдал» и
+          «что я выполнил», и общий список отвечал сразу на оба нечётко. */}
+      <div className="section-title">{t('Сданное')}</div>
+      <div className="row" style={{ gap: 8 }}>
+        <button className="btn grow" onClick={() => { setOpen((v) => !v); setTasksOpen(false) }}>
+          {t('Сданные отчёты')}
         </button>
-      ) : entries == null ? (
+        <button className="btn grow" onClick={() => { setTasksOpen((v) => !v); setOpen(false) }}>
+          {t('Сданные задания')}
+        </button>
+      </div>
+
+      {tasksOpen && <SubmittedTasks userId={userId} />}
+
+      {!open ? null : entries == null ? (
         <div className="card skeleton" style={{ height: 120 }} />
       ) : entries.length === 0 ? (
         <div className="empty compact">{t('Пока ничего не сдано.')}</div>
@@ -311,6 +347,40 @@ function SubmittedList({
         </div>
       )}
     </>
+  )
+}
+
+/**
+ * Выполненные задания — архив клиента.
+ *
+ * Принял ли их тренер, здесь не показывается: клиент своё сдал, и стадия
+ * проверки — забота тренера, а не повод гадать, всё ли он сделал правильно.
+ */
+function SubmittedTasks({ userId }: { userId: string }) {
+  const tasks = useLiveQuery(
+    async () => (await db.tasks.where('[client_id+status]').equals([userId, 'done']).toArray())
+      .sort((a, b) => (b.completed_at ?? 0) - (a.completed_at ?? 0)),
+    [userId],
+  )
+
+  if (tasks == null) return <div className="card skeleton" style={{ height: 96 }} />
+  if (tasks.length === 0) return <div className="empty compact">{t('Заданий пока не сдано.')}</div>
+
+  return (
+    <div className="group">
+      {tasks.map((task) => (
+        <div className="group-row" key={task.id}>
+          <span className="grow">
+            <span className="title">{t(task.title)}</span>
+            <span className="sub">
+              {task.completed_at ? formatDate(task.completed_at) : ''}
+              {task.answer ? ` · ${task.answer}` : ''}
+            </span>
+          </span>
+          <IconCheck size={16} />
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -569,6 +639,70 @@ function ActivityCard({ date, userId }: { date: string; userId: string }) {
   )
 }
 
+/** Четыре ракурса фото до/после — по кадру на каждый. */
+const POSES: { key: NonNullable<Attachment['pose']>; label: string }[] = [
+  { key: 'front', label: 'Спереди' },
+  { key: 'side_left', label: 'Сбоку слева' },
+  { key: 'side_right', label: 'Сбоку справа' },
+  { key: 'back', label: 'Сзади' },
+]
+
+/**
+ * Съёмка по ракурсам, а не «приложите файлы».
+ *
+ * Четыре кадра сравнивают между собой через месяцы, и пачка без подписей
+ * для этого не годится: непонятно, где какой бок. Отдельная клетка на
+ * ракурс заодно показывает, чего ещё не хватает.
+ */
+function TaskPhotos({ taskId }: { taskId: string }) {
+  const { toast, userId } = useApp()
+  const version = useLiveQuery(() => db.attachments.count(), [])
+  const photos = useLiveQuery(() => taskPhotos(taskId, userId), [taskId, userId, version], [])
+  const refs = useRef(new Map<string, HTMLInputElement | null>())
+
+  const pick = async (pose: NonNullable<Attachment['pose']>, list: FileList | null) => {
+    const file = list?.[0]
+    if (!file) return
+    await addTaskPhoto({ taskId, pose, file, userId })
+    haptics.success()
+    toast(t('Фото добавлено'))
+  }
+
+  return (
+    <div className="field">
+      <label>{t('Фотографии')}</label>
+      <div className="shot-grid">
+        {POSES.map(({ key, label }) => {
+          const shot = photos.find((p) => p.pose === key)
+          return (
+            <div key={key}>
+              <input
+                ref={(el) => refs.current.set(key, el)}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => void pick(key, e.target.files)}
+              />
+              {shot ? (
+                <ShotThumb attachment={shot} />
+              ) : (
+                <button
+                  className="btn block"
+                  style={{ aspectRatio: '3 / 4' }}
+                  onClick={() => refs.current.get(key)?.click()}
+                >
+                  <IconPlus size={16} />
+                </button>
+              )}
+              <div className="mute-sm text-center mt-1">{t(label)}</div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 /* -------------------------------- задание ------------------------------ */
 
 /** Куда ведёт задание, если выполняется оно не текстом, а в другом разделе. */
@@ -605,6 +739,7 @@ function TaskSheet({ task, onClose }: { task: ClientTask | null; onClose: () => 
   }
 
   const route = TASK_ROUTE[task.kind]
+  const wantsPhotos = task.kind === 'photos'
   // Эссе — это и есть ответ: отметить его выполненным, ничего не написав,
   // означало бы закрыть задание, которого никто не сделал.
   const needsText = task.kind === 'essay'
@@ -630,6 +765,8 @@ function TaskSheet({ task, onClose }: { task: ClientTask | null; onClose: () => 
       {task.description && <div className="muted">{t(task.description)}</div>}
 
       <div className="stack mt-4">
+        {wantsPhotos && <TaskPhotos taskId={task.id} />}
+
         <div className="field">
           <label>{needsText ? t('Ваш ответ') : t('Комментарий тренеру, если нужен')}</label>
           <textarea

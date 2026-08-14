@@ -999,6 +999,53 @@ export async function addFeedback(input: {
 export const MAX_VIDEO_BYTES = 60 * 1024 * 1024
 
 /**
+ * Фото тела к заданию «до/после».
+ *
+ * Ракурс хранится вместе с файлом: четыре кадра различаются только тем, с
+ * какой стороны сняты, и без подписи сравнить их через месяц нельзя. Один
+ * ракурс — один файл: пересняли — старый уходит, иначе в задании копится
+ * десяток почти одинаковых снимков.
+ */
+export async function addTaskPhoto(input: {
+  taskId: string
+  pose: NonNullable<Attachment['pose']>
+  file: File
+  userId?: string
+}) {
+  const userId = input.userId ?? currentUserId()
+  const old = await db.attachments
+    .where('user_id')
+    .equals(userId)
+    .and((a) => a.task_id === input.taskId && a.pose === input.pose)
+    .toArray()
+  for (const a of old) await deleteAttachment(a.id)
+
+  const attachment: Attachment = {
+    id: uid(),
+    user_id: userId,
+    task_id: input.taskId,
+    pose: input.pose,
+    kind: 'photo',
+    blob: input.file,
+    mime: input.file.type || 'image/jpeg',
+    size: input.file.size,
+    created_at: now(),
+    updated_at: now(),
+  }
+  await db.attachments.add(attachment)
+  return attachment.id
+}
+
+/** Фото, приложенные к заданию. */
+export async function taskPhotos(taskId: string, userId = currentUserId()) {
+  return db.attachments
+    .where('user_id')
+    .equals(userId)
+    .and((a) => a.task_id === taskId)
+    .toArray()
+}
+
+/**
  * Фото, которым тренер поясняет разбор упражнения.
  *
  * Владельцем записываем клиента, а не тренера: сервер отдаёт человеку его

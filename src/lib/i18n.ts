@@ -1307,6 +1307,34 @@ const EN: Record<string, string> = {
 
   'Удалить заготовку': 'Delete template',
 
+  /* --- задания: фото до/после, проверка у тренера, архив --- */
+  'Фото до/после': 'Before/after photos',
+  'Фото в белье или купальнике, при дневном свете, камера на уровне пупка. Четыре кадра: спереди, с двух боков и сзади.':
+    'Photos in underwear or swimwear, in daylight, camera at navel height. Four shots: front, both sides and back.',
+  Фотографии: 'Photos',
+  Спереди: 'Front',
+  'Сбоку слева': 'Left side',
+  'Сбоку справа': 'Right side',
+  Сзади: 'Back',
+  'Фото добавлено': 'Photo added',
+  'Ждут проверки': 'Awaiting review',
+  'ждут проверки': 'awaiting review',
+  Принять: 'Accept',
+  'Задание принято': 'Task accepted',
+  'Выданные задания': 'Assigned tasks',
+  'Всё выполнено.': 'All done.',
+  'Сданные задания': 'Submitted tasks',
+  Принято: 'Accepted',
+  Сданное: 'Submitted',
+  'Заданий пока не сдано.': 'No tasks submitted yet.',
+  'Отчёт за сегодня сдан': 'Today’s report is submitted',
+  'Можно поправить в дневнике': 'You can still edit it in the diary',
+  'Замеры за неделю': 'Measurements for the week',
+  'Обхваты и вес — раз в неделю, чтобы видеть динамику.':
+    'Girths and weight once a week, so the trend is visible.',
+  'Сделайте замер и загрузите PDF из зала — состав тела разберётся сам.':
+    'Get scanned and upload the gym’s PDF — the body composition is parsed for you.',
+
   /* --- питание: сдача ручного отчёта и разбор --- */
   'Разбор дня': 'Day review',
   'День питания не сдан': 'Nutrition day not submitted',
