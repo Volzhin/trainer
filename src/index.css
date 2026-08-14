@@ -902,7 +902,10 @@ a {
 
 .sheet {
   width: min(560px, 100%);
-  max-height: 86vh;
+  /* Доля от фона, а не от vh: фон подгоняется под видимую часть экрана (см.
+     Sheet.tsx), а vh считается от разметочной и с клавиатурой не меняется —
+     шторка уезжала под клавиатуру вместе с полем ввода. */
+  max-height: 86%;
   background: var(--surface);
   box-shadow: var(--shadow-sheet);
   border-radius: var(--r-2xl) var(--r-2xl) 0 0;
