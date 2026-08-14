@@ -116,14 +116,30 @@ export function WorkoutCalendar() {
 
   const today = startOfDay(Date.now())
   const dayList = byDay.get(selected) ?? []
+  /**
+   * Подпись месяца.
+   *
+   * В месячном виде она берётся у самого месяца, а не у краёв сетки: сетка
+   * достроена до целых недель и заходит в соседние месяцы, отчего август
+   * подписывался как «июль — сентябрь».
+   *
+   * Неделя же и правда может лежать в двух месяцах — тогда это диапазон. Год
+   * ставим один раз в конце: он у обоих месяцев общий, кроме стыка декабря и
+   * января, где годы разные и нужны оба.
+   */
   const monthLabel = useMemo(() => {
+    const label = (d: Date) => t(MONTHS[d.getMonth()])
+    if (mode === 'month') {
+      const d = new Date(anchor)
+      return `${label(d)} ${d.getFullYear()}`
+    }
     const from = new Date(days[0])
     const to = new Date(days[days.length - 1])
-    const label = (d: Date) => MONTHS[d.getMonth()]
-    return from.getMonth() === to.getMonth()
-      ? `${t(label(from))} ${from.getFullYear()}`
-      : `${t(label(from))} — ${t(label(to))}`
-  }, [days])
+    if (from.getMonth() === to.getMonth()) return `${label(from)} ${from.getFullYear()}`
+    return from.getFullYear() === to.getFullYear()
+      ? `${label(from)} — ${label(to)} ${to.getFullYear()}`
+      : `${label(from)} ${from.getFullYear()} — ${label(to)} ${to.getFullYear()}`
+  }, [days, mode, anchor])
 
   const [startOpen, setStartOpen] = useState(false)
 

@@ -1305,6 +1305,19 @@ const EN: Record<string, string> = {
   т: 't',
   макс: 'max',
 
+  'Удалить заготовку': 'Delete template',
+
+  /* --- обязательные задания: выдаются при привязке к тренеру --- */
+  'Стартовая анкета': 'Intake form',
+  'Рост, вес, замеры и опыт тренировок — с этого начинается работа.':
+    'Height, weight, measurements and training experience — this is where the work starts.',
+  'Зачем мне это': 'Why I want this',
+  'Ответь себе письменно: зачем я хочу изменить тело и привычки и как изменится моя жизнь, когда получится? Сохрани и отправь нам — будем возвращаться к этому в трудные моменты.':
+    'Answer in writing: why do I want to change my body and habits, and how will my life change once I do? Save it and send it to us — we will come back to it on the hard days.',
+  'Первые замеры': 'First measurements',
+  'Дальше — еженедельно.': 'Weekly from then on.',
+  'Анализ состава тела InBody': 'InBody body composition scan',
+
   /* --- ошибки входа и регистрации: приходят с сервера, показываются как есть --- */
   'Вход устарел — войдите ещё раз': 'Your session expired — sign in again',
   'Неверная почта или пароль': 'Wrong email or password',

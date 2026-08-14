@@ -4,7 +4,7 @@ import { db, currentUserId } from '../db/db'
 import { getActiveSession, listMySessions } from '../db/repo'
 import { activeAssignmentFor } from '../db/coach'
 import { openTasks } from '../db/reports'
-import { plural, startOfDay } from '../lib/calc'
+import { plural, weekStart } from '../lib/calc'
 import { WorkoutCalendar } from '../components/WorkoutCalendar'
 import { IconChevronRight, IconPlay } from '../components/Icons'
 import { useApp } from '../store/app'
@@ -26,8 +26,11 @@ export function Home() {
   const assigned = useLiveQuery(() => activeAssignmentFor(currentUserId()), [sessions?.length])
   const tasks = useLiveQuery(() => openTasks(currentUserId()), [])
 
-  const weekAgo = startOfDay(Date.now()) - 6 * 86400_000
-  const thisWeek = (sessions ?? []).filter((s) => s.start_time >= weekAgo).length
+  // Неделя тут календарная, как и в сетке под этой строкой: со скользящими
+  // семью днями в понедельник счёт включал бы тренировки прошлой недели,
+  // которых в календаре уже не видно.
+  const weekFrom = weekStart(Date.now())
+  const thisWeek = (sessions ?? []).filter((s) => s.start_time >= weekFrom).length
   const todo = tasks ?? []
 
   return (

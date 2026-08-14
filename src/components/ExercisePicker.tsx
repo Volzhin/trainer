@@ -54,7 +54,7 @@ export function ExercisePicker({
   }, [exercises, q, muscle])
 
   return (
-    <Sheet open={open} title={title} onClose={onClose}>
+    <Sheet open={open} title={t(title)} onClose={onClose}>
       <div className="search mb-3">
         <IconSearch />
         <input
@@ -73,7 +73,7 @@ export function ExercisePicker({
             className={`chip${muscle === m ? ' active' : ''}`}
             onClick={() => setMuscle(m)}
           >
-            {m}
+            {t(m)}
           </button>
         ))}
       </div>

@@ -147,7 +147,7 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
                         className="strong"
                         style={isOverdue(task) ? { color: 'var(--danger)' } : undefined}
                       >
-                        {task.title}
+                        {t(task.title)}
                       </div>
                       {task.due_at != null && (
                         <div
@@ -158,7 +158,7 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
                         </div>
                       )}
                       {task.description && (
-                        <div className="mute-sm truncate">{task.description}</div>
+                        <div className="mute-sm truncate">{t(task.description)}</div>
                       )}
                     </div>
                     {task.required === 1 && <span className="badge">{t('обязательно')}</span>}
@@ -296,7 +296,7 @@ function SubmittedList({
               </span>
               <button
                 className="icon-btn"
-                aria-label={`Удалить: ${e.title} от ${formatDate(e.at)}`}
+                aria-label={`${t('Удалить')}: ${t(e.title)} · ${formatDate(e.at)}`}
                 onClick={async () => {
                   await deleteSubmittedEntry(e)
                   onToast(t('Запись удалена'))
@@ -561,8 +561,8 @@ function TaskSheet({ task, onClose }: { task: ClientTask | null; onClose: () => 
   }
 
   return (
-    <Sheet open={!!task} title={task.title} onClose={onClose}>
-      {task.description && <div className="muted">{task.description}</div>}
+    <Sheet open={!!task} title={t(task.title)} onClose={onClose}>
+      {task.description && <div className="muted">{t(task.description)}</div>}
 
       <div className="stack mt-4">
         <div className="field">
@@ -656,7 +656,7 @@ function WorkoutReportSheet({
   }
 
   return (
-    <Sheet open={!!session} title={session.title} onClose={onClose}>
+    <Sheet open={!!session} title={t(session.title)} onClose={onClose}>
       <div className="mute-sm">{formatDate(session.start_time)}</div>
 
       <TrainerReply text={reply} />

@@ -92,7 +92,7 @@ export function ClientReports({ clientId }: { clientId: string }) {
           {[...openTasks, ...doneTasks].map((task) => (
             <Row
               key={task.id}
-              title={task.title}
+              title={t(task.title)}
               sub={taskSub(task)}
               value={task.status === 'done' ? <IconCheck size={16} /> : undefined}
               danger={isOverdue(task)}
@@ -214,23 +214,25 @@ function TaskSheet({
           <>
             <div className="mute-sm">{t('Из заготовок')}</div>
             <div className="group">
-              {(templates ?? []).map((t) => (
-                <div className="group-row" key={t.id}>
+              {(templates ?? []).map((tpl) => (
+                <div className="group-row" key={tpl.id}>
                   <button
                     className="grow"
                     style={{ textAlign: 'left' }}
                     onClick={() => {
-                      setTitle(t.title)
-                      setDescription(t.description ?? '')
+                      setTitle(tpl.title)
+                      setDescription(tpl.description ?? '')
                     }}
                   >
-                    <span className="title">{t.title}</span>
-                    {t.description && <span className="sub truncate">{t.description}</span>}
+                    {/* Заготовки пишет сам тренер — это его текст, а не строка
+                        интерфейса, и переводить его нельзя. */}
+                    <span className="title">{tpl.title}</span>
+                    {tpl.description && <span className="sub truncate">{tpl.description}</span>}
                   </button>
                   <button
                     className="icon-btn"
-                    aria-label={`Удалить заготовку «${t.title}»`}
-                    onClick={() => deleteTaskTemplate(t.id)}
+                    aria-label={`${t('Удалить заготовку')} «${tpl.title}»`}
+                    onClick={() => deleteTaskTemplate(tpl.id)}
                   >
                     <IconTrash size={15} />
                   </button>

@@ -111,7 +111,7 @@ export function ReviewSheet({
   }
 
   return (
-    <Sheet open={!!subject} title={subject.title} onClose={onClose}>
+    <Sheet open={!!subject} title={t(subject.title)} onClose={onClose}>
       <div className="mute-sm">{subject.subtitle}</div>
 
       {context && <div className="mt-3">{context}</div>}
