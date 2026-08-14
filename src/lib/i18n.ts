@@ -1307,6 +1307,12 @@ const EN: Record<string, string> = {
 
   'Удалить заготовку': 'Delete template',
 
+  /* --- дни рождения клиентов --- */
+  'Скоро дни рождения': 'Birthdays soon',
+  'сегодня ДР': 'birthday today',
+  'ДР через': 'birthday in',
+  через: 'in',
+
   /* --- стартовая анкета --- */
   Пол: 'Sex',
   Женский: 'Female',

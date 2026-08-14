@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../db/db'
 import {
   createInvite,
+  daysToBirthday,
   listActiveInvites,
   hasSubscription,
   loadClientSummaries,
@@ -34,6 +35,42 @@ const inviteLink = (code: string) => `${location.origin}${location.pathname}?joi
 
 /** Клиент считается «выпавшим», если не тренировался больше недели. */
 const STALE_DAYS = 7
+
+/** Метка у карточки: «сегодня ДР» или «ДР через N дней». */
+function BirthdayBadge({ days }: { days: number | null }) {
+  if (days == null) return null
+  return (
+    <span className="badge" style={{ color: 'var(--accent-ink)' }}>
+      {days === 0 ? t('сегодня ДР') : `${t('ДР через')} ${days} ${plural(days, ['день', 'дня', 'дней'])}`}
+    </span>
+  )
+}
+
+/** Строка над списком. Пусто — блока нет: пустых напоминаний не бывает. */
+function BirthdaysSoon({ clients }: { clients: { client: { id: string; name: string; birth_date?: string } }[] }) {
+  const soon = clients
+    .map((c) => ({ name: c.client.name, days: daysToBirthday(c.client.birth_date) }))
+    .filter((x): x is { name: string; days: number } => x.days != null)
+    .sort((a, b) => a.days - b.days)
+
+  if (!soon.length) return null
+
+  return (
+    <div className="card mb-3" style={{ borderColor: 'var(--accent)' }}>
+      <div className="mute-sm">{t('Скоро дни рождения')}</div>
+      {soon.map((x) => (
+        <div className="row between mt-1" key={x.name}>
+          <span className="truncate">{x.name}</span>
+          <span className="mute-sm">
+            {x.days === 0
+              ? t('сегодня')
+              : `${t('через')} ${x.days} ${plural(x.days, ['день', 'дня', 'дней'])}`}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export function TrainerClients() {
   const nav = useNavigate()
@@ -152,6 +189,10 @@ export function TrainerClients() {
         </div>
       </div>
 
+      {/* Ближайшие дни рождения — отдельной строкой сверху: поздравить надо
+          вовремя, а метка у карточки видна, только когда до неё долистали. */}
+      <BirthdaysSoon clients={clients ?? []} />
+
       <div className="section-title">{t('Список')}</div>
 
       {loading ? (
@@ -199,6 +240,7 @@ export function TrainerClients() {
                           {pending?.get(c.client.id)} {t('на разбор')}
                         </span>
                       )}
+                      <BirthdayBadge days={daysToBirthday(c.client.birth_date)} />
                     </span>
                   </div>
                   <div

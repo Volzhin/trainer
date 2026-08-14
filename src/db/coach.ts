@@ -42,6 +42,32 @@ import {
  * тренера к данным клиента ограничивается на уровне бэкенда.
  */
 
+/** За сколько дней до даты тренер должен о ней узнать. */
+const BIRTHDAY_AHEAD_DAYS = 7
+
+/**
+ * Сколько дней до дня рождения — или null, если он дальше недели.
+ *
+ * Считаем по ближайшему повторению даты, а не по самой дате рождения: в
+ * декабре ближайший день рождения января наступает уже в следующем году, и
+ * простая разница дала бы почти минус год.
+ */
+export function daysToBirthday(birthDate?: string): number | null {
+  if (!birthDate) return null
+  const born = new Date(`${birthDate}T12:00:00`)
+  if (Number.isNaN(born.getTime())) return null
+
+  const today = startOfDay(Date.now())
+  const year = new Date(today).getFullYear()
+  let next = new Date(year, born.getMonth(), born.getDate(), 12).getTime()
+  if (startOfDay(next) < today) {
+    next = new Date(year + 1, born.getMonth(), born.getDate(), 12).getTime()
+  }
+
+  const days = Math.round((startOfDay(next) - today) / 86400_000)
+  return days <= BIRTHDAY_AHEAD_DAYS ? days : null
+}
+
 /* ------------------------------ аккаунты ------------------------------ */
 
 export async function listAccounts(): Promise<UserProfile[]> {

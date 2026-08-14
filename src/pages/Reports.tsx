@@ -5,7 +5,6 @@ import { db } from '../db/db'
 import type {
   Attachment,
   ClientTask,
-  NutritionTarget,
   WorkoutReport,
   WorkoutSession,
 } from '../db/db'
@@ -90,7 +89,6 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
   const nav = useNavigate()
 
   const tasks = useLiveQuery(() => openTasks(userId), [userId])
-  const targets = useLiveQuery(() => currentTargets(userId), [userId])
   const sessions = useLiveQuery(() => listMySessions(), [userId])
   // Ответы тренера лежат отдельными строками; поле в самом отчёте читается
   // запасным вариантом — там остались ответы, полученные до разделения.
@@ -194,7 +192,6 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
             </>
           )}
 
-          {targets && <TargetsCard targets={targets} />}
 
           {/* Всё про тело сдаётся здесь, а не на экране «Анализ тела»:
               туда приходят смотреть динамику, и предложение что-то
@@ -424,45 +421,6 @@ function ReportRow({
 
 /* ------------------------------ недельные цели ------------------------- */
 
-function TargetsCard({ targets }: { targets: NutritionTarget }) {
-  const rows: [string, string][] = []
-  if (targets.kcal) rows.push(['Калории', `${targets.kcal} ккал`])
-  if (targets.protein) rows.push(['Белки', `${targets.protein} г`])
-  if (targets.fat) rows.push(['Жиры', `${targets.fat} г`])
-  if (targets.carbs) rows.push(['Углеводы', `${targets.carbs} г`])
-  if (targets.steps) rows.push(['Шаги', String(targets.steps)])
-
-  // Цель без единого заполненного поля — только заметка; таблицу в этом
-  // случае рисовать не из чего.
-  if (!rows.length && !targets.note) return null
-
-  return (
-    <>
-      <div className="section-title">{t('Цели на неделю')}</div>
-      <div className="card">
-        {rows.length > 0 && (
-          <div className="group">
-            {rows.map(([label, value]) => (
-              <div className="group-row" key={label}>
-                <span className="grow title">{label}</span>
-                <span className="value figures">
-                  {value}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-        {targets.note && (
-          <div
-            className={`mute-sm quote${rows.length ? ' mt-3' : ''}`}
-          >
-            {targets.note}
-          </div>
-        )}
-      </div>
-    </>
-  )
-}
 
 /* ------------------------------ шаги и сон ----------------------------- */
 
@@ -483,6 +441,10 @@ const formatSteps = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\
 
 function ActivityCard({ date, userId }: { date: string; userId: string }) {
   const { toast } = useApp()
+  // Цель по шагам стоит рядом с фактом, а не отдельной таблицей целей:
+  // «8 240 из 10 000» отвечает на вопрос сразу, а список целей заставляет
+  // держать число в голове и возвращаться к нему глазами.
+  const targets = useLiveQuery(() => currentTargets(userId), [userId])
   const saved = useLiveQuery(() => activityFor(date, userId), [date, userId])
   // Умеет ли источник забирать данные сам. В вебе — нет, и решает это
   // провайдер, а не проверка платформы, разбросанная по экранам.
@@ -559,6 +521,7 @@ function ActivityCard({ date, userId }: { date: string; userId: string }) {
             <span className="grow title">{t('Шаги')}</span>
             <span className="value figures">
               {hasSteps ? formatSteps(saved!.steps!) : t('не введено')}
+              {targets?.steps ? ` / ${formatSteps(targets.steps)}` : ''}
             </span>
           </div>
           <div className="group-row">
@@ -580,7 +543,10 @@ function ActivityCard({ date, userId }: { date: string; userId: string }) {
     <div className="card">
       <div className="row" style={{ gap: 8 }}>
         <div className="field grow">
-          <label>{t('Шаги')}</label>
+          <label>
+            {t('Шаги')}
+            {targets?.steps ? ` · ${t('цель')} ${formatSteps(targets.steps)}` : ''}
+          </label>
           <input
             className="input"
             inputMode="numeric"

@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type FoodLog, type MealSlot } from '../db/db'
 import { deleteFoodLog, loadPlan, logsForDate, sumNutrients } from '../db/nutrition'
-import { isManualDay } from '../db/reports'
+import { currentTargets, isManualDay } from '../db/reports'
 import { localDate } from '../lib/tdee'
 import { FoodPicker } from '../components/FoodPicker'
 import { MacroRings } from '../components/MacroRings'
@@ -45,6 +45,7 @@ export function Nutrition() {
   const plan = useLiveQuery(() => loadPlan(userId), [userId, version])
 
   const day = useLiveQuery(() => db.nutritionDays.get(`${userId}:${date}`), [userId, date, version])
+  const weekly = useLiveQuery(() => currentTargets(userId), [userId])
 
   /**
    * Итог, перенесённый рукой из стороннего счётчика, важнее посчитанного по
@@ -153,6 +154,16 @@ export function Nutrition() {
           </div>
         )}
       </div>
+
+      {/* Заметка к недельным целям живёт рядом с самими целями: она объясняет,
+          почему норма именно такая, и в отрыве от неё читается как случайная
+          реплика. Раньше стояла в «Отчётах», где целей уже нет. */}
+      {weekly?.note && (
+        <div className="card" style={{ marginTop: 12, borderColor: 'var(--accent)' }}>
+          <div className="mute-sm">{t('Цели на неделю')}</div>
+          <div className="mt-1">{weekly.note}</div>
+        </div>
+      )}
 
       {plan?.fromCoach && plan.profile.coach_note && (
         <div className="card" style={{ marginTop: 12, borderColor: 'var(--accent)' }}>
