@@ -33,7 +33,7 @@ export function RestTimer() {
           </div>
           <div className="mute-sm" style={{ marginTop: 5 }}>
             {t('Отдых')}
-            {rest.label ? ` · ${t('далее')}: ${t(rest.label)}` : ''}
+            {rest.label ? ` · ${t('далее')}: ${rest.label}` : ''}
           </div>
         </div>
       </div>

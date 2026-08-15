@@ -79,8 +79,8 @@ export function AttachmentPlayer({
       )}
       <div className="row between mt-2">
         <span className="mute-sm">
-          {attachment.kind === 'video' ? 'Видео' : 'Фото'} ·{' '}
-          {(attachment.size / 1024 / 1024).toFixed(1)} МБ
+          {attachment.kind === 'video' ? t('Видео') : t('Фото')} ·{' '}
+          {(attachment.size / 1024 / 1024).toFixed(1)} {t('МБ')}
         </span>
         {onDelete && (
           <button className="icon-btn" onClick={onDelete} aria-label={t('Удалить')}>
@@ -126,9 +126,9 @@ export function VideoUploader({
     try {
       await addAttachment({ sessionId, exerciseId, file, userId })
       haptics.success()
-      toast('Видео прикреплено')
+      toast(t('Видео прикреплено'))
     } catch (e) {
-      toast(e instanceof Error ? t(e.message) : 'Не удалось прикрепить файл')
+      toast(e instanceof Error ? t(e.message) : t('Не удалось прикрепить файл'))
     } finally {
       setBusy(false)
       // Сбрасываем оба поля: иначе повторный выбор того же файла не
@@ -167,7 +167,7 @@ export function VideoUploader({
           attachment={a}
           onDelete={async () => {
             await deleteAttachment(a.id)
-            toast('Видео удалено')
+            toast(t('Видео удалено'))
           }}
         />
       ))}

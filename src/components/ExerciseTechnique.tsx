@@ -36,7 +36,7 @@ export function ExerciseTechniqueSheet({
           <div className="tagline" style={{ marginTop: 0 }}>
             <span className="tag accent">{t(exercise.muscle_group)}</span>
             <span className="tag">{t(exercise.equipment)}</span>
-            {exercise.exercise_type && <span className="tag">{exercise.exercise_type}</span>}
+            {exercise.exercise_type && <span className="tag">{t(exercise.exercise_type)}</span>}
           </div>
 
           {exercise.description ? (

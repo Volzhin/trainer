@@ -5,6 +5,7 @@ import { estimate1RM, formatDate, formatWeight, plural } from '../lib/calc'
 import { LineChart } from './LineChart'
 import { Sheet } from './Sheet'
 import { t } from '../lib/i18n'
+import { exName } from '../lib/exerciseNames'
 
 /**
  * Статистика по подходам одного упражнения.
@@ -72,7 +73,7 @@ export function ExerciseStatsSheet({
     .filter((p) => p.y > 0)
 
   return (
-    <Sheet open={!!exerciseId} title={name ?? t('Статистика')} onClose={onClose}>
+    <Sheet open={!!exerciseId} title={name ? exName(name) : t('Статистика')} onClose={onClose}>
       {days == null ? (
         <div className="card skeleton" style={{ height: 140 }} />
       ) : days.length === 0 ? (
@@ -82,7 +83,7 @@ export function ExerciseStatsSheet({
           {points.length >= 2 && (
             <div className="card">
               <div className="mute-sm mb-2">{t('Расчётный максимум')}</div>
-              <LineChart data={points} unit=" кг" height={90} />
+              <LineChart data={points} unit={` ${t('кг')}`} height={90} />
             </div>
           )}
 

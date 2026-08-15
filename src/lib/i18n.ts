@@ -621,6 +621,7 @@ const EN: Record<string, string> = {
   'Аккаунт создан': 'Account created',
   Видео: 'Video',
   Фото: 'Photo',
+  МБ: 'MB',
   'Видео прикреплено': 'Video attached',
   'Видео удалено': 'Video deleted',
   'Не удалось прикрепить файл': 'Could not attach the file',
