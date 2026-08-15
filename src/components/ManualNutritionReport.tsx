@@ -196,10 +196,10 @@ export function ManualNutritionReport({ date }: { date: string }) {
           <div className="mute-sm">
             {filled
               ? [
-                  manual?.kcal != null && `${manual.kcal} ккал`,
-                  manual?.protein != null && `Б ${manual.protein}`,
-                  manual?.fat != null && `Ж ${manual.fat}`,
-                  manual?.carbs != null && `У ${manual.carbs}`,
+                  manual?.kcal != null && `${manual.kcal} ${t('ккал')}`,
+                  manual?.protein != null && `${t('Б')} ${manual.protein}`,
+                  manual?.fat != null && `${t('Ж')} ${manual.fat}`,
+                  manual?.carbs != null && `${t('У')} ${manual.carbs}`,
                 ]
                   .filter(Boolean)
                   .join(' · ')

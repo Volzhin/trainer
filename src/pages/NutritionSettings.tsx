@@ -7,7 +7,8 @@ import { ACTIVITY_LEVELS, MACRO_PRESETS, MIN_DAYS_FOR_ADAPTIVE } from '../lib/td
 import { LineChart } from '../components/LineChart'
 import { IconBack } from '../components/Icons'
 import { useApp } from '../store/app'
-import { t } from '../lib/i18n'
+import { decimal, t } from '../lib/i18n'
+import { plural } from '../lib/calc'
 
 const GOALS: { key: NutritionGoal; label: string; weekly: number }[] = [
   { key: 'lose', label: 'Снижать вес', weekly: -0.5 },
@@ -67,16 +68,21 @@ export function NutritionSettings() {
         <div className="muted mt-4">
           {adaptive ? (
             <>
-              Расход выведен из того, сколько вы ели и как менялся вес за последние{' '}
-              {plan.expenditure.daysUsed} дней.
+              {/* Числа стоят посреди фразы, а порядок слов у языков разный —
+                  поэтому переводится не предложение целиком, а куски вокруг
+                  чисел: так фраза собирается и по-русски, и по-английски. */}
+              {t('Расход выведен из того, сколько вы ели и как менялся вес за последние')}{' '}
+              {plan.expenditure.daysUsed}{' '}
+              {plural(plan.expenditure.daysUsed, ['день', 'дня', 'дней'])}.
               {plan.expenditure.weeklyChangeKg != null &&
-                ` Вес меняется на ${plan.expenditure.weeklyChangeKg} кг в неделю.`}
+                ` ${t('Вес меняется на')} ${decimal(String(plan.expenditure.weeklyChangeKg))} ${t('кг в неделю')}.`}
             </>
           ) : (
             <>
-              Пока это оценка по формуле ({plan.formula} ккал). Заполните дневник и вес хотя бы{' '}
-              {MIN_DAYS_FOR_ADAPTIVE} дней — расчёт перейдёт на ваши реальные данные и учтёт
-              замедление обмена.
+              {t('Пока это оценка по формуле')} ({plan.formula} {t('ккал')}).{' '}
+              {t('Заполните дневник и вес хотя бы')} {MIN_DAYS_FOR_ADAPTIVE}{' '}
+              {plural(MIN_DAYS_FOR_ADAPTIVE, ['день', 'дня', 'дней'])} —{' '}
+              {t('расчёт перейдёт на ваши реальные данные и учтёт замедление обмена')}.
             </>
           )}
         </div>
@@ -85,7 +91,7 @@ export function NutritionSettings() {
           <i style={{ width: `${Math.round(plan.expenditure.confidence * 100)}%` }} />
         </div>
         <div className="mute-sm mt-2">
-          Точность расчёта · {Math.round(plan.expenditure.confidence * 100)}%
+          {t('Точность расчёта')} · {Math.round(plan.expenditure.confidence * 100)}%
         </div>
       </div>
 
@@ -93,7 +99,7 @@ export function NutritionSettings() {
         <>
           <div className="section-title">{t('Тренд расхода')}</div>
           <div className="card">
-            <LineChart data={trend} unit=" ккал" />
+            <LineChart data={trend} unit={` ${t('ккал')}`} />
             <div className="mute-sm" style={{ textAlign: 'center', marginTop: 8 }}>
               {t('Как менялся ваш обмен веществ')}
             </div>
@@ -105,8 +111,9 @@ export function NutritionSettings() {
         <div className="card" style={{ marginTop: 12, borderColor: 'var(--accent)' }}>
           <div className="strong">{t('Норму назначил тренер')}</div>
           <div className="muted mt-1">
-            Цель и макросы заданы им, поэтому расчёт приложения на них не влияет. Свои настройки
-            заработают, когда тренер снимет норму.
+            {t(
+              'Цель и макросы заданы им, поэтому расчёт приложения на них не влияет. Свои настройки заработают, когда тренер снимет норму.',
+            )}
           </div>
         </div>
       )}
@@ -164,8 +171,8 @@ export function NutritionSettings() {
               <span className="grow">
                 <span className="title">{t(preset.label)}</span>
                 <span className="sub">
-                  Б {Math.round(preset.split.protein * 100)}% · Ж{' '}
-                  {Math.round(preset.split.fat * 100)}% · У{' '}
+                  {t('Б')} {Math.round(preset.split.protein * 100)}% · {t('Ж')}{' '}
+                  {Math.round(preset.split.fat * 100)}% · {t('У')}{' '}
                   {Math.round(preset.split.carbs * 100)}%
                 </span>
               </span>
@@ -191,9 +198,7 @@ export function NutritionSettings() {
               >
                 <span className="grow">
                   <span className="title">{t(a.label)}</span>
-                  <span className="sub">
-                    {a.hint}
-                  </span>
+                  <span className="sub">{t(a.hint)}</span>
                 </span>
               </button>
             ))}

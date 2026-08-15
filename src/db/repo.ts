@@ -9,6 +9,7 @@ import {
   type WorkoutSession,
 } from './db'
 import { invalidateExercises } from './catalog'
+import { t } from '../lib/i18n'
 import { bestSet, estimate1RM, startOfDay } from '../lib/calc'
 import type { BodyMetric } from './db'
 import type { InBodyReport } from '../lib/inbody'
@@ -655,7 +656,12 @@ export async function exportHistoryCsv(userId = currentUserId()): Promise<string
     return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
   }
 
-  const lines = ['Дата;Тренировка;Упражнение;Подход;Вес, кг;Повторения;Рекорд']
+  // Шапку переводим: файл открывают в таблице, и читает её человек.
+  const lines = [
+    ['Дата', 'Тренировка', 'Упражнение', 'Подход', 'Вес, кг', 'Повторения', 'Рекорд']
+      .map(t)
+      .join(';'),
+  ]
   for (const session of sessions) {
     const rows = await db.sets.where('workout_session_id').equals(session.id).toArray()
     for (const s of rows.sort(
@@ -669,7 +675,7 @@ export async function exportHistoryCsv(userId = currentUserId()): Promise<string
           s.set_number,
           s.weight_kg ?? '',
           s.reps_completed ?? '',
-          s.is_pr ? 'да' : '',
+          s.is_pr ? t('да') : '',
         ].join(';'),
       )
     }

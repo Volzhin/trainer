@@ -1312,6 +1312,57 @@ const EN: Record<string, string> = {
   Нет: 'No',
   Смотреть: 'View',
 
+  /* --- цели питания: уровни активности и пресеты макросов --- */
+  Сидячий: 'Sedentary',
+  Лёгкий: 'Light',
+  Высокий: 'High',
+  'Очень высокий': 'Very high',
+  'Работа за столом, тренировок нет': 'Desk job, no training',
+  '1–3 тренировки в неделю': '1–3 workouts a week',
+  '3–5 тренировок в неделю': '3–5 workouts a week',
+  '6–7 тренировок в неделю': '6–7 workouts a week',
+  'Физический труд или две тренировки в день': 'Manual labour or two workouts a day',
+  Сбалансированно: 'Balanced',
+  Сушка: 'Cutting',
+  'Набор массы': 'Bulking',
+  'Мало углеводов': 'Low carb',
+
+  /* --- расчёт расхода: фразы вокруг чисел собираются кусками --- */
+  'Расход выведен из того, сколько вы ели и как менялся вес за последние':
+    'Expenditure is derived from what you ate and how your weight changed over the last',
+  'Вес меняется на': 'Weight is changing by',
+  'кг в неделю': 'kg a week',
+  'Пока это оценка по формуле': 'For now this is a formula estimate',
+  'Заполните дневник и вес хотя бы': 'Fill in the diary and your weight for at least',
+  'расчёт перейдёт на ваши реальные данные и учтёт замедление обмена':
+    'the calculation will switch to your own data and account for a slowing metabolism',
+  'Точность расчёта': 'Calculation confidence',
+  'Цель и макросы заданы им, поэтому расчёт приложения на них не влияет. Свои настройки заработают, когда тренер снимет норму.':
+    'The target and macros are set by them, so the app’s own calculation does not affect them. Your settings will take over once the trainer lifts the target.',
+
+  /* --- способы связи: подписи полей в профиле --- */
+  Телефон: 'Phone',
+  /* «Почта» уже есть выше — способ связи и раздел настроек называются
+     одинаково, и перевод у них один. */
+  'имя пользователя без «собаки»': 'username without the “at” sign',
+  'имя пользователя': 'username',
+  'номер телефона': 'phone number',
+  'для звонка и СМС': 'for calls and texts',
+  'если удобнее письмом': 'if email suits you better',
+
+  /* --- питание: единицы и подставленные приложением названия --- */
+  шт: 'pcs',
+  'Приём пищи': 'Meal',
+
+  /* --- выгрузка в CSV: файл открывают в таблице --- */
+  Подход: 'Set',
+  Повторения: 'Reps',
+  Рекорд: 'Record',
+  да: 'yes',
+
+  /* --- день программы, собранной приложением --- */
+  'День 1': 'Day 1',
+
   /* --- обмен не доходит --- */
   'Данные не уходят на сервер': 'Data is not reaching the server',
   'Данные для клиента не уходят': 'Data for a client is not being sent',

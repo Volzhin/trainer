@@ -190,11 +190,14 @@ export function Nutrition() {
               {items.map((l) => (
                 <div className="group-row" key={l.id}>
                   <span className="grow">
-                    <span className="title">{l.name}</span>
+                    {/* Название продукта человек вводит сам или берёт из базы —
+                        t() вернёт его как есть, а вот «Приём пищи» и единицы
+                        подставляет приложение, и их переводить нужно. */}
+                    <span className="title">{t(l.name)}</span>
                     <span className="sub">
-                      {l.amount} {l.unit}
-                      {l.brand ? ` · ${l.brand}` : ''} · Б {l.nutrients.protein} Ж{' '}
-                      {l.nutrients.fat} У {l.nutrients.carbs}
+                      {l.amount} {t(l.unit)}
+                      {l.brand ? ` · ${l.brand}` : ''} · {t('Б')} {l.nutrients.protein} {t('Ж')}{' '}
+                      {l.nutrients.fat} {t('У')} {l.nutrients.carbs}
                     </span>
                   </span>
                   <span className="value figures">

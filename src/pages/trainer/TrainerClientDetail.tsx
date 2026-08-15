@@ -659,7 +659,7 @@ function AssignSheet({
                   <span className="metric-icon" style={{ color: 'var(--accent-ink)' }}>
                     {String.fromCharCode(65 + i)}
                   </span>
-                  <span className="grow title">{r.name}</span>
+                  <span className="grow title">{t(r.name)}</span>
                   <span className="value">
                     {WEEKDAYS.filter((_, wd) => slots[wd] === r.id).map(t).join(', ') || t('не назначен')}
                   </span>

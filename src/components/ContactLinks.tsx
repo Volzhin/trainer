@@ -96,7 +96,7 @@ export function ContactEditor({
       {CONTACT_KINDS.map((k) => (
         <div className="field" key={k.kind}>
           <label>
-            {k.label} <span className="mute-sm">· {k.hint}</span>
+            {t(k.label)} <span className="mute-sm">· {t(k.hint)}</span>
           </label>
           <input
             className="input"
