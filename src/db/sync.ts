@@ -64,7 +64,13 @@ const isSynced = (name: string): name is SyncedTable =>
   (SYNCED as readonly string[]).includes(name)
 
 /**
- * Чьи это данные. null означает «не наше, не отправляем».
+ * Чья это строка. null означает «владельца не определить»: у общего каталога
+ * его нет вовсе, а у подхода он выводится из тренировки, которой на этом
+ * устройстве может ещё не быть.
+ *
+ * Ответ нужен обеим сторонам обмена. Выгрузка решает по нему, кому строка
+ * принадлежит; приём — вправе ли приславший её трогать. Поэтому здесь только
+ * владелец и ничего кроме: что именно не уезжает наверх, знает ownerForPush.
  *
  * Возвращать текущего пользователя по умолчанию нельзя: каталог программ и
  * упражнений одинаков у всех и не принадлежит никому лично. Один такой
@@ -95,13 +101,8 @@ async function ownerOf(
 
     // Сообщение принадлежит клиенту независимо от того, кто его написал:
     // так одна и та же ветка доезжает до обоих собеседников.
-    //
-    // Кроме тех, в которых лежит файл. Голосовое и кружок хранятся Blob-ом,
-    // а сюда уезжает json: строка доехала бы без звука, и собеседник увидел
-    // бы сообщение, которое нельзя послушать. Пока у медиа нет своего пути
-    // выгрузки (как у attachments), такие сообщения остаются на устройстве.
     case 'chat':
-      return row.blob ? null : str(row.client_id)
+      return str(row.client_id)
 
     // Отметка о проверке принадлежит тренеру, а не клиенту. Только поэтому
     // она и не доезжает до клиента: сервер отдаёт человеку свои записи и
@@ -133,14 +134,30 @@ async function ownerOf(
       return session ? str(session.user_id) : null
     }
 
-    // Кеш продуктов из внешней базы общий; своё уезжает только вручную
-    // заведённое.
-    case 'foods':
-      return row.source === 'manual' ? str(row.user_id) : null
-
     default:
       return str(row.user_id)
   }
+}
+
+/**
+ * Чьи это данные с точки зрения выгрузки. null означает «не наше, наверх не
+ * отправляем» — и это шире, чем «владельца нет».
+ */
+async function ownerForPush(
+  table: SyncedTable,
+  row: Record<string, unknown>,
+): Promise<string | null> {
+  // Голосовое и кружок хранятся Blob-ом, а наверх уезжает json: строка
+  // доехала бы без звука, и собеседник увидел бы сообщение, которое нельзя
+  // послушать. Пока у медиа нет своего пути выгрузки (как у attachments),
+  // такие сообщения остаются на устройстве.
+  if (table === 'chat' && row.blob) return null
+
+  // Кеш продуктов из внешней базы общий; своё уезжает только вручную
+  // заведённое.
+  if (table === 'foods' && row.source !== 'manual') return null
+
+  return ownerOf(table, row)
 }
 
 async function ownerOfProgram(programId: string | null): Promise<string | null> {
@@ -283,7 +300,7 @@ export async function push(): Promise<number> {
       .toArray()) as Record<string, unknown>[]
 
     for (const row of rows) {
-      const owner = await ownerOf(name, row)
+      const owner = await ownerForPush(name, row)
       if (!owner) continue
 
       // Заметки тренера про меня — не мои. Сервер их у клиента и не примет:
@@ -432,7 +449,7 @@ async function drainDeletes() {
     try {
       // Владелец, запомненный при удалении, главнее вычисленного: родителя,
       // по которому его ищут, к этому моменту может уже не быть.
-      const owner = item.owner ?? (await ownerOf(table, stale))
+      const owner = item.owner ?? (await ownerForPush(table, stale))
       if (!owner) {
         done.push(item.id)
         continue
@@ -489,12 +506,69 @@ export async function pull(): Promise<number> {
   return applied
 }
 
+/**
+ * Таблицы, где владелец выводится из родителя. Удалили тренировку — и у её
+ * подхода владельца уже не спросить, поэтому «не определился» значит здесь
+ * «строка осиротела», а не «строка чужая».
+ */
+const DERIVED_OWNER: readonly string[] = ['sets', 'routines', 'templateItems']
+
+/**
+ * Записан ли владелец в самом ключе — и тот ли это владелец.
+ *
+ * У части таблиц первичный ключ выводится из человека: профиль лежит под его
+ * идентификатором, день питания и дневная активность — под «человек:дата»,
+ * связь — под «link-тренер-клиент». По такому ключу их и читают, поэтому
+ * чужой ключ означает не лишнюю строку, а подменённую: тренер, открыв свой
+ * день, увидел бы присланное клиентом. Ключи, из человека не выводимые
+ * (случайный uid, связи старого образца), не судим — их закрывает сверка с
+ * тем, что уже лежит.
+ */
+function keyBelongsTo(table: SyncedTable, rid: string, owner: string): boolean {
+  switch (table) {
+    case 'profile':
+    case 'nutritionProfile':
+      return rid === owner
+
+    case 'nutritionDays':
+    case 'dailyActivity': {
+      const colon = rid.indexOf(':')
+      return colon <= 0 || rid.slice(0, colon) === owner
+    }
+
+    case 'links':
+      return !rid.startsWith('link-') || rid.endsWith(`-${owner}`)
+
+    default:
+      return true
+  }
+}
+
 async function apply(rec: RemoteRecord): Promise<boolean> {
   if (!isSynced(rec.tbl)) return false
   const table = db.table(rec.tbl)
 
   const key = rec.rid
+  if (!keyBelongsTo(rec.tbl, key, rec.owner)) return false
   const local = (await table.get(key)) as Record<string, unknown> | undefined
+
+  /*
+   * Строка, которую накрывает присланное, обязана принадлежать тому же
+   * человеку, что и сама запись.
+   *
+   * Куда лечь, решает rid, а чья запись — owner, и связаны эти два поля ничем:
+   * сервер видит их по отдельности и содержимого чужой базы не знает. Значит
+   * клиент вправе прислать свою строку с ключом чужой — она ляжет поверх, — а
+   * тумбстоуном (у него содержимого нет вовсе, и сверять нечего) просто
+   * сотрёт её. Спрашиваем поэтому не присланное, а то, что уже лежит: оно про
+   * подмену не врёт.
+   */
+  if (local) {
+    const holder = await ownerOf(rec.tbl, local)
+    if (holder !== rec.owner && !(holder === null && DERIVED_OWNER.includes(rec.tbl))) {
+      return false
+    }
+  }
 
   if (rec.deleted) {
     if (!local) return false

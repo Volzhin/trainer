@@ -63,9 +63,69 @@ function check(e) {
 
   const tbl = record.getString('tbl')
   const rid = record.getString('rid')
+  const owner = record.getString('owner')
   const payload = payloadOf(record)
 
-  // Тумбстоун приезжает без содержимого — проверять нечего.
+  /** Каким адрес записи был до правки. У создания предыдущего состояния нет. */
+  let before = null
+  if (record.id) {
+    try {
+      before = e.app.findRecordById('records', record.id)
+    } catch (err) {
+      before = null
+    }
+  }
+
+  /*
+   * Тройка «владелец, таблица, ключ» — это адрес, по которому строка ляжет в
+   * чужую базу, и после создания записи он не меняется.
+   *
+   * Правило доступа на правку проверяет запись ДО изменения: свою она находит
+   * и пропускает, а что PATCH переписывает владельца на тренера, правило уже
+   * не смотрит. Клиент заводил свою запись и одним запросом переносил её на
+   * любой адрес вместе с любым содержимым — обе проверки ниже при этом
+   * сходились, потому что владельца он подставлял сам. Так подменялся профиль
+   * тренера у него же на устройстве.
+   *
+   * Обмену это ничего не ломает: upsertRecord ищет запись как раз по этой
+   * тройке и дописывает только updated, deleted и payload.
+   */
+  if (
+    before &&
+    (before.getString('owner') !== owner ||
+      before.getString('tbl') !== tbl ||
+      before.getString('rid') !== rid)
+  ) {
+    throw new BadRequestError('Владелец, таблица и ключ записи не меняются')
+  }
+
+  /*
+   * Ключ, в котором записан его владелец.
+   *
+   * У части таблиц первичный ключ выводится из человека: профиль лежит под его
+   * идентификатором, день питания и дневная активность — под «человек:дата»,
+   * связь — под «link-тренер-клиент». По такому ключу получатель их и читает,
+   * поэтому чужой ключ означает не лишнюю строку, а подменённую.
+   *
+   * Проверка стоит до разбора payload намеренно: у тумбстоуна содержимого нет
+   * вовсе, сверять его не с чем, а удаление по чужому ключу стирает у тренера
+   * его собственный профиль. Ключи, не похожие на выводимые (случайный uid,
+   * старые связи без префикса), не трогаем: их судит устройство.
+   */
+  if (owner && rid) {
+    const colon = rid.indexOf(':')
+    const badKey =
+      ((tbl === 'profile' || tbl === 'nutritionProfile') && rid !== owner) ||
+      ((tbl === 'nutritionDays' || tbl === 'dailyActivity') &&
+        colon > 0 &&
+        rid.substring(0, colon) !== owner) ||
+      (tbl === 'links' &&
+        rid.indexOf('link-') === 0 &&
+        rid.substring(rid.length - owner.length - 1) !== '-' + owner)
+    if (badKey) throw new BadRequestError('Ключ записи принадлежит другому человеку')
+  }
+
+  // Тумбстоун приезжает без содержимого — дальше проверять нечего.
   if (!payload || !tbl || !rid) return e.next()
 
   // Ключ строки. У приглашений это сам код.
@@ -77,7 +137,7 @@ function check(e) {
   const field = OWNER_FIELD[tbl] || 'user_id'
   const value = payload[field]
   // Пустое поле не судим: у общего каталога владельца нет вовсе.
-  if (typeof value === 'string' && value !== '' && value !== record.getString('owner')) {
+  if (typeof value === 'string' && value !== '' && value !== owner) {
     throw new BadRequestError('Владелец записи не совпадает с её содержимым')
   }
 
@@ -93,19 +153,12 @@ function check(e) {
    * прочитанным можно.
    */
   if (tbl === 'chat' && e.auth) {
-    let before = null
-    if (record.id) {
-      try {
-        before = payloadOf(e.app.findRecordById('records', record.id))
-      } catch (err) {
-        before = null
-      }
-    }
+    const was = before ? payloadOf(before) : null
 
-    if (before) {
+    if (was) {
       if (
-        (payload.author_id && before.author_id && payload.author_id !== before.author_id) ||
-        (payload.text !== undefined && before.text !== undefined && payload.text !== before.text)
+        (payload.author_id && was.author_id && payload.author_id !== was.author_id) ||
+        (payload.text !== undefined && was.text !== undefined && payload.text !== was.text)
       ) {
         throw new BadRequestError('Чужое сообщение не переписывается')
       }
