@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { db, currentUserId } from '../db/db'
 import { authUser, deleteAccount, logout, onAuthChange } from '../lib/backend'
-import { leaveDemoMode } from '../db/account'
 import { stopSync, syncNow } from '../db/sync'
 import { useApp } from '../store/app'
 import { Sheet } from './Sheet'
@@ -29,10 +28,7 @@ export function AccountSection() {
         <div className="section-title">{t('Аккаунт')}</div>
         <button
           className="group-row"
-          onClick={() => {
-            leaveDemoMode()
-            location.reload()
-          }}
+          onClick={() => location.reload()}
         >
           <span className="grow">
             <span className="title">{t('Войти или зарегистрироваться')}</span>
@@ -62,9 +58,6 @@ export function AccountSection() {
   const exit = () => {
     stopSync()
     logout()
-    // Демо-режим здесь включать нельзя: человек нажал «выйти», а увидел бы
-    // чужие показательные тренировки и решил, что это его данные.
-    leaveDemoMode()
     location.reload()
   }
 
@@ -74,7 +67,6 @@ export function AccountSection() {
       await deleteAccount()
       await wipeLocal(user.id)
       stopSync()
-      leaveDemoMode()
       location.reload()
     } catch {
       toast(t('Не удалось удалить аккаунт'))

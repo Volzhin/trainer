@@ -2215,15 +2215,6 @@ button.group-row:active {
   cursor: pointer;
 }
 
-.auth-demo {
-  margin-top: 18px;
-  width: 100%;
-  text-align: left;
-  border: 1px solid var(--border);
-  border-radius: var(--r-md, 12px);
-  background: var(--surface);
-}
-
 /* Опасное действие в списке: красится только заголовок, чтобы строка не
    кричала на весь экран, но и не выглядела рядовой. */
 .group-row.danger .title {

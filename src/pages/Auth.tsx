@@ -8,9 +8,8 @@ import {
   sessionDropReason,
 } from '../lib/backend'
 import { useApp } from '../store/app'
-import { adoptAccount, enterDemoMode, firstExchange } from '../db/account'
+import { adoptAccount, firstExchange } from '../db/account'
 import { startSync } from '../db/sync'
-import { IconChevronRight } from '../components/Icons'
 import { t } from '../lib/i18n'
 
 /**
@@ -65,11 +64,6 @@ export function Auth({ onReady }: { onReady: () => void }) {
     } finally {
       setBusy(false)
     }
-  }
-
-  const demo = () => {
-    enterDemoMode()
-    onReady()
   }
 
   // Если сессия оборвалась сама, человек должен понимать почему, а не
@@ -204,18 +198,6 @@ export function Auth({ onReady }: { onReady: () => void }) {
           </button>
         )}
       </div>
-
-      <button className="group-row auth-demo" onClick={demo}>
-        <span className="grow">
-          <span className="title">{t('Посмотреть без регистрации')}</span>
-          <span className="sub">
-            {t('Демо-данные на этом устройстве, ничего не уходит на сервер')}
-          </span>
-        </span>
-        <span className="chevron">
-          <IconChevronRight size={16} />
-        </span>
-      </button>
     </div>
   )
 }

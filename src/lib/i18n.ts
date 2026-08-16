@@ -62,7 +62,6 @@ const EN: Record<string, string> = {
   онлайн: 'online',
   'в очереди': 'queued',
   'Выгрузить историю в CSV': 'Export history to CSV',
-  'Заполнить дневник примером за 10 недель': 'Fill the diary with 10 sample weeks',
   'Как это работает': 'How it works',
   Аккаунт: 'Account',
   'Переключить аккаунт': 'Switch account',
@@ -357,7 +356,6 @@ const EN: Record<string, string> = {
   Почта: 'Email',
   Пароль: 'Password',
   'не короче 8 символов': 'at least 8 characters',
-  'Посмотреть без регистрации': 'Look around without signing up',
   Войти: 'Sign in',
   Зарегистрироваться: 'Sign up',
   'Как вы будете пользоваться приложением?': 'How will you use the app?',
@@ -366,7 +364,6 @@ const EN: Record<string, string> = {
   'Я тренер': 'I am a trainer',
   'Кабинет с клиентами, программы и обратная связь':
     'Client cabinet, programs and feedback',
-  'Показать на примере?': 'Show me an example?',
   Продолжить: 'Continue',
   Пропустить: 'Skip',
 
@@ -739,7 +736,6 @@ const EN: Record<string, string> = {
   'Выйти без сохранения': 'Leave without saving',
   Готовая: 'Ready-made',
   'Своя с нуля': 'Build your own',
-  'Начать с нуля': 'Start from scratch',
   'Создать и наполнить': 'Create and fill',
   'Данные из отчёта': 'Data from the report',
   'Данные о продуктах — Open Food Facts, открытая база со штрихкодами.':
@@ -748,25 +744,16 @@ const EN: Record<string, string> = {
   'Дата следующей оплаты не задана — напоминание клиенту не придёт.':
     'No next payment date set — the client will get no reminder.',
   'Даты оплаты сохранены': 'Payment dates saved',
-  'Демо-данные на этом устройстве, ничего не уходит на сервер':
-    'Demo data stays on this device, nothing goes to the server',
-  'Демо-история': 'Demo history',
-  'Демо-клиенты': 'Demo clients',
-  'Демо-режим': 'Demo mode',
   День: 'Day',
   'День обновлён': 'Day updated',
   'День сдан тренеру': 'Day submitted to the trainer',
   'Для женской формулы нужен обхват таза: без него расчёт занижает жир.':
     'The female formula needs a hip measurement: without it the estimate is too low.',
   'Дневник тренировок, замеры и питание.': 'Workout diary, measurements and nutrition.',
-  'Добавим пятерых клиентов с готовой историей — кабинет сразу будет живым, и вы увидите, как он работает. Демо-данные можно удалить в любой момент.':
-    'We will add five clients with ready-made history so the workspace feels alive and you can see how it works. Demo data can be removed at any time.',
   'Добавить в мои': 'Add to mine',
   'Убрать из моих': 'Remove from mine',
-  'Добавить демо-клиентов': 'Add demo clients',
   'Добавить замер': 'Add measurement',
   'Добавить замеры': 'Add measurements',
-  'Добавить клиентов': 'Add clients',
   Добавлено: 'Added',
   'Добавлено в мои программы': 'Added to my programs',
   'Убрано из моих программ': 'Removed from my programs',
@@ -796,11 +783,6 @@ const EN: Record<string, string> = {
   'Записи в дневнике хранят копию состава на момент добавления, поэтому правки и удаление продукта не меняют прошлые дни.':
     'Diary entries keep a copy of the nutrition facts from the moment they were added, so edits and deletions do not change past days.',
   'Запланировать на': 'Schedule for',
-  'Заполним дневник историей за 10 недель — графики и рекорды сразу будут на месте. Демо-данные можно удалить в любой момент.':
-    'We will fill the diary with 10 weeks of history so charts and records are there right away. Demo data can be removed at any time.',
-  'Заполнить дневник': 'Fill the diary',
-  'Заполнить примером': 'Fill with an example',
-  'Заполняю…': 'Filling…',
   'Из галереи': 'From gallery',
   'Изменения сохранены': 'Changes saved',
   'История очищена': 'History cleared',
@@ -844,7 +826,6 @@ const EN: Record<string, string> = {
   'Не удалось переключить режим': 'Could not switch mode',
   'Не удалось подключить тренера': 'Could not connect the trainer',
   'Не удалось разобрать PDF': 'Could not read the PDF',
-  'Не удалось сгенерировать данные': 'Could not generate data',
   'Не удалось создать код': 'Could not create a code',
   'Не удалось создать программу': 'Could not create the program',
   'Не удалось сохранить план': 'Could not save the plan',
@@ -855,8 +836,6 @@ const EN: Record<string, string> = {
     'Optional. You can skip it and attach later — the workout stays in your history.',
   'Неотмеченные подходы не попадут в статистику.':
     'Unchecked sets will not count towards statistics.',
-  'Несколько клиентов с историей — посмотреть кабинет в работе':
-    'A few clients with history — see the workspace in action',
   'Нет превью': 'No preview',
   'Нет связи с базой продуктов': 'No connection to the food database',
   'Нет связи с сервером': 'No connection to the server',
@@ -953,10 +932,6 @@ const EN: Record<string, string> = {
   'Режим: очно': 'Mode: in person',
   'Рекомендация по весу отправлена': 'Weight guidance sent',
   'Своё упражнение видно только вам.': 'Your own exercise is visible only to you.',
-  'Сгенерирует 10 недель тренировок по сплиту Push / Pull / Legs с прогрессией весов, личными рекордами и еженедельными замерами тела.':
-    'Generates 10 weeks of Push / Pull / Legs workouts with weight progression, personal records and weekly body measurements.',
-  'Создаст несколько клиентов с тренировками, замерами и отчётами — чтобы посмотреть, как кабинет выглядит в работе.':
-    'Creates several clients with workouts, measurements and reports so you can see the workspace in action.',
   'Сдать день тренеру': 'Submit the day to the trainer',
   'Сдать тренировку': 'Submit workout',
   'Сейчас данные лежат только на этом устройстве':
@@ -981,8 +956,6 @@ const EN: Record<string, string> = {
   'Сохранить продукт': 'Save food',
   'Такого штрихкода нет в базе — заполните сами':
     'This barcode is not in the database — fill it in yourself',
-  'Текущая история тренировок и замеры будут заменены. Каталог упражнений и ваши программы не пострадают.':
-    'Your current workout history and measurements will be replaced. The exercise catalog and your programs are not affected.',
   Техника: 'Technique',
   'Точно удалить? Вместе с ними исчезнет история веса':
     'Delete for sure? Your weight history goes with them',

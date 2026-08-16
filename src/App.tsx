@@ -2,7 +2,6 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { isOnboarded } from './db/db'
-import { isDemoMode } from './db/account'
 import { isAuthed } from './lib/backend'
 import { Onboarding } from './pages/Onboarding'
 import { Auth } from './pages/Auth'
@@ -75,9 +74,9 @@ export default function App() {
 
   const onboarded = useLiveQuery(() => isOnboarded(), [])
   const [justOnboarded, setJustOnboarded] = useState(false)
-  // Вход — первое, что видит новый человек. Демо-режим позволяет пропустить
-  // его и посмотреть приложение, не оставляя о себе данных.
-  const [entered, setEntered] = useState(() => isAuthed() || isDemoMode())
+  // Вход — первое, что видит новый человек, и обойти его нечем: приложение
+  // без аккаунта не показывает ничего, потому что показывать нечего.
+  const [entered, setEntered] = useState(() => isAuthed())
 
   if (!entered) return <Auth onReady={() => setEntered(true)} />
 

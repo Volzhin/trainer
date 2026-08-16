@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { markOnboarded, type Role } from '../db/db'
 import { createAccount } from '../db/coach'
-import { generateDemoData, seedTrainerDemo } from '../db/demo'
 import { haptics } from '../lib/native'
 import {
   IconChat,
@@ -9,7 +8,6 @@ import {
   IconClipboard,
   IconDumbbell,
   IconMuscle,
-  IconSparkles,
   IconTeacher,
   IconTrend,
   IconUsers,
@@ -65,23 +63,20 @@ const TRAINER_POINTS: Point[] = [
 ]
 
 export function Onboarding({ onDone }: Props) {
-  const { userId, switchTo } = useApp()
+  const { switchTo } = useApp()
   const [step, setStep] = useState(0)
   const [role, setRole] = useState<Role | null>(null)
   const [busy, setBusy] = useState(false)
 
   const points = role === 'TRAINER' ? TRAINER_POINTS : CLIENT_POINTS
 
-  const finish = async (withDemo: boolean) => {
+  const finish = async () => {
     setBusy(true)
     try {
       if (role === 'TRAINER') {
         // Тренеру нужен отдельный аккаунт: стартовый профиль — клиентский.
         const trainerId = await createAccount({ name: 'Тренер', role: 'TRAINER' })
-        if (withDemo) await seedTrainerDemo(trainerId)
         await switchTo(trainerId)
-      } else if (withDemo) {
-        await generateDemoData(userId)
       }
       await markOnboarded()
       haptics.success()
@@ -108,7 +103,7 @@ export function Onboarding({ onDone }: Props) {
   return (
     <div className="onboard">
       <div className="steps">
-        {[0, 1, 2].map((i) => (
+        {[0, 1].map((i) => (
           <i key={i} className={i <= step ? 'on' : ''} />
         ))}
       </div>
@@ -176,22 +171,8 @@ export function Onboarding({ onDone }: Props) {
         </div>
       )}
 
-      {step === 2 && (
-        <div className="body">
-          <div className="glyph">
-            <IconSparkles size={44} />
-          </div>
-          <h2>{t('Показать на примере?')}</h2>
-          <p>
-            {role === 'TRAINER'
-              ? t('Добавим пятерых клиентов с готовой историей — кабинет сразу будет живым, и вы увидите, как он работает. Демо-данные можно удалить в любой момент.')
-              : t('Заполним дневник историей за 10 недель — графики и рекорды сразу будут на месте. Демо-данные можно удалить в любой момент.')}
-          </p>
-        </div>
-      )}
-
       <div className="actions">
-        {step < 2 ? (
+        {step < 1 ? (
           <>
             <button
               className="btn primary block"
@@ -208,14 +189,9 @@ export function Onboarding({ onDone }: Props) {
             </button>
           </>
         ) : (
-          <>
-            <button className="btn primary block" disabled={busy} onClick={() => finish(true)}>
-              {busy ? t('Заполняю…') : t('Заполнить примером')}
-            </button>
-            <button className="btn block" disabled={busy} onClick={() => finish(false)}>
-              {t('Начать с нуля')}
-            </button>
-          </>
+          <button className="btn primary block" disabled={busy} onClick={finish}>
+            {busy ? t('Секунду…') : t('Начать')}
+          </button>
         )}
       </div>
     </div>

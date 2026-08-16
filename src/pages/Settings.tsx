@@ -12,7 +12,6 @@ import {
 import { exportHistoryCsv } from '../db/repo'
 import { updateAccount } from '../lib/backend'
 import { getLang, t } from '../lib/i18n'
-import { generateDemoData, seedTrainerDemo } from '../db/demo'
 import { seedCatalog } from '../db/seed'
 import { invalidateExercises } from '../db/catalog'
 import { AccountSection } from '../components/AccountSection'
@@ -22,8 +21,7 @@ import { Sheet } from '../components/Sheet'
 import { ThemePicker } from '../components/ThemePicker'
 import { Toggle } from '../components/Toggle'
 import { IconBack } from '../components/Icons'
-import { isStandalone, ensureNotificationPermission, haptics } from '../lib/native'
-import { plural } from '../lib/calc'
+import { isStandalone, ensureNotificationPermission } from '../lib/native'
 import { useApp, useClientMode, useProfile, useRole, useTrainerLink } from '../store/app'
 
 /**
@@ -34,8 +32,8 @@ import { useApp, useClientMode, useProfile, useRole, useTrainerLink } from '../s
  * приложение себя ведёт». Пока они лежали вместе, профиль клиента был
  * длиной в семь групп, и имя с ростом терялись между темой и очисткой базы.
  *
- * Разделы, которых нет у роли, не показываются вовсе: таймер отдыха
- * тренеру не нужен, а демо-клиенты клиенту.
+ * Разделы, которых нет у роли, не показываются вовсе: таймер отдыха тренеру
+ * не нужен, а счётчик сохранённых тренировок — клиентский.
  */
 
 const REMINDERS: { kind: NotificationKind; title: string; sub: string; onlineOnly?: true }[] = [
@@ -57,7 +55,7 @@ const REMINDERS: { kind: NotificationKind; title: string; sub: string; onlineOnl
 
 export function Settings() {
   const nav = useNavigate()
-  const { toast, online, userId } = useApp()
+  const { toast, online } = useApp()
   const profile = useProfile()
   const role = useRole()
   const bond = useTrainerLink()
@@ -67,7 +65,6 @@ export function Settings() {
   const reminders = REMINDERS.filter((r) => !r.onlineOnly || mode === 'online')
 
   const [accountsOpen, setAccountsOpen] = useState(false)
-  const [demoOpen, setDemoOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [roleOpen, setRoleOpen] = useState(false)
@@ -118,32 +115,9 @@ export function Settings() {
     toast(t('Файл сохранён'))
   }
 
-  const loadDemo = async () => {
-    setBusy(true)
-    try {
-      if (isTrainer) {
-        const res = await seedTrainerDemo(userId)
-        toast(
-          `${t('Добавлено')} ${res.clients} ${plural(res.clients, ['клиент', 'клиента', 'клиентов'])}`,
-        )
-      } else {
-        const res = await generateDemoData()
-        toast(
-          `${t('Добавлено')} ${res.sessions} ${plural(res.sessions, ['тренировка', 'тренировки', 'тренировок'])}`,
-        )
-      }
-      haptics.success()
-      setDemoOpen(false)
-    } catch (e) {
-      toast(e instanceof Error ? t(e.message) : t('Не удалось сгенерировать данные'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
   /**
-   * Чистит историю активного аккаунта. Именно его: на устройстве живут ещё
-   * демонстрационный профиль, а у тренера — данные клиентов, и очистка
+   * Чистит историю активного аккаунта. Именно его: на устройстве живёт ещё
+   * стартовый локальный профиль, а у тренера — данные клиентов, и очистка
    * таблиц целиком стирала всех сразу. Удаления идут через deleteManySynced,
    * иначе история пропадает здесь, остаётся у тренера и возвращается на
    * другом устройстве.
@@ -344,16 +318,6 @@ export function Settings() {
           value={`${counts?.queue ?? 0} ${t('в очереди')}`}
         />
         {!isTrainer && <Row title={t('Выгрузить историю в CSV')} onClick={exportCsv} chevron />}
-        <Row
-          title={isTrainer ? t('Добавить демо-клиентов') : t('Демо-режим')}
-          sub={
-            isTrainer
-              ? t('Несколько клиентов с историей — посмотреть кабинет в работе')
-              : t('Заполнить дневник примером за 10 недель')
-          }
-          onClick={() => setDemoOpen(true)}
-          chevron
-        />
         {!isTrainer && (
           <Row title={t('Как это работает')} onClick={() => setHelpOpen(true)} chevron />
         )}
@@ -396,34 +360,6 @@ export function Settings() {
         </div>
       </Sheet>
       <HelpSheet open={helpOpen} onClose={() => setHelpOpen(false)} />
-
-      <Sheet
-        open={demoOpen}
-        title={isTrainer ? t('Демо-клиенты') : t('Демо-история')}
-        onClose={() => setDemoOpen(false)}
-      >
-        <div className="stack">
-          <div className="muted">
-            {isTrainer
-              ? t(
-                  'Создаст несколько клиентов с тренировками, замерами и отчётами — чтобы посмотреть, как кабинет выглядит в работе.',
-                )
-              : t(
-                  'Сгенерирует 10 недель тренировок по сплиту Push / Pull / Legs с прогрессией весов, личными рекордами и еженедельными замерами тела.',
-                )}
-          </div>
-          {!isTrainer && (
-            <div className="card mute-sm" style={{ color: 'var(--warn)' }}>
-              {t(
-                'Текущая история тренировок и замеры будут заменены. Каталог упражнений и ваши программы не пострадают.',
-              )}
-            </div>
-          )}
-          <button className="btn primary block" disabled={busy} onClick={loadDemo}>
-            {busy ? t('Создаю…') : isTrainer ? t('Добавить клиентов') : t('Заполнить дневник')}
-          </button>
-        </div>
-      </Sheet>
     </div>
   )
 }

@@ -11,13 +11,6 @@ import { APP_STATE_ID, db, now, setActiveUser, type Role, type UserProfile } fro
 import { authUser, isAuthed, type AuthUser } from '../lib/backend'
 import { initialPull, push, startSync, syncClients } from './sync'
 
-/** Демо-режим: приложение можно посмотреть без регистрации. */
-const DEMO_KEY = 'trainer.demo'
-
-export const isDemoMode = () => localStorage.getItem(DEMO_KEY) === '1'
-export const enterDemoMode = () => localStorage.setItem(DEMO_KEY, '1')
-export const leaveDemoMode = () => localStorage.removeItem(DEMO_KEY)
-
 const roleOf = (user: AuthUser): Role => (user.role === 'trainer' ? 'TRAINER' : 'CLIENT')
 
 /**
