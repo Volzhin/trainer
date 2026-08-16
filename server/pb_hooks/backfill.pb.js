@@ -34,12 +34,16 @@ if (typeof onBootstrap === 'function') {
     e.next()
 
     try {
-      const found = e.app
+      // Строку запроса принимает только DynamicModel: обычный объект движок
+      // не разбирает и падает с «must be a NullStringMap». Ошибка была тихой —
+      // её глушил try ниже, и починка молча не делалась ни разу.
+      const found = new DynamicModel({ n: 0 })
+      e.app
         .db()
         .newQuery('SELECT COUNT(*) AS n FROM records WHERE seq IS NULL OR seq = 0')
-        .one({ n: 0 })
+        .one(found)
 
-      if (!found || !found.n) return
+      if (!found.n) return
 
       e.app
         .db()
@@ -54,6 +58,7 @@ if (typeof onBootstrap === 'function') {
         .execute()
 
       console.log('seq: метка проставлена записям без неё — ' + found.n)
+      return
     } catch (err) {
       // Обмен работает и без починки, просто без этих строк. Останавливать
       // из-за неё запуск сервера незачем.

@@ -228,6 +228,59 @@ await send(C, 'назначение другому человеку', {
   payload: { id: 'as-9', trainer_id: T.id, client_id: T.id, program_id: 'pr-1', status: 'ACTIVE' },
 }, 'отказ')
 
+/*
+ * Перебор пароля по одному адресу почты.
+ *
+ * Проверяем главное: после пяти неудач подряд вход закрывается даже с верным
+ * паролем, соседний адрес при этом свободен, а удачный вход счётчик обнуляет.
+ */
+console.log('\nПеребор пароля по адресу почты:')
+
+const V = await makeUser(`victim${stamp}@local.test`, 'client')
+const N = await makeUser(`bystander${stamp}@local.test`, 'client')
+
+/** Пробует войти и возвращает код ответа. */
+const tryLogin = async (email, password) => {
+  try {
+    await req('/api/collections/users/auth-with-password', {
+      method: 'POST',
+      body: JSON.stringify({ identity: email, password }),
+    })
+    return 200
+  } catch (e) {
+    return e.status
+  }
+}
+
+const victim = `victim${stamp}@local.test`
+const bystander = `bystander${stamp}@local.test`
+const expect = (label, got, want) => {
+  const good = got === want
+  if (!good) failures++
+  console.log(`  ${good ? '✓' : '✗'} ${label}: ${got} (ждали ${want})`)
+}
+
+// Четыре неудачи — обычный отказ, вход ещё открыт.
+for (let i = 1; i <= 4; i++) await tryLogin(victim, 'wrong-password')
+expect('верный пароль после 4 неудач', await tryLogin(victim, PASS), 200)
+
+// Удачный вход обнуляет счётчик: следующие четыре снова не запирают.
+for (let i = 1; i <= 4; i++) await tryLogin(victim, 'wrong-password')
+expect('счётчик сброшен удачным входом', await tryLogin(victim, PASS), 200)
+
+// Пятая неудача подряд закрывает вход — даже с верным паролем.
+for (let i = 1; i <= 5; i++) await tryLogin(victim, 'wrong-password')
+expect('шестая попытка', await tryLogin(victim, 'wrong-password'), 429)
+expect('верный пароль во время блокировки', await tryLogin(victim, PASS), 429)
+
+// Соседний ящик к этому отношения не имеет.
+expect('чужой адрес свободен', await tryLogin(bystander, PASS), 200)
+
+// Регистр и пробелы не должны давать обход: ящик тот же.
+expect('тот же адрес в другом регистре', await tryLogin(victim.toUpperCase(), PASS), 429)
+
+void V, void N
+
 // Метка очереди: без неё запись не доедет ни до кого, и молча.
 const all = await req('/api/collections/records/records?perPage=500&fields=tbl,rid,seq', {}, su.token)
 const noSeq = all.items.filter((r) => !r.seq)

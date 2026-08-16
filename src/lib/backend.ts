@@ -162,6 +162,9 @@ function humanError(data: unknown, status: number): string {
     const label = t(FIELD_NAMES[field] ?? field)
     return `${label}: ${translate(err?.message ?? '')}`
   }
+  // 400 на входе значит одно — не сошлись почта и пароль. Но 429 приходит с
+  // тем же пустым data, и общая ветка ниже разберёт его сама: наше
+  // сообщение уже по-русски, встроенное подменяется в PHRASES.
   if (status === 400) return t('Неверная почта или пароль')
   return translate(d?.message ?? t('Не удалось связаться с сервером'))
 }
@@ -181,6 +184,10 @@ const PHRASES: [RegExp, string][] = [
   [/values don.t match/i, 'пароли не совпадают'],
   [/failed to authenticate/i, 'Неверная почта или пароль'],
   [/Failed to fetch|NetworkError/i, 'Нет связи с сервером'],
+  // Ответ встроенного ограничителя частоты. Он приходит по-английски, а
+  // словарь интерфейса переводит только в обратную сторону — поэтому
+  // подменяем текст здесь, на границе с сервером.
+  [/too many requests/i, 'Слишком часто. Попробуйте через минуту.'],
 ]
 
 function translate(msg: string): string {
