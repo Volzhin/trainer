@@ -81,6 +81,7 @@ jobs:
             ssh root@${{ secrets.DEPLOY_HOST }} \
               'read -r EMAIL; read -r PASSWORD;
                PB_ADMIN_EMAIL="$EMAIL" PB_ADMIN_PASSWORD="$PASSWORD" \
+                 PB_RATE_LIMITS=on \
                  node /opt/trainer/schema.mjs'
 
       - name: Проверка живости
