@@ -308,8 +308,8 @@ const EN: Record<string, string> = {
   Прикрепить: 'Attach',
   'Чтобы начать работу с тренером, примите его документы. Нажмите на название, чтобы открыть.':
     'To start working with this trainer, accept their documents. Tap a title to open it.',
-  'Тренер не приложил документов — подписывать нечего.':
-    'This trainer attached no documents — there is nothing to sign.',
+  'У этого тренера нет прикреплённых документов, поэтому вы ничего не подписываете. Если ждали оферту или согласие на обработку данных — попросите его их приложить.':
+    'This trainer has attached no documents, so you are signing nothing. If you expected an offer agreement or a personal data consent, ask them to attach it.',
   'открыть документ': 'open the document',
   Принимаю: 'I accept',
   'Принять и подключить тренера': 'Accept and connect',

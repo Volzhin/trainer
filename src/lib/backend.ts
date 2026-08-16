@@ -213,7 +213,11 @@ export async function register(input: {
       passwordConfirm: input.password,
       name: input.name.trim(),
       role: input.role,
-      emailVisibility: true,
+      // emailVisibility здесь стоял и отдавал почту наружу. Владельцу своя
+      // почта видна и без него — PocketBase не прячет её от хозяина записи, —
+      // а чужую приложение не показывает нигде: в интерфейсе есть ровно одно
+      // место с почтой, и это своя карточка в настройках. Флаг открывал её
+      // связанной стороне просто так, за компанию.
     }),
   })
   return login(input.email, input.password)

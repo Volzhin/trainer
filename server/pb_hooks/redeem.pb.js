@@ -80,26 +80,34 @@ routerAdd('POST', '/api/redeem', (e) => {
 
   const trainer = e.app.findRecordById('users', trainerId)
 
-  // Документы тренера — то, что клиент подписывает. Чего нет, того он не
-  // увидит и подписывать не будет.
-  let documents = []
-  try {
-    const rows = e.app.findRecordsByFilter(
-      'attachments',
-      'owner = {:owner} && kind = "document"',
-      '-created',
-      20,
-      0,
-      { owner: trainerId },
-    )
-    documents = rows.map((r) => ({
-      kind: r.getString('note'),
-      id: r.id,
-      file: r.getString('file'),
-    }))
-  } catch {
-    documents = []
-  }
+  /*
+   * Документы тренера — то, что клиент подписывает.
+   *
+   * Ни сортировки, ни глушения ошибки здесь быть не должно, и оба запрета
+   * оплачены. Сортировка стояла по `created`, а такого поля у attachments
+   * нет: коллекции заводит schema.mjs явным списком полей, и системных дат
+   * PocketBase к нему не дописывает. Запрос падал всегда, `catch` подменял
+   * ответ пустым списком, и клиент видел «тренер не приложил документов» —
+   * то есть подписывал пустоту, хотя документы лежали на месте. Порядок
+   * здесь и не нужен: одного вида документ ровно один (см. coach.ts).
+   *
+   * Ошибку теперь не ловим намеренно. Отказ на этом шаге человек увидит и
+   * позовёт нас, а молчание снова превратится в согласие с несуществующим
+   * документом — а это уже не удобство, а 152-ФЗ.
+   */
+  const rows = e.app.findRecordsByFilter(
+    'attachments',
+    'owner = {:owner} && kind = "document"',
+    '',
+    20,
+    0,
+    { owner: trainerId },
+  )
+  const documents = rows.map((r) => ({
+    kind: r.getString('note'),
+    id: r.id,
+    file: r.getString('file'),
+  }))
 
   const card = {
     trainer: {

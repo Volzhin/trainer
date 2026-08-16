@@ -722,11 +722,12 @@ const attachCheck = (label, good, note = '') => {
 }
 
 /** Загрузка ровно тем же телом, что шлёт uploadAttachment в приложении. */
-const putFile = async (who, owner, body = 'секретное фото') => {
+const putFile = async (who, owner, body = 'секретное фото', kind = 'photo', note = '') => {
   const form = new FormData()
   form.append('owner', owner)
   form.append('rid', `att-${Math.random().toString(36).slice(2, 8)}`)
-  form.append('kind', 'photo')
+  form.append('kind', kind)
+  if (note) form.append('note', note)
   form.append('file', new Blob([body], { type: 'image/jpeg' }), 'photo.jpg')
   const res = await fetch(`${URL}/api/collections/attachments/records`, {
     method: 'POST',
@@ -838,6 +839,103 @@ try {
 attachCheck('владелец удаляет своё вложение', removed === 200, `ответ ${removed}`)
 
 /*
+ * Документы тренера до привязки — то, ради чего изъятие в viewRule и заведено.
+ *
+ * Оферту и согласие человек подписывает ДО того, как стал клиентом, а прав на
+ * чужие записи у него в этот момент нет никаких. Дважды сломанное место:
+ * список документов приходил пустым (запрос падал на сортировке по полю,
+ * которого у коллекции нет, а catch подменял ошибку пустотой), и даже с
+ * непустым списком открыть файл было нельзя. Человек видел «документов нет» и
+ * подписывал пустоту — при живых документах на сервере.
+ *
+ * Проверяем поэтому обе половины сразу: что документы доезжают в ответе на код
+ * и что по ним отдаётся файл. И границу изъятия: всё, что не kind="document",
+ * постороннему по-прежнему закрыто.
+ */
+console.log('\nДокументы тренера перед подключением:')
+
+const DCOACH = await makeUser(`doc-coach${stamp}@local.test`, 'trainer')
+const DFUT = await makeUser(`doc-future${stamp}@local.test`, 'client')
+
+const DOCTEXT = 'СОГЛАСИЕ НА ОБРАБОТКУ'
+const docFile = await putFile(DCOACH, DCOACH.id, DOCTEXT, 'document', 'personal_data')
+attachCheck('тренер прикладывает документ', docFile.status === 200, `ответ ${docFile.status}`)
+// Не документ, того же владельца: граница изъятия проходит по kind, а не по
+// тому, чей это файл.
+const coachPhoto = await putFile(DCOACH, DCOACH.id, 'личное фото тренера', 'photo')
+
+const docCode = code6(stamp + 21)
+await req(
+  '/api/collections/invites/records',
+  {
+    method: 'POST',
+    body: JSON.stringify({
+      code: docCode, trainer: DCOACH.id, status: 'PENDING', expires: Date.now() + 86400_000,
+    }),
+  },
+  DCOACH.token,
+)
+
+let peeked = null
+try {
+  peeked = await req(
+    '/api/redeem',
+    { method: 'POST', body: JSON.stringify({ code: docCode, peek: true }) },
+    DFUT.token,
+  )
+} catch (e) {
+  peeked = { error: `${e.status} ${e.message}` }
+}
+const peekedDocs = peeked?.documents ?? []
+attachCheck(
+  'документы приезжают в ответе на код',
+  peekedDocs.length === 1 && peekedDocs[0].id === docFile.rec.id,
+  peeked?.error ?? `получено ${peekedDocs.length}`,
+)
+attachCheck(
+  'у документа приехал вид, по которому его называют',
+  peekedDocs[0]?.kind === 'personal_data',
+  `kind ${peekedDocs[0]?.kind ?? 'нет'}`,
+)
+
+const docRead = await req(
+  `/api/collections/attachments/records/${docFile.rec.id}`,
+  {},
+  DFUT.token,
+).then(() => 200).catch((e) => e.status)
+attachCheck('будущий клиент читает запись документа', docRead === 200, `ответ ${docRead}`)
+
+const docDownload = await getFile(DFUT, docFile.rec)
+attachCheck(
+  'будущий клиент открывает сам документ',
+  docDownload.status === 200 && docDownload.body.includes(DOCTEXT),
+  `ответ ${docDownload.status}`,
+)
+
+const photoRead = await req(
+  `/api/collections/attachments/records/${coachPhoto.rec.id}`,
+  {},
+  DFUT.token,
+).then(() => 200).catch((e) => e.status)
+attachCheck('прочие вложения тренера закрыты', photoRead !== 200, `ответ ${photoRead}`)
+const photoDownload = await getFile(DFUT, coachPhoto.rec)
+attachCheck('файл не-документа не отдаётся', photoDownload.status !== 200, `ответ ${photoDownload.status}`)
+
+// Перебрать документы всё так же нельзя: изъятие сделано в viewRule, а список
+// закрыт. Идентификатор приходит только из ответа на действующий код.
+const docList = await req('/api/collections/attachments/records?perPage=200', {}, DFUT.token)
+  .catch(() => ({ items: [] }))
+attachCheck(
+  'списком документы не перечисляются',
+  !(docList.items ?? []).some((i) => i.id === docFile.rec.id),
+  `в списке ${docList.items?.length ?? 0}`,
+)
+
+// Без входа не открывается и документ: изъятие начинается с проверки входа.
+const docAnon = await getFile(null, docFile.rec)
+attachCheck('без входа документ не отдаётся', docAnon.status !== 200, `ответ ${docAnon.status}`)
+
+/*
  * Заметки тренера о клиенте: читает их только тот, кто их написал.
  *
  * Заметка принадлежит клиенту (иначе тренер не нашёл бы её среди чужих
@@ -935,10 +1033,11 @@ noteCheck('клиент не читает заметку о себе', !(await n
 /*
  * Автор правит и стирает написанное — на отдельной заметке и пока связь цела.
  *
- * Тумбстоун приезжает без содержимого (payload: null, см. drainDeletes в
- * src/db/sync.ts), а автор записан как раз в содержимом. Значит запрет,
- * поставленный неаккуратно, обернётся не «клиент не прочтёт», а «тренер не
- * сотрёт то, что сам написал», — и заметит это только он, задним числом.
+ * Автор записан в содержимом строки, и запрет, поставленный неаккуратно,
+ * обернётся не «клиент не прочтёт», а «тренер не сотрёт то, что сам написал»,
+ * — и заметит это только он, задним числом. Поэтому удаление заметки несёт
+ * подпись автора и ничего больше (см. drainDeletes в src/db/sync.ts): пустой
+ * тумбстоун правило больше не пропускает, и это проверяется ниже отдельно.
  */
 let sparId = ''
 try {
@@ -974,11 +1073,63 @@ if (sparId) {
 
   const tombed = await req(
     `/api/collections/records/records/${sparId}`,
-    { method: 'PATCH', body: JSON.stringify({ updated: ts + 6000, deleted: true, payload: null }) },
+    {
+      method: 'PATCH',
+      body: JSON.stringify({
+        updated: ts + 6000,
+        deleted: true,
+        payload: { trainer_id: NT1.id },
+      }),
+    },
     NT1.token,
   ).then(() => 200).catch((e) => e.status)
   noteCheck('автор удаляет свою заметку (тумбстоун)', tombed === 200, `ответ ${tombed}`)
+  // Ради этого всё и затевалось: удаление должно доехать до второго телефона
+  // того же тренера, а доедет оно, только если он его увидит.
+  noteCheck(
+    'автор видит своё удаление (оно доедет до второго телефона)',
+    (await notesSeenBy(NT1)).includes(`tn-spar-${stamp}`),
+  )
 }
+
+/*
+ * Пустое удаление, каким его слала прежняя сборка, — и почему подпись в нём
+ * теперь обязательна.
+ *
+ * Отдельной заметкой, потому что исход тут разный у двух путей. Заведение
+ * тумбстоуна с нуля (так уезжает удаление заметки, которую сервер ещё не
+ * видел) без подписи не проходит вовсе: правило смотрит на присланное, а
+ * автора в нём нет. Правка уже лежащей строки, наоборот, проходит — правило
+ * судит по состоянию ДО изменения, и подпись там ещё на месте, — но
+ * получившееся не видит уже никто, включая автора: строка превращается в
+ * чёрную дыру, которую не прочитать и не переписать (POST упрётся в
+ * уникальный индекс, PATCH — в 404). Поэтому подпись шлёт сам клиент.
+ */
+const blindRid = `tn-blind-${stamp}`
+const blindCreate = await req(
+  '/api/collections/records/records',
+  {
+    method: 'POST',
+    body: JSON.stringify({
+      owner: NC.id, tbl: 'trainerNotes', rid: blindRid, updated: ts, deleted: true, payload: null,
+    }),
+  },
+  NT1.token,
+).then(() => 200).catch((e) => e.status)
+noteCheck('удаление без подписи автора не заводится', blindCreate !== 200, `ответ ${blindCreate}`)
+
+const signedCreate = await req(
+  '/api/collections/records/records',
+  {
+    method: 'POST',
+    body: JSON.stringify({
+      owner: NC.id, tbl: 'trainerNotes', rid: blindRid, updated: ts, deleted: true,
+      payload: { trainer_id: NT1.id },
+    }),
+  },
+  NT1.token,
+).then(() => 200).catch((e) => e.status)
+noteCheck('то же удаление с подписью заводится', signedCreate === 200, `ответ ${signedCreate}`)
 
 // Подставной «тренер»: код выписывает сам аккаунт, гасит его клиент.
 const pupCode = code6(stamp + 11)
@@ -1069,6 +1220,64 @@ try {
 }
 noteCheck('новый тренер заводит свою заметку', ownNote === 200, `ответ ${ownNote}`)
 noteCheck('новый тренер читает свою заметку', (await notesSeenBy(NT2)).includes('моя заметка'))
+
+/*
+ * Подложенная заметка: своя рука, чужая подпись.
+ *
+ * Правило доступа решает по payload.trainer_id, кто заметку прочитает, — то
+ * есть подпись здесь работает как адрес доставки. Значит тренер, у которого
+ * права на этого клиента есть, вправе написать заметку и подписать её кем-то
+ * другим. Прочитает её тот, чьё имя стоит в подписи: следующий тренер этого же
+ * клиента откроет карточку и увидит про человека слова, которых не писал.
+ * Отсюда сверка в records.pb.js — и эти две проверки.
+ */
+const forgedNote = await req(
+  '/api/collections/records/records',
+  {
+    method: 'POST',
+    body: JSON.stringify({
+      owner: NC.id, tbl: 'trainerNotes', rid: `tn-forged-${stamp}`, updated: ts,
+      payload: {
+        id: `tn-forged-${stamp}`, client_id: NC.id, trainer_id: NT1.id, text: 'я такого не писал',
+      },
+    }),
+  },
+  NT2.token,
+).then(() => 200).catch((e) => e.status)
+noteCheck('заметку с чужой подписью не завести', forgedNote !== 200, `ответ ${forgedNote}`)
+
+// И подпись у уже лежащей заметки не переставляется: иначе запрет обходится
+// в два запроса — завести своей рукой, потом переписать автора.
+let ownNoteId = ''
+try {
+  const found = await req(
+    `/api/collections/records/records?perPage=1&filter=${encodeURIComponent(`rid="tn-next-${stamp}"`)}`,
+    {},
+    NT2.token,
+  )
+  ownNoteId = found.items?.[0]?.id ?? ''
+} catch {
+  /* не нашли — проверку ниже пропустим осознанно */
+}
+if (ownNoteId) {
+  const repointedNote = await req(
+    `/api/collections/records/records/${ownNoteId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({
+        updated: ts + 7000,
+        payload: {
+          id: `tn-next-${stamp}`, client_id: NC.id, trainer_id: NT1.id, text: 'моя заметка',
+        },
+      }),
+    },
+    NT2.token,
+  ).then(() => 200).catch((e) => e.status)
+  noteCheck('автор у лежащей заметки не переставляется', repointedNote !== 200, `ответ ${repointedNote}`)
+} else {
+  failures++
+  console.log('  ✗ своя заметка нового тренера не нашлась — проверку подписи не прогнали')
+}
 
 /*
  * Перебор пароля по одному адресу почты.
