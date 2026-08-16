@@ -624,14 +624,65 @@ export async function createRoutine(programId: string, name: string) {
   return id
 }
 
+/**
+ * Новый порядок упражнений в дне: список идентификаторов сверху вниз.
+ *
+ * Переписываем все строки, а не двигаем одну: порядковый номер — это позиция
+ * в списке, и «вставить между» без пересчёта соседей означало бы дробные
+ * номера или дырки, по которым потом не собрать порядок обратно.
+ *
+ * Одной транзакцией — иначе экран, подписанный на таблицу, успевает
+ * перерисоваться посреди перестановки и показывает два упражнения на одном
+ * месте.
+ */
+export async function reorderTemplateItems(ids: string[]) {
+  const ts = now()
+  await db.transaction('rw', db.templateItems, async () => {
+    for (const [i, id] of ids.entries()) {
+      await db.templateItems.update(id, { sequence_order: i, updated_at: ts })
+    }
+  })
+}
+
+/**
+ * Убирает упражнение из дня программы.
+ *
+ * Через deleteSynced, а не прямым delete: строка личной программы
+ * принадлежит клиенту и уже уехала на сервер. Стёртая только здесь, она
+ * вернулась бы первым же приёмом данных — тренер снова увидел бы то, что
+ * убрал, а клиент и вовсе ничего бы не заметил. Владельца выводит родитель,
+ * а день программы остаётся на месте, поэтому запоминать его не нужно.
+ *
+ * Оставшиеся перенумеровываем. Дырка в номерах не безобидна: порядковый
+ * номер — это позиция в списке, и следующее добавленное упражнение получит
+ * номер, который уже занят, а два упражнения с одним номером встают в
+ * порядке, о котором никто не договаривался.
+ */
+export async function deleteTemplateItem(itemId: string) {
+  const item = await db.templateItems.get(itemId)
+  if (!item) return
+
+  await deleteSynced('templateItems', itemId)
+
+  const rest = await db.templateItems
+    .where('routine_id')
+    .equals(item.routine_id)
+    .sortBy('sequence_order')
+  await reorderTemplateItems(rest.map((i) => i.id))
+}
+
 export async function addTemplateItem(routineId: string, exerciseId: string) {
-  const existing = await db.templateItems.where('routine_id').equals(routineId).count()
+  const siblings = await db.templateItems.where('routine_id').equals(routineId).toArray()
+  // Считаем от последнего номера, а не по количеству строк: в базах, где
+  // упражнения удаляли до перенумерации, в номерах остались дырки — и счёт
+  // по длине выдаёт занятый номер.
+  const last = siblings.reduce((max, i) => Math.max(max, i.sequence_order), -1)
   const profile = await db.profile.get(currentUserId())
   await db.templateItems.add({
     id: uid(),
     routine_id: routineId,
     exercise_id: exerciseId,
-    sequence_order: existing,
+    sequence_order: last + 1,
     target_sets: 3,
     target_reps: 10,
     rest_seconds: profile?.default_rest_seconds ?? 90,

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
@@ -9,13 +10,21 @@ import {
   type WorkoutTemplateItem,
 } from '../db/db'
 import { useExercises } from '../db/catalog'
-import { addTemplateItem, createRoutine, startSessionFromRoutine } from '../db/repo'
+import {
+  addTemplateItem,
+  createRoutine,
+  deleteTemplateItem,
+  reorderTemplateItems,
+  startSessionFromRoutine,
+} from '../db/repo'
 import { activeAssignmentFor, cancelMyPlan, planProgramMyself } from '../db/coach'
 import {
   IconBack,
   IconChart,
   IconChevronRight,
+  IconGrip,
   IconInfo,
+  IconPencil,
   IconPlay,
   IconPlus,
   IconTrash,
@@ -42,6 +51,8 @@ export function ProgramDetail() {
   const [techniqueFor, setTechniqueFor] = useState<string | null>(null)
   const [statsFor, setStatsFor] = useState<Exercise | null>(null)
   const [planOpen, setPlanOpen] = useState(false)
+  /** Упражнение, к которому тренер сейчас пишет комментарий. */
+  const [noteFor, setNoteFor] = useState<WorkoutTemplateItem | null>(null)
 
   const program = useLiveQuery(() => db.programs.get(id), [id])
   const routines = useLiveQuery(
@@ -131,7 +142,9 @@ export function ProgramDetail() {
           <div className="row between">
             <div className="grow">
               <div className="mute-sm">{t('Программа для клиента')}</div>
-              <div className="strong" style={{ marginTop: 2 }}>{clientName ?? '—'}</div>
+              <div className="strong" style={{ marginTop: 2 }}>
+                {clientName ?? '—'}
+              </div>
             </div>
             <button
               className="btn sm"
@@ -193,182 +206,31 @@ export function ProgramDetail() {
         </div>
       )}
 
-      {(routines ?? []).map((routine) => {
-        const dayItems = (items ?? [])
-          .filter((i) => i.routine_id === routine.id)
-          .sort((a, b) => a.sequence_order - b.sequence_order)
-
-        return (
-          <div key={routine.id} style={{ marginTop: 16 }}>
-            <div className="row between mb-2">
-              <div className="strong">{t(routine.name)}</div>
-              <button
-                className="btn sm primary"
-                onClick={async () => {
-                  haptics.impact()
-                  const sid = await startSessionFromRoutine(routine.id)
-                  if (!sid) {
-                    toast(t('В этом дне пока нет упражнений'))
-                    return
-                  }
-                  nav(`/session/${sid}`)
-                }}
-              >
-                <IconPlay size={13} /> {t('Начать')}
-              </button>
-            </div>
-
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              {dayItems.length === 0 && (
-                <div className="mute-sm" style={{ padding: 16, textAlign: 'center' }}>
-                  {t('Пока пусто')}
-                </div>
-              )}
-              {dayItems.map((item, idx) => {
-                const ex = exMap.get(item.exercise_id)
-                return (
-                  <div
-                    key={item.id}
-                    style={{
-                      padding: '12px 14px',
-                      borderTop: idx === 0 ? 'none' : '1px solid var(--border)',
-                    }}
-                  >
-                    <div className="row between">
-                      {/* Строка ведёт к технике: без неё клиент видит название
-                          и не понимает, как упражнение делать. */}
-                      <button
-                        className="row grow"
-                        style={{ textAlign: 'left', gap: 10 }}
-                        onClick={() => ex && setTechniqueFor(ex.id)}
-                      >
-                        {ex?.image_url ? (
-                          <img src={ex.image_url} alt="" className="ex-thumb" loading="lazy" />
-                        ) : (
-                          <span className="ex-thumb placeholder" />
-                        )}
-                        <span className="grow">
-                          <span className="truncate" style={{ display: 'block' }}>
-                            {exName(ex?.name) || t('Упражнение')}
-                          </span>
-                          <span className="mute-sm">{t(ex?.muscle_group ?? '')} · {t('как делать')}</span>
-                        </span>
-                        <span className="chevron">
-                          <IconChevronRight size={16} />
-                        </span>
-                      </button>
-
-                      {/* Те же две кнопки, что в тренировке: техника и
-                          статистика. Программу открывают до зала, чтобы
-                          понять, что предстоит, — и там эти вопросы те же,
-                          что у снаряда. */}
-                      {ex && (
-                        <>
-                          <button
-                            className="icon-btn"
-                            onClick={() => setTechniqueFor(ex.id)}
-                            aria-label={`${t('Как делать')}: ${exName(ex.name)}`}
-                            title={t('Как делать')}
-                          >
-                            <IconInfo size={17} />
-                          </button>
-                          <button
-                            className="icon-btn"
-                            onClick={() => setStatsFor(ex)}
-                            aria-label={`${t('Статистика')}: ${exName(ex.name)}`}
-                            title={t('Статистика по подходам')}
-                          >
-                            <IconChart size={17} />
-                          </button>
-                        </>
-                      )}
-                      {editable && (
-                        <button
-                          className="icon-btn"
-                          onClick={() => db.templateItems.delete(item.id)}
-                          aria-label={t('Удалить')}
-                        >
-                          <IconTrash size={16} />
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Слово тренера и своя история — только у того, кто по
-                        программе занимается. Тренеру, который её правит,
-                        показывать нечего: клиента здесь нет, а его
-                        собственные подходы к чужой программе отношения не
-                        имеют. */}
-                    {!editable && ex && (
-                      <>
-                        <CoachHint exerciseId={ex.id} />
-                        <ExerciseBrief exerciseId={ex.id} />
-                      </>
-                    )}
-
-                    {/* Три поля в строке на узком экране становятся по
-                        восемьдесят пикселей, а с верхней границей их четыре.
-                        Поэтому отдых уехал во вторую строку: он меняется
-                        реже всех, и терять на нём ширину обиднее всего. */}
-                    <div className="row mt-2" style={{ gap: 8 }}>
-                      <NumField
-                        label={t('подходы')}
-                        value={item.target_sets}
-                        disabled={!editable}
-                        onChange={(v) => patchItem(item.id, { target_sets: v })}
-                      />
-                      <NumField
-                        label={t('повторы от')}
-                        value={item.target_reps ?? 0}
-                        disabled={!editable}
-                        onChange={(v) =>
-                          patchItem(item.id, {
-                            target_reps: v,
-                            // Верх ниже низа — не диапазон, а опечатка.
-                            // Подтягиваем его, а не запрещаем ввод.
-                            ...(item.target_reps_max != null && item.target_reps_max < v
-                              ? { target_reps_max: v }
-                              : {}),
-                          })
-                        }
-                      />
-                      <NumField
-                        label={t('до')}
-                        value={item.target_reps_max ?? item.target_reps ?? 0}
-                        min={item.target_reps ?? 0}
-                        disabled={!editable}
-                        onChange={(v) =>
-                          patchItem(item.id, {
-                            // Верх, равный низу, это не диапазон — стираем,
-                            // чтобы не показывать клиенту «10-10».
-                            target_reps_max: v > (item.target_reps ?? 0) ? v : undefined,
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="row mt-2" style={{ gap: 8 }}>
-                      <NumField
-                        label={t('отдых, сек')}
-                        value={item.rest_seconds}
-                        step={15}
-                        disabled={!editable}
-                        onChange={(v) => patchItem(item.id, { rest_seconds: v })}
-                      />
-                    </div>
-                  </div>
-                )
-              })}
-
-              {editable && (
-                <div style={{ padding: 12, borderTop: '1px solid var(--border)' }}>
-                  <button className="btn sm block" onClick={() => setPickerFor(routine.id)}>
-                    <IconPlus size={15} /> {t('Добавить упражнение')}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )
-      })}
+      {(routines ?? []).map((routine) => (
+        <RoutineDay
+          key={routine.id}
+          routine={routine}
+          items={(items ?? [])
+            .filter((i) => i.routine_id === routine.id)
+            .sort((a, b) => a.sequence_order - b.sequence_order)}
+          exMap={exMap}
+          editable={editable}
+          onStart={async () => {
+            haptics.impact()
+            const sid = await startSessionFromRoutine(routine.id)
+            if (!sid) {
+              toast(t('В этом дне пока нет упражнений'))
+              return
+            }
+            nav(`/session/${sid}`)
+          }}
+          onTechnique={setTechniqueFor}
+          onStats={setStatsFor}
+          onNote={setNoteFor}
+          onAdd={() => setPickerFor(routine.id)}
+          patchItem={patchItem}
+        />
+      ))}
 
       {editable && (
         <button
@@ -388,7 +250,9 @@ export function ProgramDetail() {
           <div className="section-title">{t('Объём за неделю')}</div>
           <div className="card">
             <div className="mute-sm mb-3">
-              {t('Подходы по всем дням программы. Пересчитывается на месте — видно, куда перекосило, пока программу ещё собирают.')}
+              {t(
+                'Подходы по всем дням программы. Пересчитывается на месте — видно, куда перекосило, пока программу ещё собирают.',
+              )}
             </div>
             <div className="stack">
               {volume.map((v) => (
@@ -442,7 +306,490 @@ export function ProgramDetail() {
           if (pickerFor) void addTemplateItem(pickerFor, ex.id)
         }}
       />
+
+      <NoteSheet
+        item={noteFor}
+        name={noteFor ? exName(exMap.get(noteFor.exercise_id)?.name) : ''}
+        onClose={() => setNoteFor(null)}
+        onSave={(text) => noteFor && patchItem(noteFor.id, { note: text })}
+      />
     </div>
+  )
+}
+
+/**
+ * Один тренировочный день: упражнения по порядку, с перестановкой.
+ *
+ * Вынесен из экрана, потому что порядок — состояние дня, а не программы:
+ * тащат внутри одного дня, и хранить наполовину переставленный список в
+ * общем месте значит смешивать два независимых перетаскивания в одно.
+ */
+function RoutineDay({
+  routine,
+  items,
+  exMap,
+  editable,
+  onStart,
+  onTechnique,
+  onStats,
+  onNote,
+  onAdd,
+  patchItem,
+}: {
+  routine: WorkoutRoutine
+  items: WorkoutTemplateItem[]
+  exMap: Map<string, Exercise>
+  editable: boolean
+  onStart: () => void
+  onTechnique: (exerciseId: string) => void
+  onStats: (ex: Exercise) => void
+  onNote: (item: WorkoutTemplateItem) => void
+  onAdd: () => void
+  patchItem: (itemId: string, patch: Partial<WorkoutTemplateItem>) => unknown
+}) {
+  const { toast } = useApp()
+
+  /**
+   * Порядок, пока его держит палец. Снимается сразу после записи в базу:
+   * держать свой список дольше значит прятать порядок, приехавший обменом,
+   * — а узнать об этом было бы неоткуда.
+   */
+  const [order, setOrder] = useState<string[] | null>(null)
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [shift, setShift] = useState(0)
+
+  /**
+   * Жест целиком — в ссылке, а не в состоянии.
+   *
+   * События указателя приходят чаще, чем React успевает перерисоваться, и
+   * обработчик, читающий состояние прошлого кадра, переставляет строки по
+   * устаревшим индексам: упражнение прыгает назад, а в базу уезжает порядок,
+   * которого человек не видел. Здесь же лежит и номер указателя — второй
+   * палец, коснувшийся соседней ручки, иначе перехватывал бы жест на себя, и
+   * движения первого двигали бы чужую строку.
+   */
+  const drag = useRef<{ id: string; pointerId: number } | null>(null)
+  const live = useRef<string[]>([])
+  /** Откуда считаем смещение. Обнуляется при каждой перестановке. */
+  const originY = useRef(0)
+  const shifted = useRef(0)
+  const rows = useRef(new Map<string, HTMLElement>())
+  const listRef = useRef<HTMLDivElement | null>(null)
+
+  const ordered = useMemo(() => {
+    if (!order) return items
+    const byId = new Map(items.map((i) => [i.id, i]))
+    const list = order.map((id) => byId.get(id)).filter((i): i is WorkoutTemplateItem => !!i)
+    // Состав изменился под рукой — упражнение добавили или удалили с другого
+    // устройства. Свой порядок больше не про эти строки, слушаем базу.
+    return list.length === items.length ? list : items
+  }, [order, items])
+
+  const reset = () => {
+    drag.current = null
+    shifted.current = 0
+    setDragId(null)
+    setShift(0)
+    setOrder(null)
+  }
+
+  const move = (v: number) => {
+    shifted.current = v
+    setShift(v)
+  }
+
+  // Строку могли удалить прямо во время жеста — тогда ни pointerup, ни
+  // pointercancel до нас не дойдут: обработчики уехали вместе с разметкой.
+  // Без этого возврата день навсегда остался бы со своим порядком.
+  useEffect(() => {
+    if (dragId && !items.some((i) => i.id === dragId)) reset()
+  }, [items, dragId])
+
+  /** Не даём строке уехать за пределы дня — под таббар или на чужую карточку. */
+  const clamp = (raw: number): number => {
+    const id = drag.current?.id
+    const el = id ? rows.current.get(id) : null
+    const box = listRef.current
+    if (!el || !box) return raw
+    const r = el.getBoundingClientRect()
+    const b = box.getBoundingClientRect()
+    // getBoundingClientRect уже со сдвигом — вычитаем его, чтобы получить
+    // место, где строка стоит на самом деле.
+    const top = r.top - shifted.current
+    const bottom = r.bottom - shifted.current
+    return Math.max(b.top - top, Math.min(b.bottom - bottom, raw))
+  }
+
+  /**
+   * Над каким упражнением палец. Меряем сами, а не спрашиваем
+   * `elementFromPoint`: перетаскиваемая строка закрывает собой то, что под
+   * ней, и её пришлось бы выключать из попадания — а она же и держит захват
+   * указателя.
+   *
+   * Меняемся местами по середине соседа, а не по касанию края: у порога в
+   * край строка дрожала бы между двумя местами всю дорогу.
+   */
+  const targetAt = (y: number, dragged: string): string | null => {
+    const list = live.current
+    const from = list.indexOf(dragged)
+    if (from < 0) return null
+
+    let best: { id: string; to: number } | null = null
+    for (const [id, el] of rows.current) {
+      if (id === dragged) continue
+      const to = list.indexOf(id)
+      if (to < 0) continue
+      const r = el.getBoundingClientRect()
+      const middle = r.top + r.height / 2
+      if (!(to > from ? y > middle : y < middle)) continue
+      // Палец мог перескочить через несколько строк разом — берём дальнюю
+      // из пройденных, иначе за рывок переставится только одна.
+      if (!best || Math.abs(to - from) > Math.abs(best.to - from)) best = { id, to }
+    }
+    return best?.id ?? null
+  }
+
+  /** Записать порядок, если он и правда изменился. */
+  const commit = async (next: string[]) => {
+    const current = items.map((i) => i.id)
+    const sameSet = next.length === current.length && next.every((id) => current.includes(id))
+    // Просто коснулись ручки — в базу не лезем: перенумерация поднимает метку
+    // правки всем строкам дня, и при обмене они победили бы чужую правку
+    // только потому, что записаны позже.
+    if (!sameSet || next.join() === current.join()) {
+      setOrder(null)
+      return
+    }
+    try {
+      await reorderTemplateItems(next)
+    } catch {
+      // Молчать здесь нельзя: экран показывает один порядок, база хранит
+      // другой, и увидеть это можно только с третьего устройства.
+      toast(t('Не удалось сохранить порядок — попробуйте ещё раз'))
+    } finally {
+      setOrder(null)
+    }
+  }
+
+  const startDrag = (e: ReactPointerEvent<HTMLElement>, id: string) => {
+    if (drag.current) return
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    drag.current = { id, pointerId: e.pointerId }
+    live.current = ordered.map((i) => i.id)
+    originY.current = e.clientY
+    setOrder(live.current)
+    setDragId(id)
+    move(0)
+    haptics.selection()
+  }
+
+  const moveDrag = (e: ReactPointerEvent<HTMLElement>) => {
+    const state = drag.current
+    if (!state || state.pointerId !== e.pointerId) return
+    move(clamp(e.clientY - originY.current))
+
+    const overId = targetAt(e.clientY, state.id)
+    if (!overId) return
+
+    const list = [...live.current]
+    const from = list.indexOf(state.id)
+    const to = list.indexOf(overId)
+    if (from < 0 || to < 0) return
+    list.splice(to, 0, ...list.splice(from, 1))
+    live.current = list
+    setOrder(list)
+
+    // Строка встала на новое место прямо под пальцем — смещение считаем
+    // заново, иначе она уехала бы от него на высоту соседа.
+    originY.current = e.clientY
+    move(0)
+    haptics.selection()
+  }
+
+  const endDrag = async (e: ReactPointerEvent<HTMLElement>) => {
+    const state = drag.current
+    if (!state || state.pointerId !== e.pointerId) return
+    drag.current = null
+    shifted.current = 0
+    setDragId(null)
+    setShift(0)
+    await commit(live.current)
+  }
+
+  /**
+   * Перестановка с клавиатуры — стрелками на ручке.
+   *
+   * Не только ради доступности: страница во время жеста не прокручивается
+   * (иначе палец таскал бы её вместе с упражнением), и в дне, который не
+   * помещается на экран, перенести первое упражнение в конец одним движением
+   * нельзя в принципе. Стрелками — можно.
+   */
+  const nudge = async (id: string, delta: number) => {
+    const list = ordered.map((i) => i.id)
+    const from = list.indexOf(id)
+    const to = from + delta
+    if (from < 0 || to < 0 || to >= list.length) return
+    list.splice(to, 0, ...list.splice(from, 1))
+    live.current = list
+    setOrder(list)
+    haptics.selection()
+    await commit(list)
+  }
+
+  return (
+    <div className="mt-4">
+      <div className="row between mb-2">
+        <div className="strong">{t(routine.name)}</div>
+        <button className="btn sm primary" onClick={onStart}>
+          <IconPlay size={13} /> {t('Начать')}
+        </button>
+      </div>
+
+      <div className="card day-card" ref={listRef}>
+        {ordered.length === 0 && <div className="mute-sm day-empty">{t('Пока пусто')}</div>}
+        {ordered.map((item, idx) => {
+          const ex = exMap.get(item.exercise_id)
+          const dragging = dragId === item.id
+          return (
+            <div
+              key={item.id}
+              className={`ex-row${dragging ? ' dragging' : ''}`}
+              style={dragging ? { transform: `translateY(${shift}px)` } : undefined}
+              ref={(el) => {
+                if (el) rows.current.set(item.id, el)
+                else rows.current.delete(item.id)
+              }}
+            >
+              <div className="row between">
+                {/* Ручка перетаскивания слева: за неё берут, чтобы обычное
+                    касание строки по-прежнему открывало технику, а не
+                    начинало перестановку. */}
+                {editable && (
+                  <button
+                    className="icon-btn drag-handle"
+                    aria-label={`${t('Переставить')}: ${exName(ex?.name) || t('Упражнение')}`}
+                    title={t('Тяните или меняйте порядок стрелками')}
+                    onPointerDown={(e) => startDrag(e, item.id)}
+                    onPointerMove={moveDrag}
+                    onPointerUp={endDrag}
+                    onPointerCancel={endDrag}
+                    onKeyDown={(e) => {
+                      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+                      e.preventDefault()
+                      void nudge(item.id, e.key === 'ArrowUp' ? -1 : 1)
+                    }}
+                  >
+                    <IconGrip size={16} />
+                  </button>
+                )}
+
+                {/* Номер упражнения. Тренер и клиент говорят «третье в дне»,
+                    а не «то, что после тяги», — до нумерации это приходилось
+                    каждый раз пересчитывать глазами. */}
+                <span className="ex-num mute-sm figures">{idx + 1}</span>
+
+                {/* Строка ведёт к технике: без неё клиент видит название
+                    и не понимает, как упражнение делать. */}
+                <button className="row grow ex-name" onClick={() => ex && onTechnique(ex.id)}>
+                  {ex?.image_url ? (
+                    <img src={ex.image_url} alt="" className="ex-thumb" loading="lazy" />
+                  ) : (
+                    <span className="ex-thumb placeholder" />
+                  )}
+                  <span className="grow">
+                    <span className="truncate" style={{ display: 'block' }}>
+                      {exName(ex?.name) || t('Упражнение')}
+                    </span>
+                    <span className="mute-sm">
+                      {t(ex?.muscle_group ?? '')} · {t('как делать')}
+                    </span>
+                  </span>
+                  <span className="chevron">
+                    <IconChevronRight size={16} />
+                  </span>
+                </button>
+
+                {/* Техника нужна обоим: программу открывают до зала, чтобы
+                    понять, что предстоит. А вот статистика по подходам —
+                    только тому, кто по программе занимается: она считает
+                    подходы того, кто смотрит, и тренеру, собирающему
+                    программу клиенту, показала бы его собственные. Заодно
+                    это возвращает строке ширину, которую забрали ручка и
+                    номер: на 360 пикселях кнопок в ряд помещается четыре. */}
+                {ex && (
+                  <button
+                    className="icon-btn"
+                    onClick={() => onTechnique(ex.id)}
+                    aria-label={`${t('Как делать')}: ${exName(ex.name)}`}
+                    title={t('Как делать')}
+                  >
+                    <IconInfo size={17} />
+                  </button>
+                )}
+                {ex && !editable && (
+                  <button
+                    className="icon-btn"
+                    onClick={() => onStats(ex)}
+                    aria-label={`${t('Статистика')}: ${exName(ex.name)}`}
+                    title={t('Статистика по подходам')}
+                  >
+                    <IconChart size={17} />
+                  </button>
+                )}
+                {editable && (
+                  <button
+                    className="icon-btn"
+                    onClick={() => void deleteTemplateItem(item.id)}
+                    aria-label={`${t('Удалить')}: ${exName(ex?.name) || t('Упражнение')}`}
+                  >
+                    <IconTrash size={16} />
+                  </button>
+                )}
+              </div>
+
+              {/* Слово тренера об этом упражнении в этой программе. Стоит
+                  выше цифр: указание вроде «пауза внизу» меняет то, как
+                  человек будет делать подход, а не то, сколько их. Отступы
+                  те же, что у разбора ниже (`inset`), — два блока слов
+                  тренера подряд обязаны стоять по одной линии. */}
+              {item.note && <div className="quote inset mt-2">{item.note}</div>}
+
+              {/* История и разбор — только у того, кто по программе
+                  занимается. Тренеру, который её правит, показывать нечего:
+                  клиента здесь нет, а его собственные подходы к чужой
+                  программе отношения не имеют. */}
+              {!editable && ex && (
+                <>
+                  <CoachHint exerciseId={ex.id} />
+                  <ExerciseBrief exerciseId={ex.id} />
+                </>
+              )}
+
+              {/* Три поля в строке на узком экране становятся по
+                  восемьдесят пикселей, а с верхней границей их четыре.
+                  Поэтому отдых уехал во вторую строку: он меняется
+                  реже всех, и терять на нём ширину обиднее всего. */}
+              <div className="row num-row mt-2">
+                <NumField
+                  label={t('подходы')}
+                  value={item.target_sets}
+                  disabled={!editable}
+                  onChange={(v) => patchItem(item.id, { target_sets: v })}
+                />
+                <NumField
+                  label={t('повторы от')}
+                  value={item.target_reps ?? 0}
+                  disabled={!editable}
+                  onChange={(v) =>
+                    patchItem(item.id, {
+                      target_reps: v,
+                      // Верх ниже низа — не диапазон, а опечатка.
+                      // Подтягиваем его, а не запрещаем ввод.
+                      ...(item.target_reps_max != null && item.target_reps_max < v
+                        ? { target_reps_max: v }
+                        : {}),
+                    })
+                  }
+                />
+                <NumField
+                  label={t('до')}
+                  value={item.target_reps_max ?? item.target_reps ?? 0}
+                  min={item.target_reps ?? 0}
+                  disabled={!editable}
+                  onChange={(v) =>
+                    patchItem(item.id, {
+                      // Верх, равный низу, это не диапазон — стираем,
+                      // чтобы не показывать клиенту «10-10».
+                      target_reps_max: v > (item.target_reps ?? 0) ? v : undefined,
+                    })
+                  }
+                />
+              </div>
+              <div className="row num-row mt-2">
+                <NumField
+                  label={t('отдых, сек')}
+                  value={item.rest_seconds}
+                  step={15}
+                  disabled={!editable}
+                  onChange={(v) => patchItem(item.id, { rest_seconds: v })}
+                />
+                {editable && (
+                  <button className="btn sm" onClick={() => onNote(item)}>
+                    <IconPencil size={14} />{' '}
+                    {item.note ? t('Изменить комментарий') : t('Добавить комментарий')}
+                  </button>
+                )}
+              </div>
+            </div>
+          )
+        })}
+
+        {editable && (
+          <div className="day-add">
+            <button className="btn sm block" onClick={onAdd}>
+              <IconPlus size={15} /> {t('Добавить упражнение')}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Комментарий тренера к упражнению в программе.
+ *
+ * Шторкой, а не полем в строке: пишут его редко, а место в строке он занимал
+ * бы всегда — и на телефоне вытеснил бы цифры, ради которых на экран и
+ * заходят. Пустой текст комментарий снимает.
+ */
+function NoteSheet({
+  item,
+  name,
+  onClose,
+  onSave,
+}: {
+  item: WorkoutTemplateItem | null
+  name: string
+  onClose: () => void
+  onSave: (note: string | undefined) => void
+}) {
+  const [text, setText] = useState('')
+
+  // Набранное не стираем при закрытии — только при переходе к другому
+  // упражнению. Шторка закрывается касанием фона, а на телефоне рядом с
+  // клавиатурой в него попадают часто; терять из-за этого написанное нельзя.
+  useEffect(() => {
+    if (item) setText(item.note ?? '')
+  }, [item?.id])
+
+  return (
+    <Sheet open={!!item} title={name || t('Комментарий к упражнению')} onClose={onClose}>
+      <div className="stack">
+        <div className="field">
+          <label>{t('Что важно в этом упражнении')}</label>
+          <textarea
+            className="textarea"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={t('Например: пауза внизу секунду, последний подход до отказа')}
+          />
+          <div className="mute-sm mt-1">
+            {t('Клиент увидит это в программе и на тренировке, у самого упражнения.')}
+          </div>
+        </div>
+        <button
+          className="btn primary block"
+          onClick={() => {
+            onSave(text.trim() || undefined)
+            onClose()
+          }}
+        >
+          {t('Сохранить')}
+        </button>
+      </div>
+    </Sheet>
   )
 }
 
@@ -577,7 +924,9 @@ function PlanSheet({
                 </span>
                 <span className="grow title">{t(r.name)}</span>
                 <span className="value">
-                  {WEEKDAYS.filter((_, wd) => slots[wd] === r.id).map(t).join(', ') || t('не назначен')}
+                  {WEEKDAYS.filter((_, wd) => slots[wd] === r.id)
+                    .map(t)
+                    .join(', ') || t('не назначен')}
                 </span>
               </div>
             ))}

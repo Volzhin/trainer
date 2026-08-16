@@ -2,7 +2,6 @@ import {
   db,
   deleteManySynced,
   deleteSynced,
-  enqueue,
   uid,
   now,
   currentUserId,
@@ -22,13 +21,13 @@ import {
   type WorkoutRoutine,
   type WorkoutSession,
 } from './db'
+import { deleteAttachment } from './files'
 import { issueRequiredTasks } from './reports'
 import { syncCatalogPrograms } from './seed'
 import { estimate1RM, startOfDay, weekStart } from '../lib/calc'
 import { locale, t } from '../lib/i18n'
 import {
   createInvite as remoteCreateInvite,
-  deleteRemoteAttachment,
   isAuthed,
   redeemInvite as remoteRedeemInvite,
   revokeInvite as remoteRevokeInvite,
@@ -1244,20 +1243,10 @@ export async function attachmentsForSession(sessionId: string): Promise<Attachme
   return rows.sort((a, b) => a.created_at - b.created_at)
 }
 
-export async function deleteAttachment(id: string) {
-  const row = await db.attachments.get(id)
-  await db.attachments.delete(id)
-  if (!row) return
-
-  // Файл на сервере надо снести отдельно: иначе видео, которое человек у
-  // себя удалил, продолжит лежать в хранилище и показываться тренеру.
-  // Запись об удалении ставим в очередь в любом случае — без сети файл
-  // снести не выйдет, но и забывать об удалении нельзя.
-  if (row.remote_id) {
-    if (isAuthed()) await deleteRemoteAttachment(row.remote_id).catch(() => {})
-    await enqueue('attachments', id, 'delete', row)
-  }
-}
+// Само удаление переехало в files.ts: им пользуются и задания, а обратный
+// импорт из reports.ts замкнул бы модули друг на друга. Здесь оставлен
+// повторный вывоз, чтобы не переписывать полдесятка мест, которые его зовут.
+export { deleteAttachment } from './files'
 
 export async function feedbackForSession(sessionId: string): Promise<Feedback[]> {
   const rows = await db.feedback.where('session_id').equals(sessionId).toArray()

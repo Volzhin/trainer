@@ -97,12 +97,15 @@ export function LiveSession() {
   const exercises = useExercises()
 
   /*
-   * Цель по подходам и повторам из программы. Клиент её раньше не видел
-   * вовсе: тренер задавал «3 по 8-12», а у снаряда стояли пустые поля, и
-   * коридор оставался в голове у одного из двоих.
+   * Что задано программой: цель по подходам с повторами и слово тренера про
+   * само упражнение. Цели клиент раньше не видел вовсе: тренер задавал
+   * «3 по 8-12», а у снаряда стояли пустые поля, и коридор оставался в голове
+   * у одного из двоих. С комментарием то же самое — он написан для этого
+   * момента, а не для чтения дома.
    */
-  const targets = useLiveQuery(async () => {
-    if (!session?.routine_id) return new Map<string, string>()
+  const plan = useLiveQuery(async () => {
+    const empty = new Map<string, { target: string; note?: string }>()
+    if (!session?.routine_id) return empty
     const items = await db.templateItems
       .where('routine_id')
       .equals(session.routine_id)
@@ -110,7 +113,15 @@ export function LiveSession() {
     return new Map(
       items.map((i) => {
         const reps = formatReps(i.target_reps, i.target_reps_max)
-        return [i.exercise_id, reps ? `${i.target_sets} × ${reps}` : `${i.target_sets} ${t('подх.')}`]
+        return [
+          i.exercise_id,
+          {
+            target: reps
+              ? `${i.target_sets} × ${reps}`
+              : `${i.target_sets} ${t('подх.')}`,
+            note: i.note,
+          },
+        ]
       }),
     )
   }, [session?.routine_id])
@@ -370,17 +381,17 @@ export function LiveSession() {
                     {/* Цель важнее истории: по ней человек решает, сколько
                         делать сейчас. Прошлый раз подсказывает вес и потому
                         идёт следом, а не вместо. */}
-                    {targets?.get(block.exercise.id) && (
+                    {plan?.get(block.exercise.id) && (
                       <span style={{ color: 'var(--accent-ink)' }}>
-                        {t('цель')} {targets.get(block.exercise.id)}
+                        {t('цель')} {plan.get(block.exercise.id)?.target}
                       </span>
                     )}
-                    {targets?.get(block.exercise.id) && block.prev.length > 0 && ' · '}
+                    {plan?.get(block.exercise.id) && block.prev.length > 0 && ' · '}
                     {block.prev.length > 0
                       ? `${t('прошлый раз')} ${formatWeight(block.prev[0].weight_kg)} ${t('кг')} × ${
                           block.prev[0].reps_completed ?? '—'
                         }`
-                      : !targets?.get(block.exercise.id) && t('как делать')}
+                      : !plan?.get(block.exercise.id) && t('как делать')}
                   </span>
                 </span>
               </button>
@@ -418,7 +429,14 @@ export function LiveSession() {
             </div>
 
             {/* Слово тренера стоит выше таблицы подходов: оно должно попасть
-                на глаза до того, как человек наберёт вес, а не после. */}
+                на глаза до того, как человек наберёт вес, а не после.
+                Сначала — то, что сказано про упражнение в самой программе:
+                это условие каждого повторения дня, а разбор ниже относится к
+                одной прошедшей тренировке. */}
+            {plan?.get(block.exercise.id)?.note && (
+              <div className="quote inset">{plan.get(block.exercise.id)?.note}</div>
+            )}
+
             <CoachHint exerciseId={block.exercise.id} />
 
             <ExerciseBrief exerciseId={block.exercise.id} />

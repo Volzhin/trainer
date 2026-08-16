@@ -3,11 +3,13 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import {
   acceptTask,
   addTask,
+  deleteTask,
   deleteTaskTemplate,
   listTaskTemplates,
   reviewedRefs,
   saveTaskTemplate,
   submittedNutritionDays,
+  taskFileCount,
   tasksOf,
   workoutReportsOf,
 } from '../db/reports'
@@ -50,6 +52,8 @@ export function ClientReports({ clientId }: { clientId: string }) {
   // нигде больше не показываются, а собирали их ради него.
   const [reading, setReading] = useState<ClientTask | null>(null)
   const [taskOpen, setTaskOpen] = useState(false)
+  /** Задание, которое тренер собрался снять. Через подтверждение — см. ниже. */
+  const [removing, setRemoving] = useState<ClientTask | null>(null)
 
 
   const loading =
@@ -142,12 +146,24 @@ export function ClientReports({ clientId }: { clientId: string }) {
               title={t(task.title)}
               sub={taskSub(task)}
               danger={isOverdue(task)}
-            />
+            >
+              {/* Снять выданное. У «ждут проверки» такой кнопки нет намеренно:
+                  там от тренера ждут «Принять», а снести сделанное клиентом
+                  одним нажатием рядом с ним — слишком легко промахнуться.
+                  Принятое потом убирается из архива. */}
+              <button
+                className="icon-btn"
+                aria-label={`${t('Удалить задание')} «${task.title}»`}
+                onClick={() => setRemoving(task)}
+              >
+                <IconTrash size={15} />
+              </button>
+            </Row>
           ))}
         </Group>
       )}
 
-      {archived.length > 0 && <ArchivedTasks tasks={archived} />}
+      {archived.length > 0 && <ArchivedTasks tasks={archived} onRemove={setRemoving} />}
       <button className="btn block mt-3" onClick={() => setTaskOpen(true)}>
         <IconPlus size={16} /> {t('Выдать задание')}
       </button>
@@ -179,7 +195,93 @@ export function ClientReports({ clientId }: { clientId: string }) {
         onClose={() => setTaskOpen(false)}
         onDone={() => toast('Задание выдано')}
       />
+
+      <RemoveTaskSheet
+        task={removing}
+        trainerId={userId}
+        onClose={() => setRemoving(null)}
+        onDone={() => toast(t('Задание снято'))}
+      />
     </div>
+  )
+}
+
+/**
+ * Подтверждение снятия задания.
+ *
+ * Отдельным шагом, потому что снятие видно клиенту и необратимо: задание
+ * исчезнет у него с главной, а приложенные к нему файлы — из хранилища.
+ * Сколько их, говорим до нажатия, а не после.
+ */
+function RemoveTaskSheet({
+  task,
+  trainerId,
+  onClose,
+  onDone,
+}: {
+  task: ClientTask | null
+  trainerId: string
+  onClose: () => void
+  onDone: () => void
+}) {
+  const { toast } = useApp()
+  const [busy, setBusy] = useState(false)
+  const [files, setFiles] = useState(0)
+
+  // Считаем один раз, при открытии, а не подпиской: индекса по task_id нет, и
+  // подписка перечитывала бы всю таблицу вложений с видео внутри на каждое
+  // изменение — см. taskFileCount.
+  useEffect(() => {
+    if (!task) return
+    let alive = true
+    void taskFileCount(task.id).then((n) => {
+      if (alive) setFiles(n)
+    })
+    return () => {
+      alive = false
+    }
+  }, [task?.id])
+
+  const remove = async () => {
+    if (!task) return
+    setBusy(true)
+    try {
+      await deleteTask(task.id, trainerId)
+      haptics.success()
+      onDone()
+      onClose()
+    } catch {
+      toast(t('Не удалось снять задание — попробуйте ещё раз'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Sheet open={!!task} title={t('Снять задание')} onClose={onClose}>
+      <div className="stack">
+        {/* Формулировку задания писал тренер — это его текст, не строка
+            интерфейса, и переводить его нельзя. */}
+        <div className="strong">{task?.title}</div>
+        <div className="muted">
+          {task?.required === 1
+            ? t('Обязательное задание. Оно вернётся, если связь с клиентом оформят заново.')
+            : t('Клиент перестанет его видеть.')}
+        </div>
+        {/* Файлы не трогаем: у клиента это единственная копия его же фото.
+            Но и молчать о них нельзя — открыть их после снятия будет
+            неоткуда, и решать это тренеру до нажатия, а не задним числом. */}
+        {files > 0 && (
+          <div className="muted">
+            {t('Приложенных файлов')}: {files}.{' '}
+            {t('Они останутся у клиента, но открыть их будет неоткуда — задания, из которого они видны, не станет.')}
+          </div>
+        )}
+        <button className="btn danger block" disabled={busy} onClick={remove}>
+          {busy ? t('Снимаю…') : t('Снять задание')}
+        </button>
+      </div>
+    </Sheet>
   )
 }
 
@@ -211,7 +313,13 @@ function taskSub(task: ClientTask): string {
 }
 
 /** Принятые задания. Свёрнуты: это архив, за ним приходят намеренно. */
-function ArchivedTasks({ tasks }: { tasks: ClientTask[] }) {
+function ArchivedTasks({
+  tasks,
+  onRemove,
+}: {
+  tasks: ClientTask[]
+  onRemove: (task: ClientTask) => void
+}) {
   const [open, setOpen] = useState(false)
   return (
     <>
@@ -226,7 +334,15 @@ function ArchivedTasks({ tasks }: { tasks: ClientTask[] }) {
               title={t(task.title)}
               sub={task.answer ? `${t('Принято')} · ${task.answer}` : t('Принято')}
               value={<IconCheck size={16} />}
-            />
+            >
+              <button
+                className="icon-btn"
+                aria-label={`${t('Удалить задание')} «${task.title}»`}
+                onClick={() => onRemove(task)}
+              >
+                <IconTrash size={15} />
+              </button>
+            </Row>
           ))}
         </Group>
       )}

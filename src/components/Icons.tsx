@@ -330,3 +330,26 @@ export const IconApple = ({ size }: P) => (
     <path d="M12 8.2V5.6C12 4.2 13.1 3 14.6 3" />
   </svg>
 )
+
+/**
+ * Ручка перетаскивания. Точками, а не стрелками вверх-вниз: стрелки обещают
+ * два нажатия, а здесь берут и тащат.
+ */
+export const IconGrip = ({ size }: P) => (
+  <svg {...base(size)} fill="currentColor" stroke="none">
+    <circle cx="9" cy="6" r="1.5" />
+    <circle cx="15" cy="6" r="1.5" />
+    <circle cx="9" cy="12" r="1.5" />
+    <circle cx="15" cy="12" r="1.5" />
+    <circle cx="9" cy="18" r="1.5" />
+    <circle cx="15" cy="18" r="1.5" />
+  </svg>
+)
+
+/** Карандаш — правка того, что написано словами: комментарий, заметка. */
+export const IconPencil = ({ size }: P) => (
+  <svg {...base(size)}>
+    <path d="M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16v4z" />
+    <path d="m13.5 6.5 4 4" />
+  </svg>
+)

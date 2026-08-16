@@ -10,6 +10,12 @@ import {
   type NotificationKind,
 } from '../db/db'
 import { exportHistoryCsv } from '../db/repo'
+import {
+  describeDemoTrace,
+  findDemoTrace,
+  hasDemoTrace,
+  removeDemoTrace,
+} from '../db/demoCleanup'
 import { updateAccount } from '../lib/backend'
 import { getLang, t } from '../lib/i18n'
 import { seedCatalog } from '../db/seed'
@@ -331,6 +337,8 @@ export function Settings() {
         )}
       </Group>
 
+      <DemoLeftovers />
+
       <AccountSection />
 
       <div className="mute-sm text-center mt-5">
@@ -361,6 +369,92 @@ export function Settings() {
       </Sheet>
       <HelpSheet open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
+  )
+}
+
+/**
+ * Следы демо-режима в аккаунте.
+ *
+ * Раздел появляется, только когда есть что убирать, и исчезает после уборки:
+ * постоянной кнопки «удалить выдуманное» в настройках быть не должно —
+ * приложение больше ничего не выдумывает. Но у тех, кто успел нажать
+ * «показать на примере», выдуманные тренировки уехали на сервер и висят у
+ * тренера как настоящие, а профиль подписан чужим именем. Молча стереть их
+ * на месте нельзя: удаление доезжает до сервера только очередью мутаций, —
+ * поэтому уборка живёт в приложении, а не в чьей-то консоли.
+ */
+function DemoLeftovers() {
+  const { toast, userId } = useApp()
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  const trace = useLiveQuery(() => findDemoTrace(userId), [userId])
+  if (!trace || !hasDemoTrace(trace)) return null
+
+  const lines = describeDemoTrace(trace)
+
+  const remove = async () => {
+    setBusy(true)
+    try {
+      await removeDemoTrace(userId)
+      toast(t('Демо-данные убраны'))
+      setConfirmOpen(false)
+    } catch {
+      toast(t('Не удалось убрать — попробуйте ещё раз'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <>
+      <div className="section-title">{t('Демонстрационные данные')}</div>
+      <div className="card warn">
+        <div className="muted">
+          {t('В аккаунте лежат данные из демо-режима: их завело приложение, а не вы. Тренер видит их наравне с настоящими.')}
+        </div>
+        <div className="stack tight mt-3">
+          {lines.map((line) => (
+            <div className="mute-sm" key={line}>
+              {line}
+            </div>
+          ))}
+        </div>
+        <button className="btn ghost danger block mt-4" onClick={() => setConfirmOpen(true)}>
+          {t('Убрать демо-данные')}
+        </button>
+      </div>
+
+      <Sheet
+        open={confirmOpen}
+        title={t('Убрать демо-данные')}
+        onClose={() => setConfirmOpen(false)}
+      >
+        <div className="stack">
+          <div className="muted">{t('Будет убрано:')}</div>
+          <div className="stack tight">
+            {lines.map((line) => (
+              <div className="mute-sm" key={line}>
+                {line}
+              </div>
+            ))}
+          </div>
+          {trace.fields.length > 0 && (
+            <div className="muted">
+              {t('Поля профиля не подменяем правдоподобными — освобождаем: правильные значения знаете только вы, и приложение спросит их заново.')}
+            </div>
+          )}
+          {/* Обещать «сразу» нельзя: удалений здесь сотни, сервер просит
+              сбавлять темп, и очередь расходится несколькими проходами. */}
+          <div className="mute-sm">
+            {t('Удаление уезжает на сервер фоном — у тренера и на других ваших устройствах эти строки пропадут в течение нескольких минут.')}
+          </div>
+          <button className="btn danger block" disabled={busy} onClick={remove}>
+            {busy ? t('Убираю…') : t('Убрать')}
+          </button>
+        </div>
+      </Sheet>
+    </>
   )
 }
 

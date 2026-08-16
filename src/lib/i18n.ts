@@ -1506,6 +1506,57 @@ const EN: Record<string, string> = {
   октябрь: 'October',
   ноябрь: 'November',
   декабрь: 'December',
+
+  /* --- уборка за демо-режимом: раздел виден, только пока есть что убрать --- */
+  'Демонстрационные данные': 'Demo data',
+  'В аккаунте лежат данные из демо-режима: их завело приложение, а не вы. Тренер видит их наравне с настоящими.':
+    'Your account holds data from the demo mode: the app made it up, you did not. Your coach sees it as real.',
+  'Убрать демо-данные': 'Remove demo data',
+  'Будет убрано:': 'Will be removed:',
+  'Поля профиля не подменяем правдоподобными — освобождаем: правильные значения знаете только вы, и приложение спросит их заново.':
+    'Profile fields are cleared, not replaced with plausible numbers: only you know the right ones, and the app will ask again.',
+  'Удаление уезжает на сервер фоном — у тренера и на других ваших устройствах эти строки пропадут в течение нескольких минут.':
+    'The deletion goes up in the background — the rows disappear for your coach and on your other devices within a few minutes.',
+  Убрать: 'Remove',
+  'Убираю…': 'Removing…',
+  'Демо-данные убраны': 'Demo data removed',
+  'Не удалось убрать — попробуйте ещё раз': 'Could not remove — try again',
+  Тренировок: 'Workouts',
+  'подходов в них': 'sets in them',
+  Замеров: 'Measurements',
+  'В профиле': 'In the profile',
+  'Выдуманные клиенты': 'Made-up clients',
+  имя: 'name',
+  пол: 'sex',
+  рост: 'height',
+  'обхват шеи': 'neck girth',
+  'целевой вес': 'goal weight',
+  уровень: 'level',
+
+  /* --- снятие выданного задания --- */
+  'Удалить задание': 'Delete task',
+  'Снять задание': 'Withdraw task',
+  'Снимаю…': 'Withdrawing…',
+  'Задание снято': 'Task withdrawn',
+  'Клиент перестанет его видеть.': 'The client will stop seeing it.',
+  'Обязательное задание. Оно вернётся, если связь с клиентом оформят заново.':
+    'A required task. It comes back if the client is linked again.',
+  'Приложенных файлов': 'Attached files',
+  'Они останутся у клиента, но открыть их будет неоткуда — задания, из которого они видны, не станет.':
+    'They stay with the client, but there will be no way to open them — the task they show up in is gone.',
+  'Не удалось снять задание — попробуйте ещё раз': 'Could not withdraw the task — try again',
+
+  /* --- сборка программы: порядок и комментарий к упражнению --- */
+  Переставить: 'Reorder',
+  'Тяните или меняйте порядок стрелками': 'Drag, or reorder with arrow keys',
+  'Не удалось сохранить порядок — попробуйте ещё раз': 'Could not save the order — try again',
+  'Добавить комментарий': 'Add a comment',
+  'Изменить комментарий': 'Edit the comment',
+  'Что важно в этом упражнении': 'What matters in this exercise',
+  'Например: пауза внизу секунду, последний подход до отказа':
+    'For example: one second pause at the bottom, last set to failure',
+  'Клиент увидит это в программе и на тренировке, у самого упражнения.':
+    'The client sees this in the program and during the workout, right at the exercise.',
 }
 
 /**
