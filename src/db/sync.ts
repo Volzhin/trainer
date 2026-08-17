@@ -638,6 +638,58 @@ async function apply(rec: RemoteRecord): Promise<boolean> {
 // --- Вложения ---
 
 /**
+ * Какое вложение уезжает прямо сейчас.
+ *
+ * Тяжёлый ролик грузится минутами, и без этого признака экран не отличает
+ * «отправляется» от «лежит и не отправляется»: и там и там на устройстве
+ * просто файл. Отправка идёт по одному, поэтому хватает одного значения.
+ */
+let uploadingId: string | null = null
+const uploadWatchers = new Set<(id: string | null) => void>()
+
+export const uploadingAttachment = (): string | null => uploadingId
+
+/** Подписка для экранов: отправка идёт в фоне, между перерисовками. */
+export function onAttachmentUpload(fn: (id: string | null) => void): () => void {
+  uploadWatchers.add(fn)
+  fn(uploadingId)
+  return () => {
+    uploadWatchers.delete(fn)
+  }
+}
+
+function setUploading(id: string | null) {
+  if (id === uploadingId) return
+  uploadingId = id
+  for (const fn of uploadWatchers) fn(id)
+}
+
+/**
+ * Отказал ли сервер именно по размеру файла.
+ *
+ * Отказ приходит с двух разных рубежей и выглядит по-разному. nginx отбивает
+ * тело раньше бэкенда и отвечает 413 своей html-страницей — до разбора ответа
+ * дело не доходит, попытка прочитать её как json падает сама. PocketBase
+ * отвечает 400 и разбором по полю file, где про предел сказано словами.
+ * Всё остальное (обрыв связи, 5xx, протухший токен) размером не вызвано и
+ * пометки не заслуживает: такое проходит само.
+ */
+function refusedBySize(e: unknown, size: number): boolean {
+  if (e instanceof ApiError) {
+    if (e.status === 413) return true
+    return e.status === 400 && /size|larg|limit|размер|больш/i.test(e.message)
+  }
+  /*
+   * Ответ не разобрался как json — отвечал не бэкенд, а nginx: у PocketBase
+   * json всегда. Так выглядит его страница 413, но так же выглядят 502 и 504,
+   * а это беды временные, и метить из-за них файл навсегда нельзя. Отсекаем
+   * по весу: предел nginx по умолчанию — мегабайт, и на файле меньше него
+   * отказ по размеру невозможен в принципе.
+   */
+  return e instanceof SyntaxError && size > 1024 * 1024
+}
+
+/**
  * Отправляет видео и фото техники.
  *
  * Файлы не идут через таблицу records: там json, а ролик должен отдаваться
@@ -649,8 +701,11 @@ async function pushAttachments(): Promise<number> {
   const me = authUser()
   if (!me) return 0
 
+  // Помеченные «сервер не принял по размеру» пропускаем: файл не похудеет, а
+  // каждый проход обмена тратил бы на него мобильный трафик впустую. Вернуть
+  // такой ролик в очередь может только человек — кнопкой у самого ролика.
   const pending = await db.attachments
-    .filter((a) => !a.remote_id && !!a.blob)
+    .filter((a) => !a.remote_id && !!a.blob && !a.upload_error)
     .limit(3)
     .toArray()
 
@@ -658,6 +713,7 @@ async function pushAttachments(): Promise<number> {
   for (const a of pending) {
     if (!a.blob) continue
     try {
+      setUploading(a.id)
       const ext = a.mime.includes('mp4')
         ? 'mp4'
         : a.mime.includes('quicktime')
@@ -682,9 +738,11 @@ async function pushAttachments(): Promise<number> {
       })
 
       // Строка со ссылкой уезжает без самого файла: он уже на сервере.
+      // Пометка о неудачной отправке — тоже дело этого устройства: на другом
+      // телефоне того же человека файла нет и отправлять ему нечего.
       const row = await db.attachments.get(a.id)
       if (row) {
-        const { blob: _blob, ...meta } = row
+        const { blob: _blob, upload_error: _err, ...meta } = row
         await upsertRecord({
           owner: a.user_id,
           tbl: 'attachments',
@@ -695,11 +753,43 @@ async function pushAttachments(): Promise<number> {
         })
       }
       sent++
-    } catch {
+    } catch (e) {
+      if (refusedBySize(e, a.blob.size)) {
+        /*
+         * Этот файл сервер не примет никогда, а следующий — вполне может.
+         * Поэтому помечаем и идём дальше, а не обрываем проход: иначе один
+         * тяжёлый ролик держал бы за собой всю очередь вложений, включая
+         * лёгкие фотографии отчётов.
+         *
+         * Полосу «данные не уходят» при этом не поднимаем: обмен не встал,
+         * не уехал ровно один файл — и говорит об этом сам ролик.
+         */
+        await db.attachments.update(a.id, { upload_error: 'too_big' })
+        continue
+      }
+      // Всё прочее — обрыв связи или сервер не в духе. Прервать проход
+      // дешевле, чем пытаться отправить следующий ролик по той же мёртвой
+      // сети; следующий проход начнёт с этого же файла.
       break
+    } finally {
+      setUploading(null)
     }
   }
   return sent
+}
+
+/**
+ * Вернуть помеченный ролик в очередь отправки.
+ *
+ * Нужна, потому что предел на сервере — величина изменяемая: подняли
+ * client_max_body_size в nginx или maxSize в схеме — и ролик, который вчера
+ * не приняли, сегодня уедет. Автоматически пометку не снимаем: тогда обмен
+ * снова начал бы возить гигабайт по кругу на мобильном интернете. Решает
+ * человек, у которого этот ролик перед глазами.
+ */
+export async function retryAttachment(id: string): Promise<void> {
+  await db.attachments.update(id, { upload_error: undefined })
+  void syncNow()
 }
 
 // --- Клиенты тренера ---

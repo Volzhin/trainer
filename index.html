@@ -3,9 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!--
+      interactive-widget=resizes-content — про клавиатуру и нижнюю панель.
+
+      По умолчанию мобильный Chrome клавиатурой ужимает только видимую часть
+      экрана, а разметочную оставляет прежней: `.tabbar` с `bottom: 0`
+      честно стоит внизу разметки — то есть за клавиатурой, — а во время её
+      появления успевает мелькнуть посреди экрана. В тренировке поля веса и
+      повторов стоят прямо над панелью, так что случается это постоянно.
+
+      Выбрана строчка в meta, а не подгонка через visualViewport в JS.
+      Скриптом пришлось бы двигать не одну панель: от неё отсчитываются
+      `.rest-bar`, `.session-banner`, `.toast` и нижнее поле `.screen` — пять
+      мест, повторяющих один и тот же сдвиг, и любое забытое разъезжается.
+      Хуже того, сдвиг делается через transform на fixed-элементе — ровно тот
+      способ композиции, из-за которого панель и уезжала. Здесь же ужимается
+      сама разметка, и `bottom: 0` снова означает «над клавиатурой» для всего,
+      что от низа считается, без единой строки кода.
+
+      Ограничение честное: свойство понимает Chromium, Safari на айфоне его
+      игнорирует. Там разметочное окно не ужимается вовсе, и для поверхностей
+      с полем ввода правило другое — `Sheet` подгоняет себя под visualViewport
+      (см. DESIGN.md). У панели вкладок поля ввода нет.
+    -->
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content"
     />
     <meta name="theme-color" content="#0b0d10" />
     <meta name="apple-mobile-web-app-capable" content="yes" />

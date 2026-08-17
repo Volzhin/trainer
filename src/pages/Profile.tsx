@@ -100,6 +100,14 @@ export function Profile() {
           onClick={() => nav('/progress')}
           chevron
         />
+        {/* Рядом с «Прогрессом», а не внутри него: то прогресс в числах, это
+            в фотографиях, и ищут их по-разному. */}
+        <Row
+          title={t('Прогресс в фото')}
+          sub={t('Серии по датам, сравнение и коллаж «было / стало»')}
+          onClick={() => nav('/progress/photos')}
+          chevron
+        />
       </Group>
 
 

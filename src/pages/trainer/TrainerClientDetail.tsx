@@ -25,6 +25,7 @@ import { ClientReports, isOverdue } from '../../components/ClientReports'
 import { pendingByTarget, tasksOf, weekProgress } from '../../db/reports'
 import { ChatThread } from '../../components/ChatThread'
 import { ClientWorkouts } from '../../components/ClientWorkouts'
+import { ProgressPhotosView } from '../ProgressPhotos'
 import { IconBack, IconCheck, IconChevronRight } from '../../components/Icons'
 import { formatDate, plural, startOfDay } from '../../lib/calc'
 import { useApp } from '../../store/app'
@@ -45,6 +46,11 @@ const TABS = [
   ['nutrition', 'Питание'],
   ['reports', 'Отчёты'],
   ['body', 'Тело'],
+  /* Фото стоят рядом с «Телом»: это тот же разговор о составе, только
+     глазами. Отдельная вкладка нужна потому, что раньше снимки открывались
+     только из сданного задания — тренер не мог посмотреть их «в любой
+     момент», а именно этого от него и ждут на созвоне. */
+  ['photos', 'Фото'],
   ['chat', 'Чат'],
 ] as const
 
@@ -235,6 +241,11 @@ export function TrainerClientDetail() {
 
       {tab === 'reports' && <ClientReports clientId={id} />}
 
+      {/* Тот же вид, что у клиента, но без съёмки: тренер смотрит и
+          сравнивает. Снимки доезжают до него своим путём — файлы вложений
+          лежат на сервере, и ShotThumb берёт их по защищённой ссылке. */}
+      {tab === 'photos' && <ProgressPhotosView userId={id} readOnly />}
+
       {tab === 'nutrition' && <ClientNutritionReview clientId={id} />}
 
 
@@ -418,8 +429,10 @@ function PaymentCard({
 
   return (
     <div className="card">
-      <div className="row" style={{ gap: 8 }}>
-        <div className="field grow">
+      {/* Не `row`: две даты рядом не помещаются в карточку на телефоне, а
+          поле даты не сжимается — раскладка сама решает, ряд или столбик. */}
+      <div className="field-pair">
+        <div className="field">
           <label htmlFor="paid-at">{t('Оплачено')}</label>
           <input
             id="paid-at"
@@ -430,7 +443,7 @@ function PaymentCard({
             onChange={(e) => void save({ paidAt: parseDateInput(e.target.value) })}
           />
         </div>
-        <div className="field grow">
+        <div className="field">
           <label htmlFor="next-payment">{t('Следующая оплата')}</label>
           <input
             id="next-payment"

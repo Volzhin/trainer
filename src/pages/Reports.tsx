@@ -800,6 +800,7 @@ function TextTaskForm({ task, onDone }: { task: ClientTask; onDone: () => void }
 const MIN_SHOTS = 3
 
 function PhotoTaskForm({ task, onDone }: { task: ClientTask; onDone: () => void }) {
+  const nav = useNavigate()
   const { toast, userId } = useApp()
   const version = useLiveQuery(() => db.attachments.count(), [])
   const photos = useLiveQuery(() => taskPhotos(task.id, userId), [task.id, userId, version], [])
@@ -824,9 +825,29 @@ function PhotoTaskForm({ task, onDone }: { task: ClientTask; onDone: () => void 
     }
   }
 
+  /*
+   * Снимать по-прежнему можно прямо здесь, а не только на «Прогрессе в фото».
+   *
+   * Соблазн увести задание на новый экран был: там та же сетка и там же
+   * история. Но задание — это отчёт, и закрывается он одним действием в
+   * одном месте: уведи съёмку — и человеку придётся уйти с задания, снять
+   * четыре кадра, вернуться и нажать «Отправить», помня зачем. Кадры от
+   * этого никуда не заперты: у них теперь есть дата, и в ленту серий они
+   * встают сами. Ссылка ниже — на случай, когда пришли сравнить, а не сдать.
+   */
   return (
     <div className="stack mt-4">
       <TaskPhotos taskId={task.id} userId={userId} />
+
+      <button
+        className="btn ghost block"
+        onClick={() => {
+          onDone()
+          nav('/progress/photos')
+        }}
+      >
+        {t('Все серии фото')}
+      </button>
 
       <div className="field">
         <label>{t('Комментарий тренеру, если нужен')}</label>

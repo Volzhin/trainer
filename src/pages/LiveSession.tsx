@@ -212,13 +212,19 @@ export function LiveSession() {
     }
 
     // Разрешение на уведомления запрашиваем в контексте — при первом отдыхе.
-    if (!askedNotify) {
+    // С выключенным таймером контекста нет: просить разрешение под сигнал,
+    // которого не будет, значит потратить единственную попытку впустую —
+    // отказ браузер запоминает навсегда.
+    const restOn = profile?.rest_timer_enabled !== 0
+    if (restOn && !askedNotify) {
       setAskedNotify(true)
       void ensureNotificationPermission()
     }
 
     const restSeconds = await restForExercise(block.exercise.id, session.routine_id)
     const next = block.sets.find((s) => s.id !== set.id && !s.is_done)
+    // Выключенный таймер отдыха гасит startRest сам (см. store/app.tsx) —
+    // включая длительность, заданную в шаблоне программы.
     startRest(
       restSeconds ?? profile?.default_rest_seconds ?? 90,
       next ? exName(block.exercise.name) : undefined,

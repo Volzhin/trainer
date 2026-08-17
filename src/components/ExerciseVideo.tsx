@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Attachment } from '../db/db'
 import { addAttachment, deleteAttachment } from '../db/coach'
+import { onAttachmentUpload, retryAttachment, uploadingAttachment } from '../db/sync'
 import { attachmentUrl } from '../lib/backend'
 import { IconGallery, IconTrash, IconVideo } from './Icons'
 import { useApp } from '../store/app'
@@ -20,6 +21,27 @@ function useBlobUrl(blob?: Blob) {
   return url
 }
 
+/**
+ * Что сейчас с отправкой этого файла — словами, а не молчанием.
+ *
+ * Файл лежит в базе устройства с первой секунды, а до тренера едет отдельно и
+ * иногда подолгу: ролик на сотню мегабайт уходит по мобильной сети минутами.
+ * Пока об этом не говорили, «сохранено у меня» и «дошло до тренера»
+ * выглядели одинаково — как обычное видео на экране.
+ *
+ * Чужой файл (приехал с сервера, своего Blob нет) состояния не имеет:
+ * отправлять с этого устройства нечего.
+ */
+function uploadState(
+  a: Attachment,
+  uploading: string | null,
+): 'none' | 'sent' | 'sending' | 'waiting' | 'refused' {
+  if (!a.blob) return 'none'
+  if (a.remote_id) return 'sent'
+  if (a.upload_error === 'too_big') return 'refused'
+  return uploading === a.id ? 'sending' : 'waiting'
+}
+
 export function AttachmentPlayer({
   attachment,
   onDelete,
@@ -29,6 +51,8 @@ export function AttachmentPlayer({
 }) {
   const local = useBlobUrl(attachment.blob)
   const [remote, setRemote] = useState<string>()
+  const [uploading, setUploading] = useState<string | null>(uploadingAttachment())
+  useEffect(() => onAttachmentUpload(setUploading), [])
 
   // Своё видео играем из локального файла, чужое — с сервера. Тренеру
   // оригинал никогда не приезжает в базу устройства: ролики слишком тяжёлые.
@@ -63,6 +87,19 @@ export function AttachmentPlayer({
   const url = local ?? remote
   if (!url) return null
 
+  const state = uploadState(attachment, uploading)
+  const isVideo = attachment.kind === 'video'
+  const status =
+    state === 'sent'
+      ? t('у тренера')
+      : state === 'sending'
+        ? t('отправляю…')
+        : state === 'waiting'
+          ? t('ждёт отправки')
+          : state === 'refused'
+            ? t('не ушло')
+            : ''
+
   return (
     <div className="mt-2">
       {attachment.kind === 'video' ? (
@@ -79,8 +116,9 @@ export function AttachmentPlayer({
       )}
       <div className="row between mt-2">
         <span className="mute-sm">
-          {attachment.kind === 'video' ? t('Видео') : t('Фото')} ·{' '}
-          {(attachment.size / 1024 / 1024).toFixed(1)} {t('МБ')}
+          {isVideo ? t('Видео') : t('Фото')} · {(attachment.size / 1024 / 1024).toFixed(1)}{' '}
+          {t('МБ')}
+          {status ? ` · ${status}` : ''}
         </span>
         {onDelete && (
           <button className="icon-btn" onClick={onDelete} aria-label={t('Удалить')}>
@@ -88,6 +126,22 @@ export function AttachmentPlayer({
           </button>
         )}
       </div>
+      {/* Отказ по размеру объясняем целой фразой: короткого «не ушло» мало,
+          человек должен понять, что файл цел и что делать дальше. Кнопка
+          рядом — потому что предел на сервере меняется, и после его подъёма
+          ролик уедет с той же попытки. */}
+      {state === 'refused' && (
+        <div className="mt-1">
+          <div className="mute-sm">
+            {isVideo
+              ? t('Видео на устройстве, тренеру не ушло — слишком большое для сервера')
+              : t('Файл на устройстве, тренеру не ушёл — слишком большой для сервера')}
+          </div>
+          <button className="link" onClick={() => void retryAttachment(attachment.id)}>
+            {t('Отправить ещё раз')}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -144,7 +198,11 @@ export function VideoUploader({
     <div style={compact ? undefined : { padding: '0 12px 12px' }}>
       {/* Два поля вместо одного: с атрибутом capture телефон открывает
           камеру сразу и в галерею уже не пускает. Снимать прямо в зале
-          удобно не всегда — чаще ролик уже лежит в галерее. */}
+          удобно не всегда — чаще ролик уже лежит в галерее.
+
+          Длительность съёмки здесь ничем не ограничена и ограничить её
+          отсюда нельзя: у input нет такого атрибута, capture только выбирает
+          камеру. Сколько снимать, решают человек и его телефон. */}
       <input
         ref={inputRef}
         type="file"

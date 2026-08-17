@@ -42,6 +42,7 @@ const EN: Record<string, string> = {
   Язык: 'Language',
   Русский: 'Russian',
   Английский: 'English',
+  'Отсчёт между подходами': 'Countdown between sets',
   'Отдых по умолчанию': 'Default rest',
   'Если в шаблоне не задан свой': 'When the template has none',
   Вибрация: 'Vibration',
@@ -471,8 +472,6 @@ const EN: Record<string, string> = {
   'Вы уже работаете с этим тренером': 'You already work with this trainer',
   'Программу назначил тренер — свой план поверх неё не ставится':
     'The program was assigned by your trainer — your own plan cannot go on top of it',
-  'Файл больше 60 МБ — снимите ролик покороче':
-    'The file is over 60 MB — record a shorter clip',
   'Тренировочный день не найден': 'Workout day not found',
   'Тренировка не найдена': 'Workout not found',
   'Нужно войти': 'You need to sign in',
@@ -573,8 +572,8 @@ const EN: Record<string, string> = {
   'Нажмите «Начать» на главной. Вес и повторения подставятся из прошлого раза — останется подтвердить подход галочкой.':
     'Tap Start on the home screen. Weight and reps are filled in from last time — all that is left is to tick the set off.',
   'Таймер отдыха': 'Rest timer',
-  'Запускается автоматически после подхода. Время берётся из программы, иначе из настроек.':
-    'Starts automatically after a set. The duration comes from the program, otherwise from settings.',
+  'Запускается автоматически после подхода. Время берётся из программы, иначе из настроек. Не нужен — выключается там же.':
+    'Starts automatically after a set. The duration comes from the program, otherwise from settings. Do not need it — the same place turns it off.',
   'Замена упражнения': 'Swapping an exercise',
   'Тренажёр занят — нажмите иконку замены в шапке упражнения. Введённые подходы сохранятся.':
     'Machine taken? Tap the swap icon in the exercise header. Sets you already entered are kept.',
@@ -620,6 +619,18 @@ const EN: Record<string, string> = {
   'Видео прикреплено': 'Video attached',
   'Видео удалено': 'Video deleted',
   'Не удалось прикрепить файл': 'Could not attach the file',
+  /* --- отправка ролика тренеру: короткое слово в строке размера --- */
+  'у тренера': 'with the trainer',
+  'отправляю…': 'sending…',
+  'ждёт отправки': 'waiting to be sent',
+  'не ушло': 'not sent',
+  'Видео на устройстве, тренеру не ушло — слишком большое для сервера':
+    'The video is on your device but did not reach the trainer — too large for the server',
+  'Файл на устройстве, тренеру не ушёл — слишком большой для сервера':
+    'The file is on your device but did not reach the trainer — too large for the server',
+  'Отправить ещё раз': 'Send again',
+  'На устройстве кончилось место — удалите старые ролики и попробуйте снова':
+    'The device is out of space — delete old clips and try again',
   'Вложение · пока не поддерживается': 'Attachment · not supported yet',
   'Браузер не умеет распознавать штрихкоды — введите код вручную':
     'This browser cannot read barcodes — enter the code by hand',
@@ -1411,6 +1422,38 @@ const EN: Record<string, string> = {
     'Girths and weight once a week, so the trend is visible.',
   'Сделайте замер и загрузите PDF из зала — состав тела разберётся сам.':
     'Get scanned and upload the gym’s PDF — the body composition is parsed for you.',
+
+  /* --- прогресс в фото: серии по датам, сравнение и коллаж --- */
+  'Прогресс в фото': 'Photo progress',
+  'Серии по датам и сравнение любых двух': 'Series by date, any two compared',
+  'Серии по датам, сравнение и коллаж «было / стало»':
+    'Series by date, comparison and a before/after collage',
+  'Снять серию': 'Take a series',
+  'День съёмки': 'Day of the shoot',
+  Сравнение: 'Comparison',
+  Было: 'Before',
+  Стало: 'After',
+  'между съёмками': 'between the shoots',
+  '— это одна съёмка': '— that is one shoot',
+  Коллаж: 'Collage',
+  Серии: 'Series',
+  'из 4 ракурсов': 'of 4 angles',
+  'из задания': 'from a task',
+  'Кадра нет': 'No shot',
+  'Сохранить картинку': 'Save the image',
+  'Написать тренеру': 'Message the trainer',
+  'Тренер получит сообщение': 'Your trainer will get the message',
+  'Фото прогресса': 'Progress photos',
+  'Все серии фото': 'All photo series',
+  'Картинку можно сохранить и отправить куда угодно — она собирается сама.':
+    'The image builds itself — save it and send it anywhere.',
+  'Картинку можно сохранить и показать клиенту.': 'You can save the image and show it to the client.',
+  'Коллаж не собрался — нет ни одного кадра.': 'No collage — there is not a single shot.',
+  'Клиент ещё не снимал фото прогресса.': 'The client has taken no progress photos yet.',
+  'Снимков пока нет. Снимите первую серию — с ней и будете сравнивать через месяц.':
+    'No shots yet. Take the first series — that is what you will compare against in a month.',
+  'Эти кадры сняты по заданию «Фото до/после» — они и есть точка отсчёта.':
+    'These shots came from the before/after task — they are the starting point.',
 
   /* --- питание: сдача ручного отчёта и разбор --- */
   'Разбор дня': 'Day review',

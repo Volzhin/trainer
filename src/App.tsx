@@ -44,6 +44,11 @@ const NutritionSettings = lazy(() =>
 )
 const Reports = lazy(() => import('./pages/Reports').then((m) => ({ default: m.Reports })))
 const Progress = lazy(() => import('./pages/Progress').then((m) => ({ default: m.Progress })))
+// Экран рисует коллаж на canvas и тянет за собой файлы серий — открывают его
+// раз в месяц, и в первый экран приложения он попадать не должен.
+const ProgressPhotos = lazy(() =>
+  import('./pages/ProgressPhotos').then((m) => ({ default: m.ProgressPhotos })),
+)
 const TrainerClients = lazy(() =>
   import('./pages/trainer/TrainerClients').then((m) => ({ default: m.TrainerClients })),
 )
@@ -123,6 +128,7 @@ export default function App() {
               <Route path="/history" element={<History />} />
               <Route path="/history/:id" element={<SessionDetail />} />
               <Route path="/progress" element={<Progress />} />
+              <Route path="/progress/photos" element={<ProgressPhotos />} />
               <Route path="/body" element={<BodyComposition />} />
               <Route path="/nutrition" element={<Nutrition />} />
               <Route path="/nutrition/settings" element={<NutritionSettings />} />

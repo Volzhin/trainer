@@ -1064,48 +1064,28 @@ export async function addFeedback(input: {
 
 /* --------------------------- видео техники ---------------------------- */
 
-/** Ограничение размера: IndexedDB не резиновая, а тренеру нужен короткий клип. */
-export const MAX_VIDEO_BYTES = 60 * 1024 * 1024
-
 /**
- * Фото тела к заданию «до/после».
+ * Порога у прикрепления нет намеренно.
  *
- * Ракурс хранится вместе с файлом: четыре кадра различаются только тем, с
- * какой стороны сняты, и без подписи сравнить их через месяц нельзя. Один
- * ракурс — один файл: пересняли — старый уходит, иначе в задании копится
- * десяток почти одинаковых снимков.
+ * Раньше здесь стоял отказ на файле тяжелее 60 МБ, и это была единственная
+ * причина, по которой снятый ролик пропадал совсем: человек уже потратил
+ * подход и съёмку, а приложение отвечало «снимите покороче» — переснять
+ * тренировку нельзя. Ролик любого веса и любой длины ложится в IndexedDB и
+ * сразу виден на устройстве; дойдёт ли он до сервера — отдельный вопрос, на
+ * который отвечает выгрузка (см. pushAttachments в src/db/sync.ts) и о котором
+ * человеку говорят прямо у ролика, а не отказом заранее.
  */
-export async function addTaskPhoto(input: {
-  taskId: string
-  pose: NonNullable<Attachment['pose']>
-  file: File
-  userId?: string
-}) {
-  const userId = input.userId ?? currentUserId()
-  const old = await db.attachments
-    .where('user_id')
-    .equals(userId)
-    .and((a) => a.task_id === input.taskId && a.pose === input.pose)
-    .toArray()
-  for (const a of old) await deleteAttachment(a.id)
 
-  const attachment: Attachment = {
-    id: uid(),
-    user_id: userId,
-    task_id: input.taskId,
-    pose: input.pose,
-    kind: 'photo',
-    blob: input.file,
-    mime: input.file.type || 'image/jpeg',
-    size: input.file.size,
-    created_at: now(),
-    updated_at: now(),
-  }
-  await db.attachments.add(attachment)
-  return attachment.id
-}
+/*
+ * Съёмка фото тела живёт в src/db/photos.ts (addSeriesPhoto), а не здесь.
+ *
+ * Прежняя addTaskPhoto умела класть кадр только внутрь задания, и в этом
+ * была вся беда: серия «спустя месяц» упиралась в то, что задание уже
+ * сдано, а нового под неё никто не выдавал. Теперь снимок принадлежит дню
+ * съёмки, а задание — необязательная пометка «пришло вот отсюда».
+ */
 
-/** Фото, приложенные к заданию. */
+/** Фото, приложенные к заданию. Нужны разбору отчёта: он ведётся по заданию. */
 export async function taskPhotos(taskId: string, userId = currentUserId()) {
   return db.attachments
     .where('user_id')
@@ -1141,9 +1121,21 @@ export async function addAttachment(input: {
   file: File
   userId?: string
 }) {
-  if (input.file.size > MAX_VIDEO_BYTES) {
-    throw new Error(t('Файл больше 60 МБ — снимите ролик покороче'))
+  /*
+   * Просим постоянное хранилище до записи, а не после.
+   *
+   * Тяжёлый ролик занимает заметную долю квоты, а браузер вправе вычистить
+   * непостоянное хранилище целиком, когда на устройстве кончается место, —
+   * вместе с ним ушла бы вся местная база, а не только видео. Разрешения
+   * может и не быть (Safari даёт его лишь установленному приложению), отказ
+   * здесь ничего не меняет: файл всё равно сохраняем.
+   */
+  try {
+    await navigator.storage?.persist?.()
+  } catch {
+    /* хранилище может быть недоступно — прикреплению это не мешает */
   }
+
   const kind: Attachment['kind'] = input.file.type.startsWith('image/') ? 'photo' : 'video'
   const attachment: Attachment = {
     id: uid(),
@@ -1157,7 +1149,24 @@ export async function addAttachment(input: {
     created_at: now(),
     updated_at: now(),
   }
-  await db.attachments.add(attachment)
+  /*
+   * Место на устройстве проверяем попыткой записи, а не оценкой квоты заранее.
+   *
+   * navigator.storage.estimate() возвращает округлённое и заниженное число
+   * (Safari врёт намеренно), и отказ по нему прогонял бы ролики, которые
+   * прекрасно помещаются. Пусть решает сама база: не влезло — говорим, что
+   * кончилось место, а не «файл слишком большой».
+   */
+  try {
+    await db.attachments.add(attachment)
+  } catch (e) {
+    if (e instanceof Error && e.name.includes('Quota')) {
+      throw new Error(
+        t('На устройстве кончилось место — удалите старые ролики и попробуйте снова'),
+      )
+    }
+    throw e
+  }
   return attachment.id
 }
 

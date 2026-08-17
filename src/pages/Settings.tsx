@@ -69,6 +69,9 @@ export function Settings() {
 
   const isTrainer = role === 'TRAINER'
   const reminders = REMINDERS.filter((r) => !r.onlineOnly || mode === 'online')
+  // Поле необязательное и у большинства профилей его просто нет: «не задано»
+  // читаем как «включено» — таким таймер отдыха и был до этой настройки.
+  const restTimerOn = profile?.rest_timer_enabled !== 0
 
   const [accountsOpen, setAccountsOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -231,20 +234,35 @@ export function Settings() {
           включает. */}
       {!isTrainer && (
         <Group title={t('Тренировка')}>
-          <Row title={t('Отдых по умолчанию')} sub={t('Если в шаблоне не задан свой')}>
-            <select
-              className="select"
-              style={{ width: 104, padding: '8px 10px' }}
-              value={profile?.default_rest_seconds ?? 90}
-              onChange={(e) => patch({ default_rest_seconds: Number(e.target.value) })}
-            >
-              {[45, 60, 90, 120, 150, 180, 240].map((v) => (
-                <option key={v} value={v}>
-                  {v} {t('сек')}
-                </option>
-              ))}
-            </select>
+          <Row title={t('Таймер отдыха')} sub={t('Отсчёт между подходами')}>
+            <Toggle
+              label={t('Таймер отдыха')}
+              value={restTimerOn}
+              onChange={(v) => patch({ rest_timer_enabled: v ? 1 : 0 })}
+            />
           </Row>
+          {/* Длительность и звук отдыха при выключенном таймере не прячутся
+              «на всякий случай», а исчезают: отсчёта нет — настраивать в нём
+              нечего, и оставленные строки обещали бы влияние, которого у них
+              больше нет. Так же, как разделы, которых нет у роли. */}
+          {restTimerOn && (
+            <Row title={t('Отдых по умолчанию')} sub={t('Если в шаблоне не задан свой')}>
+              <select
+                className="select"
+                style={{ width: 104, padding: '8px 10px' }}
+                value={profile?.default_rest_seconds ?? 90}
+                onChange={(e) => patch({ default_rest_seconds: Number(e.target.value) })}
+              >
+                {[45, 60, 90, 120, 150, 180, 240].map((v) => (
+                  <option key={v} value={v}>
+                    {v} {t('сек')}
+                  </option>
+                ))}
+              </select>
+            </Row>
+          )}
+          {/* Вибрация остаётся: она откликается на подтверждение подхода, а
+              не на конец отдыха, и к таймеру отношения не имеет. */}
           <Row title={t('Вибрация')} sub={t('Отклик при подтверждении подхода')}>
             <Toggle
               label={t('Вибрация')}
@@ -252,13 +270,15 @@ export function Settings() {
               onChange={(v) => patch({ haptics_enabled: v ? 1 : 0 })}
             />
           </Row>
-          <Row title={t('Звук таймера')} sub={t('Сигнал в конце отдыха')}>
-            <Toggle
-              label={t('Звук таймера')}
-              value={profile?.sound_enabled === 1}
-              onChange={(v) => patch({ sound_enabled: v ? 1 : 0 })}
-            />
-          </Row>
+          {restTimerOn && (
+            <Row title={t('Звук таймера')} sub={t('Сигнал в конце отдыха')}>
+              <Toggle
+                label={t('Звук таймера')}
+                value={profile?.sound_enabled === 1}
+                onChange={(v) => patch({ sound_enabled: v ? 1 : 0 })}
+              />
+            </Row>
+          )}
         </Group>
       )}
 
@@ -467,7 +487,9 @@ function HelpSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
     ],
     [
       'Таймер отдыха',
-      'Запускается автоматически после подхода. Время берётся из программы, иначе из настроек.',
+      // Про выключение говорим прямо в справке: тумблер стоит в «Тренировке»,
+      // а ищут его те, кому отсчёт мешает, — то есть здесь.
+      'Запускается автоматически после подхода. Время берётся из программы, иначе из настроек. Не нужен — выключается там же.',
     ],
     [
       'Замена упражнения',

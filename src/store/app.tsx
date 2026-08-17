@@ -38,11 +38,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [online, setOnline] = useState(navigator.onLine)
   const [userId, setUserId] = useState(currentUserId())
   const firedRef = useRef(false)
+  /**
+   * Разрешён ли отдых вообще. Держим ссылкой, а не в замыкании startRest:
+   * startRest раздаётся через контекст, и если бы он пересоздавался вместе с
+   * профилем, менялось бы значение контекста — то есть перерисовывались бы
+   * все три десятка мест, читающих useApp, при каждой правке профиля.
+   * Пока профиль не прочитан — считаем включённым: «не задано» = включено.
+   */
+  const restEnabledRef = useRef(true)
 
   const profile = useLiveQuery(() => db.profile.get(userId), [userId])
 
   useEffect(() => {
     if (!profile) return
+    restEnabledRef.current = profile.rest_timer_enabled !== 0
     configureNative({
       haptics: profile.haptics_enabled === 1,
       sound: profile.sound_enabled === 1,
@@ -108,6 +117,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [rest])
 
   const startRest = useCallback((seconds: number, label?: string) => {
+    /*
+     * Настройку проверяем здесь, в единственной точке входа, а не у
+     * вызывающих. Длительность отдыха приходит из шаблона программы, и
+     * проверка на стороне экрана тренировки означала бы, что следующий
+     * вызов startRest — из свободной тренировки, из разминки, откуда
+     * угодно — про настройку не узнает и включит отдых заново.
+     * Заодно это гасит и всё, что висит на состоянии отдыха: панель
+     * .rest-bar не появляется, сигнал не звучит, уведомление о конце
+     * отдыха не уходит — потому что самого отдыха нет.
+     */
+    if (!restEnabledRef.current) return
     if (seconds <= 0) return
     firedRef.current = false
     setRest({ total: seconds, endsAt: Date.now() + seconds * 1000, label })
