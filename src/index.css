@@ -173,6 +173,10 @@ a {
   width: 100%;
   max-width: 560px;
   margin: 0 auto;
+  /* Система координат для подложки активного раздела: без неё она
+     считается от самой панели, а та во всю ширину экрана — на широком
+     окне пилюля уезжала бы левее вкладок ровно на поле центровки. */
+  position: relative;
 }
 
 .tab {
@@ -1190,7 +1194,21 @@ button.list-item {
   font-size: 14px;
   font-weight: 600;
   box-shadow: var(--shadow-2);
-  animation: fade 0.2s ease;
+  /* Выезжает снизу с лёгким перелётом, а не проявляется на месте: тост
+     приходит откуда-то, и видно откуда. Смещение задаём в самой анимации —
+     у элемента уже занят transform центрированием по горизонтали. */
+  animation: toast-in 320ms var(--spring) both;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
 }
 
 .toast.pr {
@@ -2625,4 +2643,399 @@ button.group-row:active {
 .measure-table th:nth-child(2),
 .measure-table td:nth-child(2) {
   border-right: 1px solid var(--border);
+}
+
+/* =====================================================================
+   Движение и счёт работы
+   =====================================================================
+
+   Правило прежнее: анимация либо что-то сообщает, либо её нет. Ниже —
+   те, что сообщают: список пришёл из базы, отчёт ушёл тренеру, вес взят
+   впервые. Всё живёт на общих токенах длительности и кривой; системная
+   настройка «уменьшить движение» гасит их разом вместе с остальными.
+   ===================================================================== */
+
+/* Пружина: лёгкий перелёт на возврате. Только для того, что появляется
+   поверх экрана, — тост, знак, галочка. Для переездов внутри строки она
+   выглядит как дребезг. */
+:root {
+  --spring: cubic-bezier(0.22, 1.4, 0.36, 1);
+}
+
+/* --- список приходит лесенкой --------------------------------------- */
+
+/* Задержка по порядковому номеру строки: список набегает за ~300 мс и
+   этим говорит, что он собран из данных, а не нарисован заранее.
+   Ограничиваем девятью шагами — дальше человек всё равно не смотрит,
+   а последняя строка длинного списка иначе появлялась бы через секунду. */
+.rise-list > * {
+  animation: rise-in var(--dur-slow) var(--ease) both;
+  animation-delay: calc(min(var(--i, 0), 9) * 45ms);
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* --- появление данных вместо заглушки -------------------------------- */
+
+.fade-in {
+  animation: fade-soft var(--dur) var(--ease) both;
+}
+
+@keyframes fade-soft {
+  from {
+    opacity: 0;
+  }
+}
+
+.pop-in {
+  animation: pop-in 320ms var(--spring) both;
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  60% {
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* --- момент сдачи ----------------------------------------------------- */
+
+/* Галочка рисуется, а не появляется: у неё есть направление, и взгляд за
+   ним следует. 26 — длина контура, замерена по самому пути. */
+.check-draw {
+  stroke-dasharray: 26;
+  stroke-dashoffset: 26;
+  animation: check-draw 320ms var(--ease) forwards;
+}
+
+@keyframes check-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Сданное уезжает вправо — туда же, куда уходит отчёт. Строка не исчезает
+   мгновенно: иначе непонятно, ушла она или её и не было. */
+.slide-out {
+  animation: slide-out 280ms var(--ease) forwards;
+}
+
+@keyframes slide-out {
+  to {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+}
+
+/* --- вспышка вокруг знака -------------------------------------------- */
+
+/* Кольцо расходится от значка. Единственная заметная анимация в
+   приложении, и оба её случая — про то, ради чего сюда приходят: личный
+   рекорд и выданный знак. */
+.flare {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border-radius: var(--r-full);
+  border: 2px solid var(--copper);
+  pointer-events: none;
+  animation: flare 620ms var(--ease) forwards;
+}
+
+.flare.accent {
+  border-color: var(--accent-ink);
+}
+
+@keyframes flare {
+  from {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+/* --- пульс на призыве к действию -------------------------------------- */
+
+/* Только на пустом экране, где кроме этой кнопки нажимать нечего. На
+   рабочем экране дышащая кнопка тянет взгляд от содержимого — ровно то
+   «движение, чтобы оживить», которого мы избегаем. */
+.pulse {
+  animation: pulse 2.4s var(--ease) infinite;
+}
+
+@keyframes pulse {
+  0%,
+  70%,
+  100% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.02);
+  }
+}
+
+/* --- пилюля в нижнем меню -------------------------------------------- */
+
+/* Подложка активного раздела переезжает, а не перекрашивается: взгляд
+   видит, откуда и куда переключились. Лежит под иконками отдельным
+   слоем — по вкладкам её не размазать, они разной ширины. */
+.tab-pill {
+  position: absolute;
+  top: 4px;
+  /* Подложка обводит вкладку целиком — иконку с подписью, а не одну из
+     них: панель низкая, и пилюля по высоте иконки резала бы слово
+     пополам. */
+  height: calc(var(--tabbar-h) - 8px);
+  border-radius: var(--r-lg);
+  background: var(--accent-soft);
+  transition:
+    transform var(--dur) var(--ease),
+    width var(--dur) var(--ease);
+  pointer-events: none;
+}
+
+/* =====================================================================
+   Счёт работы: неделя, серия, ступень, знаки
+   ===================================================================== */
+
+/* --- кольцо недели ---------------------------------------------------- */
+
+.ring-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+.ring circle {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.ring .track {
+  stroke: var(--surface-2);
+}
+
+/* Плана нет — дорожка пунктиром, тем же, каким нарисован день отдыха.
+   Сплошное кольцо обещает цель, которой никто не ставил. */
+.ring .track.dashed {
+  stroke: var(--border-strong);
+  stroke-width: 2;
+  stroke-dasharray: 2 7;
+}
+
+/* Тонкая линия, а не заливка: известь в такой толщине на светлой теме не
+   читается, поэтому берём её «чернильный» вариант — он для того и заведён. */
+.ring .val {
+  stroke: var(--accent-ink);
+  transition: stroke-dashoffset 900ms var(--ease);
+}
+
+.ring .val.nutri {
+  stroke: var(--info);
+}
+
+/* --- неделя точками --------------------------------------------------- */
+
+.week-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.week-dots i {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-sm);
+  display: grid;
+  place-items: center;
+  font: 600 11px var(--font-num);
+  color: var(--text-3);
+  background: transparent;
+  /* Пустой день — пунктир, а не красная клетка: в приложении про здоровье
+     день отдыха не должен выглядеть как ошибка. */
+  border: 1px dashed var(--border-strong);
+  font-style: normal;
+}
+
+.week-dots i.on {
+  background: var(--accent-soft);
+  border: 1px solid transparent;
+  color: var(--accent-ink);
+  animation: dot-in 260ms var(--spring) both;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+
+.week-dots i.today {
+  border-style: solid;
+  border-color: var(--accent-ink);
+}
+
+@keyframes dot-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+
+/* --- ступень как гриф с дисками --------------------------------------- */
+
+/* Ступень нарисована тем, чем её и зарабатывают. Диск на грифе — знак из
+   зала, а не из игр: пять ступеней — пять дисков, и человек читает свой
+   уровень, не читая подписи. */
+.barbell {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 40px;
+}
+
+.barbell .bar-line {
+  flex: 1;
+  height: 4px;
+  border-radius: var(--r-full);
+  background: var(--border-strong);
+}
+
+.barbell .plate {
+  width: 11px;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: transform var(--dur) var(--ease);
+}
+
+ /* Не «empty»: этим классом в приложении уже назван пустой экран с
+    отступами в 40 пикселей, и диск раздувало до его размеров. */
+.barbell .plate.blank {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+/* Диски проворачиваются от нажатия — единственная вещь в приложении,
+   которая ничего не сообщает и сделана просто так. Одна на всё
+   приложение: пасхалка, которую нашли дважды, перестаёт быть пасхалкой. */
+.barbell.spin .plate {
+  animation: plate-spin 900ms var(--ease);
+}
+
+@keyframes plate-spin {
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+/* --- знаки ------------------------------------------------------------ */
+
+.marks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 10px;
+}
+
+.mark {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 12px 8px;
+  text-align: center;
+  box-shadow: var(--shadow-1);
+}
+
+.mark .glyph {
+  width: 34px;
+  height: 34px;
+  margin: 0 auto 8px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-full);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.mark.copper .glyph {
+  background: var(--copper-soft);
+  color: var(--copper);
+}
+
+.mark .cap {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-2);
+}
+
+.mark.locked {
+  opacity: 0.5;
+}
+
+.mark.locked .glyph {
+  background: var(--surface-2);
+  color: var(--text-3);
+}
+
+/* Тот же кружок в строке списка: без отступов карточки и без тени. */
+.glyph-inline {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-full);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.glyph-inline.copper {
+  background: var(--copper-soft);
+  color: var(--copper);
+}
+
+/* --- год одной строкой ------------------------------------------------ */
+
+/* Пятьдесят две недели подряд. Отвечает на вопрос, который не помещается
+   ни в один график: «как давно я этим занимаюсь и где провалился».
+   Провал не окрашен тревожно — он просто пустой. */
+.year-strip {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+  height: 34px;
+}
+
+.year-strip i {
+  flex: 1;
+  min-width: 2px;
+  border-radius: 2px;
+  background: var(--surface-2);
+  height: 30%;
+}
+
+.year-strip i.w1 {
+  background: var(--accent-soft);
+  height: 55%;
+}
+
+.year-strip i.w2 {
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+  height: 78%;
+}
+
+.year-strip i.w3 {
+  background: var(--accent);
+  height: 100%;
 }

@@ -282,8 +282,11 @@ export function WorkoutCalendar() {
             <div className="muted">{t('Нет тренировок в этот день')}</div>
           )}
           {selected >= today && (
+            /* Единственное место с дышащей кнопкой: экран пустой, нажимать
+               кроме неё нечего, и дыхание здесь — приглашение, а не помеха.
+               На рабочем экране такая кнопка тянула бы взгляд от дела. */
             <button
-              className="btn primary block mt-4"
+              className="btn primary block mt-4 pulse"
               onClick={() => setStartOpen(true)}
             >
               <IconPlay size={17} /> {t('Начать тренировку')}

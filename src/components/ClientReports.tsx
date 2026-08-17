@@ -15,10 +15,11 @@ import {
   workoutReportsOf,
 } from '../db/reports'
 import type { ClientTask } from '../db/db'
-import { formatDate } from '../lib/calc'
+import { formatDate, weekStart } from '../lib/calc'
 import { Sheet } from './Sheet'
 import { ReviewSheet, type ReviewSubject } from './ReviewSheet'
 import { metricRows } from './BodyCompositionView'
+import { Counter } from './Game'
 import { TaskPhotos } from './TaskPhotos'
 import { Group, Row } from './Group'
 import { IconPlus, IconTrash } from './Icons'
@@ -89,20 +90,39 @@ export function ClientReports({ clientId }: { clientId: string }) {
     task.accepted_at != null || (seenTasks?.has(task.id) ?? false)
   const awaiting = tasks.filter((x) => x.status === 'done' && !isAccepted(x))
   const archived = tasks.filter((x) => x.status === 'done' && isAccepted(x))
+  // Неделя календарная, как и везде в приложении: «за последние семь дней»
+  // в понедельник включало бы работу прошлой недели, которую тренер уже
+  // подвёл. Считаем по сдаче клиента — момент приёма нигде не хранится.
+  const weekFrom = weekStart(Date.now())
+  const acceptedThisWeek = archived.filter((x) => (x.completed_at ?? 0) >= weekFrom).length
 
   return (
     <div className="mt-4">
       {/* Разбор живёт там, где сдавали: тренировки в своей вкладке,
           питание в своей. Общая очередь дублировала бы их третьим списком,
           и разобранное в календаре оставалось бы «новым» здесь. */}
-      <div className="stat-grid">
+      {/* Тренеру счёт нужен не в очках, а в работе: сколько ещё разбирать и
+          сколько уже разобрано за неделю. Ноль в очереди подсвечен — это
+          его «выполнено», и увидеть его он должен без чтения подписи. */}
+      <div className="stat-grid three">
         <div className="stat">
           <div className="value">{openTasks.length}</div>
           <div className="label">{t('заданий не выполнено')}</div>
         </div>
         <div className="stat">
-          <div className="value">{awaiting.length}</div>
+          <div
+            className="value"
+            style={{ color: awaiting.length === 0 ? 'var(--ok)' : 'var(--warn)' }}
+          >
+            {awaiting.length}
+          </div>
           <div className="label">{t('ждут проверки')}</div>
+        </div>
+        <div className="stat">
+          <div className="value">
+            <Counter value={acceptedThisWeek} />
+          </div>
+          <div className="label">{t('принято за неделю')}</div>
         </div>
       </div>
 

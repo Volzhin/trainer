@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db'
 import { unreadCount } from '../db/chat'
@@ -78,9 +79,16 @@ export function TabBar() {
       ? TRAINER_TABS
       : [...CLIENT_TABS, ...(bond ? CLIENT_BOND_TABS : []), CLIENT_PROFILE_TAB]
 
+  const { pathname } = useLocation()
+  const { inner, pill } = usePill(pathname, tabs.length)
+
   return (
     <nav className="tabbar">
-      <div className="tabbar-inner">
+      <div className="tabbar-inner" ref={inner}>
+        {/* Подложка активного раздела переезжает, а не перекрашивается:
+            видно, откуда и куда переключились. Отдельным слоем под
+            ссылками — вкладки разной ширины, и на них её не размазать. */}
+        <span className="tab-pill" style={pill} aria-hidden />
         {tabs.map(({ to, label, Icon, end }) => (
           <NavLink
             key={to}
@@ -98,4 +106,49 @@ export function TabBar() {
       </div>
     </nav>
   )
+}
+
+/**
+ * Где стоит подложка активной вкладки.
+ *
+ * Считаем по разметке, а не по номеру вкладки: их число меняется — у
+ * клиента без тренера разделов меньше, — и доля ширины разъезжалась бы с
+ * тем, что человек видит. Пересчитываем на смену адреса и на изменение
+ * размера: поворот телефона меняет ширину, а подложка осталась бы на
+ * прежнем месте.
+ */
+function usePill(activePath: string, count: number) {
+  const inner = useRef<HTMLDivElement>(null)
+  const [pill, setPill] = useState<{ width: number; transform: string; opacity: number }>({
+    width: 0,
+    transform: 'translateX(0)',
+    opacity: 0,
+  })
+
+  useEffect(() => {
+    const fit = () => {
+      const box = inner.current
+      const active = box?.querySelector<HTMLElement>('.tab.active')
+      if (!box || !active) return setPill((p) => ({ ...p, opacity: 0 }))
+      const b = box.getBoundingClientRect()
+      const a = active.getBoundingClientRect()
+      // Подложка уже вкладки: она обводит иконку с подписью, а не занимает
+      // всю ячейку — иначе соседние пилюли смыкались бы в сплошную полосу.
+      const width = Math.min(a.width - 8, 96)
+      setPill({
+        width,
+        transform: `translateX(${a.left - b.left + (a.width - width) / 2}px)`,
+        opacity: 1,
+      })
+    }
+    // Кадр на отрисовку: сразу после перехода ссылка ещё без класса active.
+    const id = requestAnimationFrame(fit)
+    window.addEventListener('resize', fit)
+    return () => {
+      cancelAnimationFrame(id)
+      window.removeEventListener('resize', fit)
+    }
+  }, [activePath, count])
+
+  return { inner, pill }
 }

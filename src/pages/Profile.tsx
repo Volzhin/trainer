@@ -4,14 +4,18 @@ import { db, currentUserId, type Contact, type ContactKind } from '../db/db'
 import { ContactEditor } from '../components/ContactLinks'
 import { Sheet } from '../components/Sheet'
 import { IconSettings } from '../components/Icons'
-import { useProfile } from '../store/app'
+import { useApp, useProfile } from '../store/app'
 import { MyTrainerCard } from '../components/MyTrainerCard'
+import { MarksGrid, StageBar, YearStrip, useGame } from '../components/Game'
 import { Group, Row } from '../components/Group'
+import { plural } from '../lib/calc'
 import { t } from '../lib/i18n'
 
 export function Profile() {
   const nav = useNavigate()
   const profile = useProfile()
+  const { userId } = useApp()
+  const game = useGame(userId)
   const [editOpen, setEditOpen] = useState(false)
 
 
@@ -48,6 +52,54 @@ export function Profile() {
 
       <MyTrainerCard />
 
+      {/* Ступень, знаки и год — здесь, а не на главной: на главную приходят
+          работать, а сюда — смотреть на себя. Единственное, что вынесено
+          вперёд, — недельный счёт: он про то, что происходит прямо сейчас. */}
+      {game && (
+        <>
+          <div className="section-title">{t('Ступень')}</div>
+          <div className="card">
+            <div className="row between">
+              <div>
+                <div className="strong">{t(game.stage.name)}</div>
+                <div className="mute-sm">
+                  {game.stage.workouts}{' '}
+                  {plural(game.stage.workouts, ['тренировка', 'тренировки', 'тренировок'])}
+                  {game.stage.tonnage > 0 &&
+                    ` · ${Math.round(game.stage.tonnage / 1000)} ${t('т суммарно')}`}
+                </div>
+              </div>
+              <span className="t-num" style={{ color: 'var(--accent-ink)' }}>
+                {game.stage.index + 1}
+              </span>
+            </div>
+
+            <div className="mt-3">
+              <StageBar index={game.stage.index} />
+            </div>
+
+            {game.stage.toNext != null ? (
+              <div className="mute-sm mt-2">
+                {t('До ступени')} «{t(game.stage.nextName ?? '')}» — {game.stage.toNext}{' '}
+                {plural(game.stage.toNext, ['тренировка', 'тренировки', 'тренировок'])}
+              </div>
+            ) : (
+              <div className="mute-sm mt-2">{t('Последняя ступень. Дальше — просто работа.')}</div>
+            )}
+          </div>
+
+          <div className="section-title">{t('Год одной строкой')}</div>
+          <div className="card">
+            <YearStrip year={game.year} />
+            <div className="mute-sm mt-2">
+              {t('Столбик — неделя, высота — сколько тренировок. Пустая неделя ничем не окрашена: это отдых, а не провал.')}
+            </div>
+          </div>
+
+          <div className="section-title">{t('Знаки')}</div>
+          <MarksGrid marks={game.marks} />
+        </>
+      )}
 
       <Group title={t('Мои данные')}>
         <Row

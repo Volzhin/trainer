@@ -202,7 +202,10 @@ export function LiveSession() {
 
     const { isPR } = await completeSet(set.id)
     if (isPR) {
-      haptics.success()
+      // У рекорда своя вибрация, не общая «успех»: это единственный момент
+      // в тренировке, который отличается от остальных, и рука узнаёт его
+      // раньше, чем глаз доходит до экрана.
+      haptics.record()
       toast(`${t('Личный рекорд')}: ${exName(block.exercise.name)}!`, 'pr')
     } else {
       haptics.impact()
@@ -747,9 +750,14 @@ function SetRow({
         {(set.is_pr === 1 || oneRm > 0) && (
           <div className="prev-hint">
             {set.is_pr === 1 && (
-              <span className="badge pr">
+              /* Медное кольцо расходится от знака рекорда — единственная
+                 заметная анимация в приложении, и она про то, ради чего
+                 сюда и приходят. Позиционирование нужно самой вспышке:
+                 она считает центр от этого элемента. */
+              <span className="badge pr" style={{ position: 'relative' }}>
                 <IconRecord size={11} />
                 {t('Личный рекорд')}
+                <span className="flare" />
               </span>
             )}
             {oneRm > 0 && (

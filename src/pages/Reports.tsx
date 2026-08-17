@@ -39,6 +39,62 @@ import { t } from '../lib/i18n'
 /** Сколько дней назад ещё имеет смысл сдавать отчёт. */
 const WINDOW_DAYS = 14
 
+/** Сколько живёт уехавшая строка. Ровно длительность slide-out. */
+const LEAVE_MS = 320
+
+/**
+ * Держит исчезнувшую строку ещё мгновение, чтобы она успела уехать.
+ *
+ * Сдал задание — и оно тут же пропадает из выборки открытых: база права,
+ * но человек видит только скачок и не понимает, ушло ли что-нибудь.
+ * Хук оставляет строку на месте на время анимации и лишь потом отдаёт
+ * список без неё.
+ */
+function useLeaving<T extends { id: string }>(items: T[] | undefined) {
+  const [state, setState] = useState<{ list: T[]; leaving: string[] }>({
+    list: items ?? [],
+    leaving: [],
+  })
+  // Сравниваем по составу, а не по ссылке: useLiveQuery отдаёт новый
+  // массив на каждое изменение базы, в том числе не касающееся заданий.
+  const key = (items ?? []).map((i) => i.id).join(',')
+  const shownRef = useRef(state.list)
+  shownRef.current = state.list
+
+  useEffect(() => {
+    if (!items) return
+    const gone = shownRef.current.filter((prev) => !items.some((i) => i.id === prev.id))
+    if (!gone.length) {
+      setState({ list: items, leaving: [] })
+      return
+    }
+    setState({ list: shownRef.current, leaving: gone.map((g) => g.id) })
+    const timer = setTimeout(() => setState({ list: items, leaving: [] }), LEAVE_MS)
+    return () => clearTimeout(timer)
+  }, [key])
+
+  return state
+}
+
+/** Галочка, которая рисуется: у неё есть направление, и взгляд идёт за ним. */
+function IconCheckDrawn() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="var(--ok)"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path className="check-draw" d="M4 12.5 9.5 18 20 6.5" />
+    </svg>
+  )
+}
+
 /**
  * Отчёты клиента тренеру.
  *
@@ -112,6 +168,8 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
     return [...rows].reverse().find((m) => m.weight_kg != null) ?? null
   }, [userId])
 
+  const { list: shownTasks, leaving: leavingTasks } = useLeaving(tasks)
+
   const loading = tasks === undefined || sessions === undefined || reports === undefined
 
   const reportOf = new Map((reports ?? []).map((r) => [r.session_id, r]))
@@ -149,14 +207,18 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
         <div className="empty">{t('Загрузка…')}</div>
       ) : (
         <>
-          {tasks.length > 0 && (
+          {shownTasks.length > 0 && (
             <>
               <div className="section-title">{t('Задания от тренера')}</div>
-              <div>
-                {tasks.map((task) => (
+              <div className="rise-list">
+                {shownTasks.map((task, i) => {
+                  const out = leavingTasks.includes(task.id)
+                  return (
                   <button
                     key={task.id}
-                    className="list-item"
+                    className={`list-item${out ? ' slide-out' : ''}`}
+                    style={{ '--i': i } as React.CSSProperties}
+                    disabled={out}
                     onClick={() => setOpenTask(task)}
                   >
                     <div className="grow">
@@ -181,10 +243,23 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
                         <div className="mute-sm truncate">{t(task.description)}</div>
                       )}
                     </div>
-                    {task.required === 1 && <span className="badge">{t('обязательно')}</span>}
-                    <IconChevronRight size={16} />
+                    {/* Сданное помечается рисующейся галочкой и уезжает
+                        вправо — туда же, куда ушёл отчёт. Пока строка
+                        исчезала мгновенно, непонятно было, ушла она или её
+                        и не было. */}
+                    {out ? (
+                      <IconCheckDrawn />
+                    ) : (
+                      <>
+                        {task.required === 1 && (
+                          <span className="badge">{t('обязательно')}</span>
+                        )}
+                        <IconChevronRight size={16} />
+                      </>
+                    )}
                   </button>
-                ))}
+                  )
+                })}
               </div>
             </>
           )}
@@ -222,10 +297,11 @@ function ReportsBoard({ trainerName }: { trainerName: string }) {
           {pendingSessions.length === 0 ? (
             <div className="empty compact">{t('Все тренировки сданы.')}</div>
           ) : (
-            <div>
-              {pendingSessions.map((s) => (
+            <div className="rise-list">
+              {pendingSessions.map((s, i) => (
                 <ReportRow
                   key={s.id}
+                  index={i}
                   title={t(s.title)}
                   subtitle={formatDate(s.start_time)}
                   submitted={false}
@@ -386,16 +462,19 @@ function ReportRow({
   subtitle,
   submitted,
   answered,
+  index = 0,
   onOpen,
 }: {
   title: string
   subtitle?: string
   submitted: boolean
   answered: boolean
+  /** Место в списке — по нему считается задержка появления. */
+  index?: number
   onOpen: () => void
 }) {
   return (
-    <button className="list-item" onClick={onOpen}>
+    <button className="list-item" style={{ '--i': index } as React.CSSProperties} onClick={onOpen}>
       <div className="grow">
         <div className="truncate strong">
           {title}

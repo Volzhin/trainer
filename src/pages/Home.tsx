@@ -6,6 +6,7 @@ import { activeAssignmentFor } from '../db/coach'
 import { dueReportReminder, nutritionReminderDue, openTasks } from '../db/reports'
 import { plural, weekStart } from '../lib/calc'
 import { WorkoutCalendar } from '../components/WorkoutCalendar'
+import { NewMarkCard, WeekCard, useGame } from '../components/Game'
 import { IconChevronRight, IconPlay } from '../components/Icons'
 import { useApp } from '../store/app'
 import { t } from '../lib/i18n'
@@ -18,9 +19,10 @@ import { t } from '../lib/i18n'
  */
 export function Home() {
   const nav = useNavigate()
-  const { online } = useApp()
+  const { online, userId } = useApp()
 
   const profile = useLiveQuery(() => db.profile.get(currentUserId()), [])
+  const game = useGame(userId)
   const sessions = useLiveQuery(() => listMySessions(), [])
   const active = useLiveQuery(() => getActiveSession(), [])
   const assigned = useLiveQuery(() => activeAssignmentFor(currentUserId()), [sessions?.length])
@@ -117,6 +119,18 @@ export function Home() {
           </div>
           <IconChevronRight size={16} />
         </button>
+      )}
+
+      {/* Счёт работы стоит выше календаря, но ниже всего, что требует
+          действия: сначала «что от меня ждут», потом «как я иду». Новый
+          знак — единственное, что имеет право встать перед этим, и то
+          один раз. */}
+      {game && (
+        <>
+          <NewMarkCard marks={game.marks} />
+          <div className="section-title">{t('Эта неделя')}</div>
+          <WeekCard game={game} />
+        </>
       )}
 
       <WorkoutCalendar />
