@@ -135,6 +135,11 @@ const EN: Record<string, string> = {
     'already has a result. Remove it along with what was logged?',
   /* «Оставить» уже переведено ниже, в блоке разбора отчётов. */
   'Календарь тренировок': 'Workout calendar',
+  /* --- итог периода под календарём --- */
+  'Тренировок нет': 'No workouts',
+  'лучшая неделя': 'best week',
+  'лучший месяц': 'best month',
+  /* «т» уже переведено ниже, среди собираемых в строку кусков. */
   'На главную': 'Go home',
   'Укажите вес или повторения': 'Enter weight or reps',
   'Личный рекорд': 'Personal record',

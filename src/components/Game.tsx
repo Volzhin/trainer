@@ -332,7 +332,7 @@ export function YearStrip({ year }: { year: { weekStart: number; sessions: numbe
  * открывать приложение ради галочки — это игра вместо работы.
  */
 export function WeekCard({ game }: { game: GameState }) {
-  const { week, streak, next } = game
+  const { week, streak } = game
   const enough = week.target != null && week.done >= week.target
 
   return (
@@ -380,21 +380,15 @@ export function WeekCard({ game }: { game: GameState }) {
         </div>
       )}
 
-      {/* Ближайшее достижение — ровно одно. Витрина из десятка серых значков
-          демотивирует, один достижимый — наоборот. */}
-      {next && (
-        <div className="row mt-4" style={{ gap: 12 }}>
-          <span className={`glyph-inline${next.copper ? ' copper' : ''}`}>
-            <AchievementIcon id={next.id} size={17} />
-          </span>
-          <span className="grow">
-            <span className="strong">{t(next.title)}</span>
-            <span className="sub">
-              {t('осталось')} {shortCount(next.need - next.have)}
-            </span>
-          </span>
-        </div>
-      )}
+      {/*
+        Ближайшего достижения здесь больше нет.
+
+        Карточка отвечает на вопрос «как идёт эта неделя», а «до ста тонн
+        осталось 50» — не про неделю и не про то, что делать сегодня: цель
+        такого размера набирается месяцами, и на главном экране она просто
+        висела. Достижения целиком, со счётом и прогрессом, лежат в профиле,
+        где их и смотрят — когда захотят, а не каждое открытие приложения.
+      */}
     </div>
   )
 }

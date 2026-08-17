@@ -1,7 +1,7 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type WorkoutSession } from '../db/db'
+import { db, type ExerciseSet, type WorkoutSession } from '../db/db'
 import {
   listMySessions,
   repeatSession,
@@ -47,54 +47,228 @@ const mondayOf = (ts: number) => {
 /** Насколько далеко нужно увести палец, чтобы это считалось листанием. */
 const SWIPE_MIN = 44
 
+/** Сколько длится доводка после отпущенного пальца, мс. Столько же в CSS. */
+const SETTLE_MS = 260
+
+/** Даты сетки для режима и опорной даты. */
+function gridDays(mode: 'week' | 'month', anchor: number): number[] {
+  if (mode === 'week') {
+    const start = mondayOf(anchor)
+    return Array.from({ length: 7 }, (_, i) => start + i * DAY)
+  }
+  const d = new Date(anchor)
+  const gridStart = mondayOf(new Date(d.getFullYear(), d.getMonth(), 1).getTime())
+  /*
+   * Месяц всегда шесть строк, даже когда влезает в пять.
+   *
+   * Раньше число строк считалось по месяцу, и сетка то и дело меняла высоту.
+   * Пока месяцы просто сменяли друг друга, это было незаметно; теперь они
+   * едут за пальцем бок о бок, и соседи разной высоты дёргали бы всё, что
+   * стоит под календарём, на каждом миллиметре движения.
+   */
+  return Array.from({ length: 42 }, (_, i) => gridStart + i * DAY)
+}
+
+/** Соседняя опорная дата: неделей или месяцем назад и вперёд. */
+function shiftAnchor(mode: 'week' | 'month', anchor: number, dir: -1 | 1): number {
+  if (mode === 'week') return anchor + dir * 7 * DAY
+  const d = new Date(anchor)
+  return new Date(d.getFullYear(), d.getMonth() + dir, 1).getTime()
+}
+
+/** Начало периода, которому принадлежит день: понедельник или первое число. */
+function periodStart(mode: 'week' | 'month', ts: number): number {
+  if (mode === 'week') return mondayOf(ts)
+  const d = new Date(ts)
+  return new Date(d.getFullYear(), d.getMonth(), 1).getTime()
+}
+
 /**
- * Листание календаря пальцем или мышью — вместо кнопок-стрелок.
+ * Лента из трёх сеток, которая едет за пальцем.
+ *
+ * Не «жест, а потом перелистывание»: соседние недели лежат слева и справа
+ * от текущей и видны ровно настолько, насколько уведён палец. Человек
+ * тянет — и видит, что придёт, а не гадает, сработало ли движение. Отпустил
+ * на полпути — лента сама доедет до ближайшей.
  *
  * Указатель, а не касание: тем же движением календарь листается мышью на
  * десктопе, где пальца нет, а стрелок больше тоже нет.
- *
- * Горизонталь должна заметно перевешивать вертикаль. Календарь стоит в
- * середине прокручиваемого экрана, и палец, ведущий страницу вверх, почти
- * никогда не идёт ровно: без этой проверки неделя перескакивала бы при
- * обычной прокрутке. Сам зазор по вертикали браузеру не мешаем отдавать
- * странице — за это отвечает `touch-action: pan-y` у сетки.
  */
-function useSwipe(onSwipe: (dir: -1 | 1) => void) {
+function useCarousel(width: number, onCommit: (dir: -1 | 1) => void) {
   const from = useRef<{ x: number; y: number } | null>(null)
-  // Свайп заканчивается на какой-то клетке, и без этой пометки отпущенный
-  // палец заодно выбирал бы день, над которым остановился.
+  /*
+   * Направление решаем один раз за жест и больше не пересматриваем.
+   *
+   * Календарь стоит посреди прокручиваемого экрана, и палец, ведущий
+   * страницу вверх, почти никогда не идёт ровно. Без этого лента дёргалась
+   * бы вбок при каждой попытке проскроллить, а перехваченная прокрутка
+   * раздражает сильнее, чем не сработавший свайп.
+   */
+  const axis = useRef<'?' | 'x' | 'y'>('?')
+  // Жест заканчивается на какой-то клетке, и без пометки отпущенный палец
+  // заодно выбирал бы день, над которым остановился.
   const swiped = useRef(false)
+  const [dx, setDx] = useState(0)
+  /** Куда доводим ленту после отпускания: −1 назад, 0 на место, 1 вперёд. */
+  const [settle, setSettle] = useState<-1 | 0 | 1 | null>(null)
+
+  const idle = settle == null
+  const offset = idle ? dx : settle * -width
+
+  const release = () => {
+    // Лента и не трогалась — доводить нечего. Это не мелочь: переход с
+    // нулевым сдвигом не начнётся, `transitionend` не придёт, и лента
+    // осталась бы «в доводке» навсегда, перестав отвечать на жесты вовсе.
+    if (dx === 0) return setSettle(null)
+    // Порога хватает и трети ширины: на узком экране 44 пикселя — это уже
+    // почти клетка, и туда легко попасть, просто промахнувшись по дню.
+    const enough = Math.abs(dx) >= Math.min(SWIPE_MIN, width / 3)
+    setSettle(enough ? (dx < 0 ? 1 : -1) : 0)
+    if (enough) haptics.selection()
+  }
+
+  const finish = () => {
+    if (settle == null) return
+    const dir = settle
+    // Обе правки в одном обработчике — React применит их одним рендером,
+    // и подмена дат совпадёт с возвратом ленты в исходное положение. Иначе
+    // между ними успел бы прорисоваться кадр со сдвинутой лентой и уже
+    // новыми числами — то есть заметный рывок в конце каждого движения.
+    setSettle(null)
+    setDx(0)
+    if (dir !== 0) onCommit(dir)
+  }
+
+  /*
+   * Страховка на случай, если `transitionend` не придёт.
+   *
+   * Он не приходит, когда вкладку увели в фон посреди доводки или переход
+   * прервали. Без страховки лента навсегда осталась бы «в доводке» и
+   * перестала бы отвечать на жесты — а это единственный способ листать.
+   */
+  useEffect(() => {
+    if (settle == null) return
+    const id = window.setTimeout(finish, SETTLE_MS + 120)
+    return () => clearTimeout(id)
+  })
 
   return {
-    onPointerDown: (e: React.PointerEvent) => {
-      if (e.pointerType === 'mouse' && e.button !== 0) return
-      // Пометку снимаем здесь, а не после того, как её применили: протяжка
-      // начинается и заканчивается на разных клетках, и клика после неё
-      // браузер не шлёт вовсе. Поднятая пометка доживала до следующего
-      // касания и гасила уже его — день переставал выбираться после
-      // каждого перелистывания.
-      swiped.current = false
-      from.current = { x: e.clientX, y: e.clientY }
-    },
-    onPointerUp: (e: React.PointerEvent) => {
-      const start = from.current
-      from.current = null
-      if (!start) return
-      const dx = e.clientX - start.x
-      const dy = e.clientY - start.y
-      if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * 1.5) return
-      swiped.current = true
-      onSwipe(dx < 0 ? 1 : -1)
-    },
-    onPointerCancel: () => {
-      from.current = null
-    },
-    onClickCapture: (e: React.MouseEvent) => {
-      if (!swiped.current) return
-      e.stopPropagation()
-      e.preventDefault()
+    /** Сдвиг ленты относительно «текущая сетка по центру», в пикселях. */
+    offset,
+    /** Идёт доводка — на это время лента едет с переходом, а не за пальцем. */
+    settling: !idle,
+    onTransitionEnd: finish,
+    handlers: {
+      onPointerDown: (e: React.PointerEvent) => {
+        if (!width || !idle) return
+        if (e.pointerType === 'mouse' && e.button !== 0) return
+        // Пометку снимаем в начале жеста, а не после того, как применили:
+        // протяжка начинается и заканчивается на разных клетках, и клика
+        // после неё браузер не шлёт вовсе. Поднятая пометка доживала до
+        // следующего касания и гасила уже его.
+        swiped.current = false
+        axis.current = '?'
+        from.current = { x: e.clientX, y: e.clientY }
+        // Захват указателя — удобство, а не условие работы: с ним движение
+        // продолжает приходить, даже когда палец ушёл за края календаря.
+        // Отказ не должен ронять жест целиком, поэтому не даём ему выйти.
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId)
+        } catch {
+          /* обойдёмся без захвата */
+        }
+      },
+      onPointerMove: (e: React.PointerEvent) => {
+        const start = from.current
+        if (!start) return
+        const mx = e.clientX - start.x
+        const my = e.clientY - start.y
+        if (axis.current === '?') {
+          if (Math.abs(mx) < 8 && Math.abs(my) < 8) return
+          axis.current = Math.abs(mx) > Math.abs(my) ? 'x' : 'y'
+          if (axis.current === 'y') from.current = null
+        }
+        if (axis.current !== 'x') return
+        swiped.current = true
+        setDx(mx)
+      },
+      onPointerUp: () => {
+        if (!from.current) return
+        from.current = null
+        release()
+      },
+      onPointerCancel: () => {
+        from.current = null
+        if (dx !== 0) setSettle(0)
+      },
+      onClickCapture: (e: React.MouseEvent) => {
+        if (!swiped.current) return
+        e.stopPropagation()
+        e.preventDefault()
+      },
     },
   }
+}
+
+/** Ширина элемента в пикселях — лента считает сдвиг по ней. */
+function useWidth<T extends HTMLElement>() {
+  const ref = useRef<T>(null)
+  const [width, setWidth] = useState(0)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const ro = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  return { ref, width }
+}
+
+/**
+ * Итог периода в подвале календаря.
+ *
+ * Одна строка, а не панель со статистикой: календарь остаётся календарём, а
+ * счёт под ним отвечает на единственный вопрос, ради которого листают назад
+ * — «а сколько было тогда».
+ */
+function CalendarScore({
+  mode,
+  score,
+}: {
+  mode: 'week' | 'month'
+  score: { done: number; volume: number; best: boolean }
+}) {
+  if (score.done === 0) {
+    return (
+      <div className="cal-score">
+        <span className="mute-sm">{t('Тренировок нет')}</span>
+      </div>
+    )
+  }
+  return (
+    <div className={`cal-score${score.best ? ' best' : ''}`}>
+      <span className="cal-score-line">
+        {/* plural сам знает про английский (см. PLURAL_EN), оборачивать его
+            в t() не нужно — получилась бы двойная попытка перевода. */}
+        <b className="t-num">{score.done}</b>{' '}
+        {plural(score.done, ['тренировка', 'тренировки', 'тренировок'])}
+        {score.volume > 0 && (
+          <>
+            {' · '}
+            <b className="t-num">{(score.volume / 1000).toFixed(1)}</b> {t('т')}
+          </>
+        )}
+      </span>
+      {/* Звание — единственная награда на этом экране, поэтому она и заметна.
+          Лайм, а не медь: медь в приложении закреплена за личным рекордом в
+          упражнении и больше нигде не появляется (см. DESIGN.md). */}
+      {score.best && (
+        <span className="badge pro">
+          {mode === 'week' ? t('лучшая неделя') : t('лучший месяц')}
+        </span>
+      )}
+    </div>
+  )
 }
 
 /**
@@ -118,6 +292,25 @@ export function WorkoutCalendar() {
   // иначе у него пусто, а у тренера «назначено».
   const pending = useLiveQuery(() => pendingAssignmentFor(userId), [userId, plan?.assignment.id])
 
+  /**
+   * Подходы и тоннаж по тренировкам — считаем один раз на все места сразу.
+   *
+   * Раньше каждая карточка в списке дня перебирала все подходы устройства
+   * заново; теперь тем же счётом пользуется и итог периода, которому иначе
+   * пришлось бы делать этот перебор ещё по разу на каждую тренировку.
+   */
+  const statsBySession = useMemo(() => {
+    const sets = new Map<string, ExerciseSet[]>()
+    for (const s of allSets ?? []) {
+      const arr = sets.get(s.workout_session_id)
+      if (arr) arr.push(s)
+      else sets.set(s.workout_session_id, [s])
+    }
+    const out = new Map<string, { count: number; volume: number }>()
+    for (const [id, arr] of sets) out.set(id, { count: arr.length, volume: totalVolume(arr) })
+    return out
+  }, [allSets])
+
   /** Тренировки, разложенные по дням — основа и маркеров, и списка. */
   const byDay = useMemo(() => {
     const map = new Map<number, WorkoutSession[]>()
@@ -130,36 +323,31 @@ export function WorkoutCalendar() {
     return map
   }, [sessions])
 
-  const days = useMemo(() => {
-    if (mode === 'week') {
-      const start = mondayOf(anchor)
-      return Array.from({ length: 7 }, (_, i) => start + i * DAY)
-    }
-    // Месяц показываем целыми неделями, иначе сетка «рвётся» по краям.
-    const first = new Date(
-      new Date(anchor).getFullYear(),
-      new Date(anchor).getMonth(),
-      1,
-    ).getTime()
-    const gridStart = mondayOf(first)
-    const lastDay = new Date(
-      new Date(anchor).getFullYear(),
-      new Date(anchor).getMonth() + 1,
-      0,
-    ).getTime()
-    // Последний день месяца входит в сетку целиком, поэтому считаем недели по
-    // дню после него: без этого почти каждый месяц получал лишнюю строку.
-    const weeks = Math.ceil((startOfDay(lastDay) + DAY - gridStart) / (7 * DAY))
-    return Array.from({ length: weeks * 7 }, (_, i) => gridStart + i * DAY)
-  }, [mode, anchor])
+  /*
+   * Три сетки сразу: прошлая, текущая и следующая.
+   *
+   * Соседи считаются всегда, а не в момент жеста: показать их надо на первом
+   * же миллиметре движения, а собирать сетку под пальцем — значит показать
+   * пустоту там, куда человек уже смотрит.
+   */
+  const panels = useMemo(
+    () =>
+      ([-1, 0, 1] as const).map((d) => {
+        const a = d === 0 ? anchor : shiftAnchor(mode, anchor, d)
+        return { key: `${mode}:${a}`, anchor: a, days: gridDays(mode, a) }
+      }),
+    [mode, anchor],
+  )
+  const days = panels[1].days
 
-  // Плановые тренировки по расписанию — маркеры на будущих днях.
+  // Плановые тренировки по расписанию — маркеры на будущих днях. Диапазон
+  // берём по всем трём сеткам: у соседей маркеры нужны до того, как они
+  // доедут до центра, иначе план проступает на них уже после остановки.
+  const spanFrom = panels[0].days[0]
+  const spanTo = panels[2].days[panels[2].days.length - 1]
   const planned = useLiveQuery(
-    async () =>
-      days.length
-        ? await plannedDates(days[0], days[days.length - 1], userId)
-        : new Map<number, string>(),
-    [days[0], days[days.length - 1], plan?.assignment.id, userId],
+    async () => await plannedDates(spanFrom, spanTo, userId),
+    [spanFrom, spanTo, plan?.assignment.id, userId],
     new Map<string, string>() as unknown as Map<number, string>,
   )
   const plannedToday = useLiveQuery(
@@ -167,16 +355,43 @@ export function WorkoutCalendar() {
     [selected, plan?.assignment.id, userId],
   )
 
+  /**
+   * Итог показанного периода — то, ради чего вообще листают назад.
+   *
+   * Считаем по тому, что на экране, а не по текущей неделе: карточка выше
+   * и так про «эту неделю», и повторять её здесь незачем. Смысл появляется
+   * ровно в тот момент, когда человек уехал в июль и увидел, сколько там
+   * было. Тоннаж рядом с числом тренировок потому, что три тренировки по
+   * часу и три по десять минут — это разные три тренировки.
+   */
+  const score = useMemo(() => {
+    const from = periodStart(mode, anchor)
+    const to = shiftAnchor(mode, from, 1)
+    const done = [...byDay.keys()].filter((k) => k >= from && k < to).length
+    const volume = (sessions ?? [])
+      .filter((s) => s.start_time >= from && s.start_time < to)
+      .reduce((sum, s) => sum + (statsBySession.get(s.id)?.volume ?? 0), 0)
+
+    // «Лучший» — по числу дней с тренировкой среди всех периодов, где вообще
+    // что-то было. Пока такой период один, звания нет: назвать лучшей
+    // единственную неделю в истории значит обесценить слово.
+    const counts = new Map<number, number>()
+    for (const k of byDay.keys()) {
+      const p = periodStart(mode, k)
+      counts.set(p, (counts.get(p) ?? 0) + 1)
+    }
+    const best = counts.size >= 2 && done > 0 && done === Math.max(...counts.values())
+    return { done, volume, best }
+  }, [byDay, sessions, statsBySession, mode, anchor])
+
+  const { ref: viewport, width } = useWidth<HTMLDivElement>()
+  const carousel = useCarousel(width, (dir) => setAnchor((a) => shiftAnchor(mode, a, dir)))
+
+  /** Листание с клавиатуры и по кнопке «сегодня» — без ленты, сразу. */
   const shift = (dir: -1 | 1) => {
     haptics.selection()
-    setAnchor((a) =>
-      mode === 'week'
-        ? a + dir * 7 * DAY
-        : new Date(new Date(a).getFullYear(), new Date(a).getMonth() + dir, 1).getTime(),
-    )
+    setAnchor((a) => shiftAnchor(mode, a, dir))
   }
-
-  const swipe = useSwipe(shift)
 
   const today = startOfDay(Date.now())
   const dayList = byDay.get(selected) ?? []
@@ -245,84 +460,113 @@ export function WorkoutCalendar() {
 
   return (
     <div>
-      <div className="row between mb-3">
-        <div>
-          <div style={{ fontWeight: 700, textTransform: 'capitalize' }}>{monthLabel}</div>
-          <button
-            className="mute-sm tap-wide"
-            style={{ padding: '4px 0', position: 'relative' }}
-            onClick={() => {
-              setAnchor(today)
-              setSelected(today)
-            }}
-          >
-            {t('сегодня')}
-          </button>
-        </div>
-        <div className="segmented" style={{ flex: '0 0 auto' }}>
-          <button className={mode === 'week' ? 'on' : ''} onClick={() => setMode('week')}>
-            {t('Неделя')}
-          </button>
-          <button className={mode === 'month' ? 'on' : ''} onClick={() => setMode('month')}>
-            {t('Месяц')}
-          </button>
-        </div>
-      </div>
-
-      {/* Ряд дней недели стоит один и ровно над числами: у него та же сетка
-          из семи колонок и тот же зазор, что у сетки дат. Раньше между ними
-          вклинивались кнопки-стрелки, ряд получался из девяти ячеек, и число
-          ни разу не попадало под своё название. */}
-      <div className="cal-weekdays">
-        {WEEK_DAYS.map((d) => (
-          <span key={d}>{t(d)}</span>
-        ))}
-      </div>
-
-      <div
-        className="cal-grid cal-swipe"
-        role="group"
-        aria-label={t('Календарь тренировок')}
-        onKeyDown={(e) => {
-          // Стрелок на экране нет, но с клавиатуры листать по-прежнему можно:
-          // без этого календарь остался бы доступен только пальцем и мышью.
-          if (e.key === 'ArrowLeft') shift(-1)
-          else if (e.key === 'ArrowRight') shift(1)
-          else return
-          e.preventDefault()
-        }}
-        {...swipe}
-      >
-        {days.map((ts) => {
-          const list = byDay.get(ts) ?? []
-          const inMonth =
-            mode === 'week' || new Date(ts).getMonth() === new Date(anchor).getMonth()
-          return (
+      {/* Календарь собран в одну карточку: шапка, дни недели, сетка и итог —
+          части одного предмета, а по отдельности на фоне экрана они лежали
+          россыпью, и переключатель «Неделя / Месяц» висел сам по себе. */}
+      <div className="cal-card">
+        <div className="cal-head">
+          <div className="grow">
+            <div className="cal-month">{monthLabel}</div>
             <button
-              key={ts}
-              className={[
-                'cal-day',
-                ts === selected ? 'on' : '',
-                ts === today ? 'today' : '',
-                inMonth ? '' : 'dim',
-              ].join(' ')}
+              className="mute-sm tap-wide"
+              style={{ padding: '4px 0', position: 'relative' }}
               onClick={() => {
-                haptics.selection()
-                setSelected(ts)
+                setAnchor(today)
+                setSelected(today)
               }}
             >
-              {/* Подписи дня недели под числом нет: она стоит в ряду выше,
-                  ровно над этой колонкой, и повторять её в каждой клетке
-                  значит написать «вт» на экране трижды. */}
-              <span className="d-num">{new Date(ts).getDate()}</span>
-              {list.length > 0 ? (
-                <span className="d-dot" />
-              ) : (
-                planned?.has(ts) && <span className="d-dot planned" />
-              )}
+              {t('сегодня')}
             </button>
-          )
-        })}
+          </div>
+          <div className="segmented">
+            <button className={mode === 'week' ? 'on' : ''} onClick={() => setMode('week')}>
+              {t('Неделя')}
+            </button>
+            <button className={mode === 'month' ? 'on' : ''} onClick={() => setMode('month')}>
+              {t('Месяц')}
+            </button>
+          </div>
+        </div>
+
+        {/* Ряд дней недели стоит один и ровно над числами: у него та же сетка
+            из семи колонок и тот же зазор, что у сетки дат. Раньше между ними
+            вклинивались кнопки-стрелки, ряд получался из девяти ячеек, и число
+            ни разу не попадало под своё название. */}
+        <div className="cal-weekdays">
+          {WEEK_DAYS.map((d) => (
+            <span key={d}>{t(d)}</span>
+          ))}
+        </div>
+
+        <div
+          className="cal-viewport"
+          ref={viewport}
+          role="group"
+          aria-label={t('Календарь тренировок')}
+          onKeyDown={(e) => {
+            // Стрелок на экране нет, но с клавиатуры листать по-прежнему
+            // можно: без этого календарь остался бы доступен только пальцем
+            // и мышью.
+            if (e.key === 'ArrowLeft') shift(-1)
+            else if (e.key === 'ArrowRight') shift(1)
+            else return
+            e.preventDefault()
+          }}
+          {...carousel.handlers}
+        >
+          <div
+            className={`cal-track${carousel.settling ? ' settling' : ''}`}
+            style={{ transform: `translate3d(${carousel.offset - width}px, 0, 0)` }}
+            onTransitionEnd={carousel.onTransitionEnd}
+          >
+            {panels.map((panel) => (
+              <div className="cal-grid" key={panel.key}>
+                {panel.days.map((ts) => {
+                  const list = byDay.get(ts) ?? []
+                  const inMonth =
+                    mode === 'week' ||
+                    new Date(ts).getMonth() === new Date(panel.anchor).getMonth()
+                  return (
+                    <button
+                      key={ts}
+                      // Соседние сетки из обхода табом убираем: они лежат за
+                      // краем, и фокус уезжал бы на невидимые числа.
+                      tabIndex={panel.anchor === anchor ? undefined : -1}
+                      className={[
+                        'cal-day',
+                        ts === selected ? 'on' : '',
+                        ts === today ? 'today' : '',
+                        list.length > 0 ? 'done' : '',
+                        inMonth ? '' : 'dim',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      onClick={() => {
+                        haptics.selection()
+                        setSelected(ts)
+                        // Клетка соседней сетки — значит человек ткнул в день,
+                        // который видно с краю: переезжаем туда вместе с ним.
+                        if (panel.anchor !== anchor) setAnchor(panel.anchor)
+                      }}
+                    >
+                      {/* Подписи дня недели под числом нет: она стоит в ряду
+                          выше, ровно над этой колонкой, и повторять её в
+                          каждой клетке значит написать «вт» трижды. */}
+                      <span className="d-num">{new Date(ts).getDate()}</span>
+                      {list.length > 0 ? (
+                        <span className="d-dot" />
+                      ) : (
+                        planned?.has(ts) && <span className="d-dot planned" />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <CalendarScore mode={mode} score={score} />
       </div>
 
       <div className="section-title">
@@ -360,7 +604,7 @@ export function WorkoutCalendar() {
       ) : (
         <div className="stagger">
           {dayList.map((s, i) => {
-            const sets = (allSets ?? []).filter((x) => x.workout_session_id === s.id)
+            const stats = statsBySession.get(s.id) ?? { count: 0, volume: 0 }
             return (
               <button
                 key={s.id}
@@ -381,8 +625,8 @@ export function WorkoutCalendar() {
                       {t(s.title)}
                     </div>
                     <div className="mute-sm" style={{ marginTop: 3 }}>
-                      {sets.length} {plural(sets.length, ['подход', 'подхода', 'подходов'])} ·{' '}
-                      {Math.round(totalVolume(sets))} {t('кг')} ·{' '}
+                      {stats.count} {plural(stats.count, ['подход', 'подхода', 'подходов'])} ·{' '}
+                      {Math.round(stats.volume)} {t('кг')} ·{' '}
                       {formatDuration((s.end_time ?? s.start_time) - s.start_time)}
                     </div>
                   </div>

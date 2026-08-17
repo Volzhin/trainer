@@ -1106,38 +1106,11 @@ a {
   gap: 6px;
 }
 
-.calendar {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 5px;
-}
-
-.cal-cell {
-  aspect-ratio: 1;
-  border-radius: 7px;
-  background: var(--surface-2);
-  display: grid;
-  place-items: center;
-  font-size: 11px;
-  color: var(--text-3);
-}
-
-.cal-cell.hit {
-  background: var(--accent);
-  color: var(--on-accent);
-  font-weight: 600;
-}
-
-.cal-cell.today {
-  outline: 1px solid var(--text-2);
-}
-
-.cal-head {
-  font-size: 10px;
-  color: var(--text-3);
-  text-align: center;
-  text-transform: uppercase;
-}
+/* Здесь лежал набор правил `.calendar` / `.cal-cell` / `.cal-head` от
+   календаря, которого в приложении давно нет: разметку под них не строит
+   ни один компонент. Мёртвыми они были не безобидны — `.cal-head`
+   центрировал текст и молча перебивал шапку нынешнего календаря, когда
+   имя совпало. */
 
 .empty {
   text-align: center;
@@ -1844,6 +1817,38 @@ button.group-row:active {
 
 /* =============================== календарь ============================ */
 
+/* Календарь — один предмет, а не четыре куска на фоне экрана: шапка, дни
+   недели, сетка и итог живут в общей рамке. Заодно переключателю «Неделя /
+   Месяц» есть к чему прижаться — на голом фоне он висел сам по себе. */
+.cal-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 14px 14px 0;
+  box-shadow: var(--shadow-1);
+  /* Соседние сетки уезжают за край рамки, а не поверх соседних блоков. */
+  overflow: hidden;
+}
+
+.cal-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.cal-month {
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+/* Переключатель не тянется и не сжимается: он всегда одной ширины, а
+   растёт подпись месяца слева. Раньше он делил строку на равных, и на
+   узком экране длинный месяц выдавливал его за край. */
+.cal-head .segmented {
+  flex: 0 0 auto;
+}
+
 /* Зазор тот же, что у сетки дат, — иначе колонки расходятся и число стоит
    не под своим днём недели. Две сетки читаются как одна таблица только
    пока их шаг совпадает. */
@@ -1865,11 +1870,76 @@ button.group-row:active {
   gap: 4px;
 }
 
-/* Календарь листается пальцем. Вертикаль отдаём странице: календарь стоит
-   посреди прокручиваемого экрана, и забрать себе оба направления значит
-   поймать пальцем каждую попытку его проскроллить. */
-.cal-swipe {
+/*
+ * Окно, в котором едет лента из трёх сеток.
+ *
+ * Вертикаль отдаём странице: календарь стоит посреди прокручиваемого
+ * экрана, и забрать себе оба направления значит ловить пальцем каждую
+ * попытку его проскроллить.
+ */
+.cal-viewport {
+  /* Режем ровно по своей ширине. Полей у окна быть не должно: `overflow`
+     обрезает по внешнему краю полей, и соседняя сетка выглядывала бы из-под
+     них полоской ровно в это поле — что и происходило. */
+  overflow: hidden;
   touch-action: pan-y;
+}
+
+.cal-track {
+  display: flex;
+  /* Каждая сетка ровно в ширину окна: сдвиг ленты на эту же ширину и
+     означает «соседний период по центру». */
+  align-items: start;
+}
+
+.cal-track > .cal-grid {
+  flex: 0 0 100%;
+}
+
+/* За пальцем лента идёт без перехода — иначе она тянулась бы следом с
+   задержкой, и движение читалось бы как подтормаживание. Переход включаем
+   только на доводку после того, как палец отпустили. */
+.cal-track.settling {
+  transition: transform 260ms var(--ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cal-track.settling {
+    transition-duration: 1ms;
+  }
+}
+
+/* --- итог показанного периода ----------------------------------------- */
+
+.cal-score {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+  margin: 4px -14px 0;
+  padding: 0 14px;
+  border-top: 1px solid var(--border);
+}
+
+.cal-score-line {
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+.cal-score-line b {
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* Лучший период подсвечен целиком: это единственная награда на экране, и
+   заметить её человек должен, не вчитываясь в строку. */
+.cal-score.best {
+  background: var(--accent-soft);
+}
+
+.cal-score.best .cal-score-line b {
+  color: var(--accent-ink);
 }
 
 .cal-day {
@@ -1910,6 +1980,23 @@ button.group-row:active {
   box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 
+/*
+ * День, в который тренировались, залит — и месяц целиком читается как карта
+ * сделанного, а не как таблица чисел с точками.
+ *
+ * Заливка приглушённая, а выбранный день по-прежнему берёт полный акцент:
+ * иначе «этот день я выбрал» и «в этот день я работал» стали бы одним и тем
+ * же пятном, и выбор перестал бы читаться.
+ */
+.cal-day.done {
+  background: var(--accent-soft);
+}
+
+.cal-day.done .d-num {
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
 .cal-day.on {
   background: var(--accent);
   color: var(--on-accent);
@@ -1918,6 +2005,13 @@ button.group-row:active {
 .cal-day.on .d-wd {
   color: var(--on-accent);
   opacity: 0.75;
+}
+
+/* Выбранный день, в который тренировались: заливка уже полная, и число на
+   ней должно быть тёмным. Без этой строки правило заливки перебивало цвет
+   выбранного дня — акцент на акценте. */
+.cal-day.on.done .d-num {
+  color: var(--on-accent);
 }
 
 /* Точка-маркер: в дне есть тренировка. На выбранном дне инвертируется. */
