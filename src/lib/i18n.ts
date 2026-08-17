@@ -128,6 +128,13 @@ const EN: Record<string, string> = {
   'Добавить упражнение': 'Add exercise',
   'Добавьте первое упражнение': 'Add your first exercise',
   'Добавить подход': 'Add set',
+  'Убрать подход': 'Remove set',
+  'Подход убран': 'Set removed',
+  'В подходе': 'Set',
+  'уже записан результат. Убрать его вместе с записью?':
+    'already has a result. Remove it along with what was logged?',
+  /* «Оставить» уже переведено ниже, в блоке разбора отчётов. */
+  'Календарь тренировок': 'Workout calendar',
   'На главную': 'Go home',
   'Укажите вес или повторения': 'Enter weight or reps',
   'Личный рекорд': 'Personal record',

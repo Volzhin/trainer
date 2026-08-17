@@ -1844,17 +1844,14 @@ button.group-row:active {
 
 /* =============================== календарь ============================ */
 
-.cal-nav {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
+/* Зазор тот же, что у сетки дат, — иначе колонки расходятся и число стоит
+   не под своим днём недели. Две сетки читаются как одна таблица только
+   пока их шаг совпадает. */
 .cal-weekdays {
-  flex: 1;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
   text-align: center;
   font: 800 11px/1 var(--font-ui);
   letter-spacing: 0.12em;
@@ -1866,6 +1863,13 @@ button.group-row:active {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 4px;
+}
+
+/* Календарь листается пальцем. Вертикаль отдаём странице: календарь стоит
+   посреди прокручиваемого экрана, и забрать себе оба направления значит
+   поймать пальцем каждую попытку его проскроллить. */
+.cal-swipe {
+  touch-action: pan-y;
 }
 
 .cal-day {
@@ -2889,48 +2893,6 @@ button.group-row:active {
 
 .ring .val.nutri {
   stroke: var(--info);
-}
-
-/* --- неделя точками --------------------------------------------------- */
-
-.week-dots {
-  display: flex;
-  gap: 6px;
-}
-
-.week-dots i {
-  width: 26px;
-  height: 26px;
-  border-radius: var(--r-sm);
-  display: grid;
-  place-items: center;
-  font: 600 11px var(--font-num);
-  color: var(--text-3);
-  background: transparent;
-  /* Пустой день — пунктир, а не красная клетка: в приложении про здоровье
-     день отдыха не должен выглядеть как ошибка. */
-  border: 1px dashed var(--border-strong);
-  font-style: normal;
-}
-
-.week-dots i.on {
-  background: var(--accent-soft);
-  border: 1px solid transparent;
-  color: var(--accent-ink);
-  animation: dot-in 260ms var(--spring) both;
-  animation-delay: calc(var(--i, 0) * 55ms);
-}
-
-.week-dots i.today {
-  border-style: solid;
-  border-color: var(--accent-ink);
-}
-
-@keyframes dot-in {
-  from {
-    opacity: 0;
-    transform: scale(0.4);
-  }
 }
 
 /* --- достижения ------------------------------------------------------- */

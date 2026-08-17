@@ -29,6 +29,7 @@ import {
   IconChart,
   IconCheck,
   IconInfo,
+  IconMinus,
   IconPlus,
   IconRecord,
   IconSwap,
@@ -75,6 +76,14 @@ export function LiveSession() {
   const [frozenElapsed, setFrozenElapsed] = useState<number | null>(null)
   const [askedNotify, setAskedNotify] = useState(false)
   const [reportBusy, setReportBusy] = useState(false)
+  /**
+   * Подход, который просят убрать, а в нём уже что-то записано.
+   *
+   * Пустую строку убираем молча — её добавили лишней, и спрашивать не о чем.
+   * А заполненный подход это сделанная работа: переспросить дешевле, чем
+   * потерять её без следа, вернуть её потом неоткуда.
+   */
+  const [removeSet, setRemoveSet] = useState<{ set: ExerciseSet; number: number } | null>(null)
 
   const session = useLiveQuery(() => db.sessions.get(id), [id])
   // Кнопку съёмки показываем только на онлайн-сопровождении: без тренера
@@ -280,6 +289,20 @@ export function LiveSession() {
     nav('/', { replace: true })
   }
 
+  /** Убрать последний подход упражнения — пару к «Добавить подход». */
+  const askRemoveSet = (block: Block) => {
+    const last = block.sets[block.sets.length - 1]
+    if (!last) return
+    const filled =
+      last.is_done === 1 || last.weight_kg != null || last.reps_completed != null
+    if (filled) {
+      setRemoveSet({ set: last, number: block.sets.length })
+      return
+    }
+    haptics.selection()
+    void deleteSetRow(last.id)
+  }
+
   /**
    * Сдать отчёт прямо из шторки завершения.
    *
@@ -475,16 +498,28 @@ export function LiveSession() {
                 index={i}
                 prev={block.prev[i]}
                 onToggle={(entered) => onToggleDone(s, block, entered)}
-                onDelete={() => deleteSetRow(s.id)}
               />
             ))}
 
-            <div style={{ padding: '4px 12px 8px' }}>
+            {/* «Убрать» стоит рядом с «Добавить», а не прячется в двойном
+                нажатии по номеру строки, как было раньше: на телефоне
+                двойного клика нет вовсе, и лишний подход убрать было нечем.
+                Последняя строка потому, что убирают всегда только что
+                добавленную лишнюю; на единственной строке кнопка гаснет —
+                упражнение без подходов удаляют целиком, корзиной в шапке. */}
+            <div className="row" style={{ padding: '4px 12px 8px', gap: 8 }}>
               <button
-                className="btn sm block"
+                className="btn sm grow"
                 onClick={() => addSetRow(id, block.exercise.id, block.sequence_order)}
               >
                 <IconPlus size={15} /> {t('Добавить подход')}
+              </button>
+              <button
+                className="btn sm grow"
+                disabled={block.sets.length < 2}
+                onClick={() => askRemoveSet(block)}
+              >
+                <IconMinus size={15} /> {t('Убрать подход')}
               </button>
             </div>
             {videoReport && <VideoUploader sessionId={id} exerciseId={block.exercise.id} />}
@@ -524,6 +559,33 @@ export function LiveSession() {
           toast(t('Упражнение заменено'))
         }}
       />
+
+      <Sheet
+        open={removeSet != null}
+        title={t('Убрать подход')}
+        onClose={() => setRemoveSet(null)}
+      >
+        <div className="stack">
+          <div className="muted">
+            {`${t('В подходе')} ${removeSet?.number ?? ''} ${t('уже записан результат. Убрать его вместе с записью?')}`}
+          </div>
+          <button
+            className="btn danger block"
+            onClick={async () => {
+              if (!removeSet) return
+              await deleteSetRow(removeSet.set.id)
+              setRemoveSet(null)
+              haptics.success()
+              toast(t('Подход убран'))
+            }}
+          >
+            {t('Убрать')}
+          </button>
+          <button className="btn block" onClick={() => setRemoveSet(null)}>
+            {t('Оставить')}
+          </button>
+        </div>
+      </Sheet>
 
       <Sheet
         open={finishOpen}
@@ -673,13 +735,11 @@ function SetRow({
   index,
   prev,
   onToggle,
-  onDelete,
 }: {
   set: ExerciseSet
   index: number
   prev?: ExerciseSet
   onToggle: (entered: EnteredSet) => void
-  onDelete: () => void
 }) {
   const [weight, setWeight] = useState(set.weight_kg?.toString() ?? '')
   const [reps, setReps] = useState(set.reps_completed?.toString() ?? '')
@@ -709,14 +769,12 @@ function SetRow({
   return (
     <>
       <div className={`set-grid${set.is_done ? ' done' : ''}`}>
-        <button
-          className="num"
-          onDoubleClick={onDelete}
-          title={t('Двойной клик — удалить подход')}
-          style={{ background: 'none' }}
-        >
-          {index + 1}
-        </button>
+        {/* Просто номер строки. Раньше двойной клик по нему удалял подход:
+            на телефоне такого жеста нет, подсказку в title там тоже никто
+            не увидит, зато быстрый двойной тык по соседству с полями ввода
+            стирал результат без всякого вопроса. Убирают подход теперь
+            кнопкой под упражнением. */}
+        <span className="num">{index + 1}</span>
         <input
           className="cell-input"
           type="text"

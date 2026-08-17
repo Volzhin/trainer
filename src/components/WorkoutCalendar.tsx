@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type WorkoutSession } from '../db/db'
@@ -15,7 +15,7 @@ import {
   plannedDates,
   plannedForDate,
 } from '../db/coach'
-import { IconBack, IconChevronRight, IconDumbbell, IconPlay, IconRepeat } from '../components/Icons'
+import { IconChevronRight, IconDumbbell, IconPlay, IconRepeat } from '../components/Icons'
 import { Sheet } from './Sheet'
 import { formatDuration, plural, startOfDay, totalVolume } from '../lib/calc'
 import { haptics } from '../lib/native'
@@ -42,6 +42,59 @@ const DAY = 86400_000
 const mondayOf = (ts: number) => {
   const d = startOfDay(ts)
   return d - ((new Date(d).getDay() + 6) % 7) * DAY
+}
+
+/** Насколько далеко нужно увести палец, чтобы это считалось листанием. */
+const SWIPE_MIN = 44
+
+/**
+ * Листание календаря пальцем или мышью — вместо кнопок-стрелок.
+ *
+ * Указатель, а не касание: тем же движением календарь листается мышью на
+ * десктопе, где пальца нет, а стрелок больше тоже нет.
+ *
+ * Горизонталь должна заметно перевешивать вертикаль. Календарь стоит в
+ * середине прокручиваемого экрана, и палец, ведущий страницу вверх, почти
+ * никогда не идёт ровно: без этой проверки неделя перескакивала бы при
+ * обычной прокрутке. Сам зазор по вертикали браузеру не мешаем отдавать
+ * странице — за это отвечает `touch-action: pan-y` у сетки.
+ */
+function useSwipe(onSwipe: (dir: -1 | 1) => void) {
+  const from = useRef<{ x: number; y: number } | null>(null)
+  // Свайп заканчивается на какой-то клетке, и без этой пометки отпущенный
+  // палец заодно выбирал бы день, над которым остановился.
+  const swiped = useRef(false)
+
+  return {
+    onPointerDown: (e: React.PointerEvent) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return
+      // Пометку снимаем здесь, а не после того, как её применили: протяжка
+      // начинается и заканчивается на разных клетках, и клика после неё
+      // браузер не шлёт вовсе. Поднятая пометка доживала до следующего
+      // касания и гасила уже его — день переставал выбираться после
+      // каждого перелистывания.
+      swiped.current = false
+      from.current = { x: e.clientX, y: e.clientY }
+    },
+    onPointerUp: (e: React.PointerEvent) => {
+      const start = from.current
+      from.current = null
+      if (!start) return
+      const dx = e.clientX - start.x
+      const dy = e.clientY - start.y
+      if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * 1.5) return
+      swiped.current = true
+      onSwipe(dx < 0 ? 1 : -1)
+    },
+    onPointerCancel: () => {
+      from.current = null
+    },
+    onClickCapture: (e: React.MouseEvent) => {
+      if (!swiped.current) return
+      e.stopPropagation()
+      e.preventDefault()
+    },
+  }
 }
 
 /**
@@ -122,6 +175,8 @@ export function WorkoutCalendar() {
         : new Date(new Date(a).getFullYear(), new Date(a).getMonth() + dir, 1).getTime(),
     )
   }
+
+  const swipe = useSwipe(shift)
 
   const today = startOfDay(Date.now())
   const dayList = byDay.get(selected) ?? []
@@ -214,21 +269,30 @@ export function WorkoutCalendar() {
         </div>
       </div>
 
-      <div className="cal-nav">
-        <button className="icon-btn" onClick={() => shift(-1)} aria-label={t('Назад')}>
-          <IconBack size={16} />
-        </button>
-        <div className="cal-weekdays">
-          {WEEK_DAYS.map((d) => (
-            <span key={d}>{t(d)}</span>
-          ))}
-        </div>
-        <button className="icon-btn" onClick={() => shift(1)} aria-label={t('Вперёд')}>
-          <IconChevronRight size={16} />
-        </button>
+      {/* Ряд дней недели стоит один и ровно над числами: у него та же сетка
+          из семи колонок и тот же зазор, что у сетки дат. Раньше между ними
+          вклинивались кнопки-стрелки, ряд получался из девяти ячеек, и число
+          ни разу не попадало под своё название. */}
+      <div className="cal-weekdays">
+        {WEEK_DAYS.map((d) => (
+          <span key={d}>{t(d)}</span>
+        ))}
       </div>
 
-      <div className={`cal-grid${mode === 'week' ? ' week' : ''}`}>
+      <div
+        className="cal-grid cal-swipe"
+        role="group"
+        aria-label={t('Календарь тренировок')}
+        onKeyDown={(e) => {
+          // Стрелок на экране нет, но с клавиатуры листать по-прежнему можно:
+          // без этого календарь остался бы доступен только пальцем и мышью.
+          if (e.key === 'ArrowLeft') shift(-1)
+          else if (e.key === 'ArrowRight') shift(1)
+          else return
+          e.preventDefault()
+        }}
+        {...swipe}
+      >
         {days.map((ts) => {
           const list = byDay.get(ts) ?? []
           const inMonth =
@@ -247,10 +311,10 @@ export function WorkoutCalendar() {
                 setSelected(ts)
               }}
             >
+              {/* Подписи дня недели под числом нет: она стоит в ряду выше,
+                  ровно над этой колонкой, и повторять её в каждой клетке
+                  значит написать «вт» на экране трижды. */}
               <span className="d-num">{new Date(ts).getDate()}</span>
-              {mode === 'week' && (
-                <span className="d-wd">{t(WEEK_DAYS[(new Date(ts).getDay() + 6) % 7])}</span>
-              )}
               {list.length > 0 ? (
                 <span className="d-dot" />
               ) : (

@@ -126,6 +126,13 @@ export const IconPlus = ({ size }: P) => (
   </svg>
 )
 
+/** Пара к «плюсу»: убрать строку, которую им же и добавили. */
+export const IconMinus = ({ size }: P) => (
+  <svg {...base(size)}>
+    <path d="M5 12h14" />
+  </svg>
+)
+
 export const IconBack = ({ size }: P) => (
   <svg {...base(size)}>
     <path d="M15 19l-7-7 7-7" />
