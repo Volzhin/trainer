@@ -4,18 +4,24 @@ import {
   STAGES,
   freshMarks,
   loadGame,
+  loadTrainerGame,
   rememberMarks,
   type GameState,
   type Mark,
+  type TrainerGameState,
 } from '../db/game'
 import {
   IconCamera,
-  IconCheck,
   IconChart,
+  IconCheck,
+  IconClipboard,
   IconDumbbell,
+  IconList,
+  IconMuscle,
   IconRecord,
   IconTimer,
-  IconMuscle,
+  IconUsers,
+  IconZap,
 } from './Icons'
 import { plural } from '../lib/calc'
 import { haptics } from '../lib/native'
@@ -149,9 +155,9 @@ export function WeekDots({ days }: { days: boolean[] }) {
  * приложении, которое ничего не сообщает, и оно тут намеренно: одна
  * пасхалка на всё приложение, которую находят руками.
  */
-export function StageBar({ index }: { index: number }) {
+export function StageBar({ index, steps = STAGES.length }: { index: number; steps?: number }) {
   const [spin, setSpin] = useState(false)
-  const plates = STAGES.map((_, i) => i <= index)
+  const plates = Array.from({ length: steps }, (_, i) => i <= index)
 
   return (
     <button
@@ -186,7 +192,7 @@ export function StageBar({ index }: { index: number }) {
 
 /* -------------------------------- знаки --------------------------------- */
 
-/** Значок знака. Медный — только рекорды, второй цветовой голос системы. */
+/** Значок знака. Медный — только рекорд и отклик: то, чем гордятся. */
 function MarkIcon({ id, size = 18 }: { id: string; size?: number }) {
   switch (id) {
     case 'inbody':
@@ -200,7 +206,19 @@ function MarkIcon({ id, size = 18 }: { id: string; size?: number }) {
     case 'ton100':
       return <IconMuscle size={size} />
     case 'month-plan':
+    case 'month-clean':
       return <IconCheck size={size} />
+    /* --- знаки тренера --- */
+    case 'first-client':
+    case 'clients5':
+      return <IconUsers size={size} />
+    case 'reviews10':
+    case 'reviews100':
+      return <IconClipboard size={size} />
+    case 'own-program':
+      return <IconList size={size} />
+    case 'fast':
+      return <IconZap size={size} />
     default:
       return <IconDumbbell size={size} />
   }
@@ -339,6 +357,104 @@ export function WeekCard({ game }: { game: GameState }) {
   )
 }
 
+/* ---------------------------- счёт работы тренера ------------------------ */
+
+export function useTrainerGame(trainerId: string) {
+  return useLiveQuery(() => loadTrainerGame(trainerId), [trainerId])
+}
+
+/** Часы человеческим языком: «6 ч», «2 дня», а не «51.4». */
+function hoursText(h: number): string {
+  if (h < 1) return `${Math.max(1, Math.round(h * 60))} ${t('мин')}`
+  if (h < 48) return `${Math.round(h)} ${t('ч')}`
+  const days = Math.round(h / 24)
+  return `${days} ${plural(days, ['день', 'дня', 'дней'])}`
+}
+
+/**
+ * Неделя тренера.
+ *
+ * Тот же счёт, что у клиента, но на языке его дела: не «сколько я
+ * потренировался», а «сколько разобрал, сколько должен и как быстро
+ * отвечаю». Очков здесь нет и быть не может — тренер работает, а не
+ * играет; всё, что показано, он и так обязан знать про свою практику.
+ */
+export function TrainerWeekCard({ game }: { game: TrainerGameState }) {
+  const { week, streak, responseHours, next } = game
+  const clear = week.pending === 0
+
+  return (
+    <div className="card fade-in">
+      <div className="stat-grid three">
+        <div className="stat">
+          <div className="value figures">
+            <Counter value={week.reviewed} />
+          </div>
+          <div className="label">{t('разобрано за неделю')}</div>
+        </div>
+        <div className="stat">
+          {/* Ноль подсвечен — это «всё закрыто», главная хорошая новость
+              недели. Долг жёлтым, как непроверенный отчёт в календаре. */}
+          <div
+            className="value figures"
+            style={{ color: clear ? 'var(--ok)' : 'var(--warn)' }}
+          >
+            {week.pending}
+          </div>
+          <div className="label">{t('ждут разбора')}</div>
+        </div>
+        <div className="stat">
+          <div className="value figures">
+            {week.onPlan} / {week.clients}
+          </div>
+          <div className="label">{t('держат план')}</div>
+        </div>
+      </div>
+
+      {/* Отклик — единственная цифра, которая говорит о качестве работы, а
+          не о её количестве: отчёт, разобранный через неделю, клиент уже
+          не помнит. Пока разбирать было нечего, цифру не выдумываем. */}
+      <div className="row between mt-4">
+        <span className="muted">{t('Отклик')}</span>
+        <span className="figures strong">
+          {responseHours == null ? t('пока не о чем') : hoursText(responseHours)}
+        </span>
+      </div>
+      {responseHours != null && (
+        <div className="mute-sm mt-1">{t('Столько в среднем проходит от сдачи до разбора.')}</div>
+      )}
+
+      {streak.weeks >= 2 && (
+        <div className="row between mt-4">
+          <span className="muted">{t('Недель без долгов')}</span>
+          <span className="badge pro">
+            {streak.weeks} {plural(streak.weeks, ['неделя', 'недели', 'недель'])} {t('подряд')}
+          </span>
+        </div>
+      )}
+      {streak.paused && (
+        <div className="mute-sm mt-1">
+          {t('Неделя без отчётов счёт не рвёт — разбирать было нечего.')}
+        </div>
+      )}
+
+      {next && (
+        <div className="row mt-4" style={{ gap: 12 }}>
+          <span className={`glyph-inline${next.copper ? ' copper' : ''}`}>
+            <MarkIcon id={next.id} size={17} />
+          </span>
+          <span className="grow">
+            <span className="strong">{t(next.title)}</span>
+            <span className="sub">
+              {t('осталось')} {shortCount(next.need - next.have)}
+            </span>
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* --------------------------- момент выдачи знака ------------------------- */
 
 /**
@@ -348,7 +464,7 @@ export function WeekCard({ game }: { game: GameState }) {
  * строка текста. Знак выдаётся один раз, отметка о показе живёт на
  * устройстве, и повторно приложение об этом не заговорит.
  */
-export function NewMarkCard({ marks }: { marks: Mark[] }) {
+export function NewMarkCard({ marks, userId }: { marks: Mark[]; userId?: string }) {
   const [fresh, setFresh] = useState<Mark[]>([])
   // Отметку ставим сразу, как показали: иначе перерисовка экрана
   // поздравляет второй раз, и «один раз» превращается в мигание.
@@ -357,7 +473,7 @@ export function NewMarkCard({ marks }: { marks: Mark[] }) {
   useEffect(() => {
     if (claimed.current || !marks.length) return
     claimed.current = true
-    void freshMarks(marks).then((got) => {
+    void freshMarks(marks, userId).then((got) => {
       if (!got.length) return
       // Больше двух разом — это не сегодняшняя работа, а приехавшая
       // история: человек вошёл на новом устройстве, и обмен привёз ему
@@ -367,7 +483,7 @@ export function NewMarkCard({ marks }: { marks: Mark[] }) {
         setFresh(got)
         haptics.success()
       }
-      void rememberMarks(got.map((m) => m.id))
+      void rememberMarks(got.map((m) => m.id), userId)
     })
     /*
      * Отмены здесь нет намеренно, и это тот редкий случай, когда она вредна.

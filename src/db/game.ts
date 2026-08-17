@@ -300,6 +300,275 @@ function buildMarks(input: {
   ]
 }
 
+/* ========================= счёт работы тренера ========================= */
+
+/**
+ * Ступени тренера считаются разборами, а не тренировками: работа тренера —
+ * это прочитанные отчёты и ответы на них, и мерить её чужими приседаниями
+ * было бы враньём.
+ */
+export const TRAINER_STAGES = [
+  { name: 'Старт', from: 0 },
+  { name: 'Практика', from: 25 },
+  { name: 'Ритм', from: 100 },
+  { name: 'Школа', from: 300 },
+  { name: 'Опора', from: 800 },
+] as const
+
+export type TrainerGameState = {
+  week: {
+    /** Разобрано с понедельника. */
+    reviewed: number
+    /** Сколько ещё ждёт разбора — по всем клиентам. */
+    pending: number
+    /** Клиентов держат недельный план. */
+    onPlan: number
+    clients: number
+  }
+  /**
+   * Сколько в среднем проходит от сдачи отчёта до разбора, в часах.
+   * null — разбирать было нечего, и цифру придумывать не из чего.
+   */
+  responseHours: number | null
+  /** Недели подряд, в которые всё пришедшее разобрано. */
+  streak: StreakState
+  stage: StageState
+  marks: Mark[]
+  next: Mark | null
+  year: { weekStart: number; sessions: number }[]
+}
+
+/**
+ * То же самое для тренера — и то же правило: никаких очков, только его
+ * работа.
+ *
+ * Тренеру играть незачем, ему нужно видеть дело: сколько разобрано, сколько
+ * ждёт и как быстро он отвечает. Поэтому здесь нет ни «серии входов», ни
+ * баллов за активность — есть отклик, долги и клиенты, которые держат план.
+ */
+export async function loadTrainerGame(trainerId = currentUserId()): Promise<TrainerGameState> {
+  const links = await db.links.where('trainer_id').equals(trainerId).toArray()
+  const clientIds = links.map((l) => l.client_id)
+
+  /*
+   * Перебором, а не по индексу: таблица разборов индексирована по клиенту
+   * (`client_id`, `[client_id+target]`), а поля тренера в индексах нет —
+   * запрос по нему падает с «KeyPath trainer_id is not indexed», и экран
+   * тренера рушится целиком. Заводить ради этого новую версию Dexie не
+   * стоит: разборы — это сотни строк на устройстве самого тренера, а
+   * миграция схемы у всех уже установленных приложений куда дороже одного
+   * прохода по таблице.
+   */
+  const reviews = await db.reviews.filter((r) => r.trainer_id === trainerId).toArray()
+  const monday = weekStart(Date.now())
+  const reviewedThisWeek = reviews.filter((r) => r.reviewed_at >= monday).length
+
+  /* --- что сдано клиентами: тренировки и дни питания --- */
+  // Клиентов спрашиваем разом, а не по очереди: у тренера их десятки, и
+  // последовательный проход означал бы десятки ожиданий подряд на каждое
+  // изменение базы — а экран перечитывается подпиской.
+  const perClient = await Promise.all(
+    clientIds.map(async (clientId) => {
+      const [workouts, days] = await Promise.all([
+        db.workoutReports.where('[user_id+status]').equals([clientId, 'submitted']).toArray(),
+        db.nutritionDays.where('[user_id+status]').equals([clientId, 'submitted']).toArray(),
+      ])
+      const rows: { key: string; at: number }[] = []
+      for (const w of workouts) {
+        if (w.submitted_at != null) rows.push({ key: `workout:${w.id}`, at: w.submitted_at })
+      }
+      for (const d of days) {
+        if (d.submitted_at != null) {
+          rows.push({ key: `nutrition:${clientId}:${d.date}`, at: d.submitted_at })
+        }
+      }
+      return rows
+    }),
+  )
+  const submitted = perClient.flat()
+
+  const seenKeys = new Map<string, number>()
+  for (const r of reviews) {
+    const key =
+      r.target === 'nutrition' ? `nutrition:${r.client_id}:${r.ref}` : `${r.target}:${r.ref}`
+    seenKeys.set(key, r.reviewed_at)
+  }
+  const pending = submitted.filter((s) => !seenKeys.has(s.key)).length
+
+  /* --- отклик: от сдачи до разбора --- */
+  const MONTH = 30 * 86400_000
+  const lags = submitted
+    .map((s) => {
+      const at = seenKeys.get(s.key)
+      return at != null && at >= Date.now() - MONTH ? at - s.at : null
+    })
+    .filter((x): x is number => x != null && x >= 0)
+  // Медиана, а не среднее: один отчёт, до которого руки дошли через неделю,
+  // сдвигает среднее так, что цифра перестаёт описывать обычный день.
+  const responseHours = lags.length
+    ? Math.round((lags.sort((a, b) => a - b)[Math.floor(lags.length / 2)] / 3600_000) * 10) / 10
+    : null
+
+  /* --- клиенты, которые держат план на этой неделе --- */
+  const onPlanFlags = await Promise.all(
+    clientIds.map(async (clientId) => {
+      const assignment = await db.assignments
+        .where('client_id')
+        .equals(clientId)
+        .and((a) => a.status === 'ACTIVE')
+        .first()
+      const need = assignment?.schedule?.length ?? assignment?.weekly_target ?? 1
+      const done = await db.sessions
+        .where('user_id')
+        .equals(clientId)
+        .and((s) => s.is_completed === 1 && s.start_time >= monday)
+        .count()
+      return done >= need
+    }),
+  )
+  const onPlan = onPlanFlags.filter(Boolean).length
+
+  /* --- недели без долгов --- */
+  const streak = countCleanWeeks(submitted, seenKeys, monday)
+
+  /* --- ступень и год --- */
+  const stage = trainerStageOf(reviews.length)
+  const yearFrom = weekStart(Date.now() - 51 * WEEK)
+  const buckets = new Map<number, number>()
+  for (let w = yearFrom; w <= monday; w += WEEK) buckets.set(w, 0)
+  for (const r of reviews) {
+    if (r.reviewed_at < yearFrom) continue
+    const w = weekStart(r.reviewed_at)
+    buckets.set(w, (buckets.get(w) ?? 0) + 1)
+  }
+  const year = [...buckets.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([weekStart_, count]) => ({ weekStart: weekStart_, sessions: count }))
+
+  const programs = await db.programs.where('author_id').equals(trainerId).count()
+  const marks = buildTrainerMarks({
+    clients: links.length,
+    reviews: reviews.length,
+    streak,
+    responseHours,
+    programs,
+  })
+  const next = marks.filter((m) => !m.done).sort((a, b) => b.have / b.need - a.have / a.need)[0] ?? null
+
+  return {
+    week: { reviewed: reviewedThisWeek, pending, onPlan, clients: links.length },
+    responseHours,
+    streak,
+    stage,
+    marks,
+    next,
+    year,
+  }
+}
+
+/**
+ * Недели, в которые тренер разобрал всё, что ему прислали.
+ *
+ * Правило то же, что у клиента: неделя, в которую ничего не сдавали, счёт не
+ * ломает — разбирать было нечего, и ставить это в вину нельзя. Неделя с
+ * неразобранным долгом счёт останавливает.
+ */
+function countCleanWeeks(
+  submitted: { key: string; at: number }[],
+  seen: Map<string, number>,
+  monday: number,
+): StreakState {
+  const byWeek = new Map<number, { total: number; done: number }>()
+  for (const s of submitted) {
+    const w = weekStart(s.at)
+    const cell = byWeek.get(w) ?? { total: 0, done: 0 }
+    cell.total++
+    if (seen.has(s.key)) cell.done++
+    byWeek.set(w, cell)
+  }
+
+  const clean = (w: number) => {
+    const cell = byWeek.get(w)
+    return cell ? cell.done >= cell.total : null
+  }
+
+  let weeks = clean(monday) === true ? 1 : 0
+  let paused = false
+  for (let w = monday - WEEK; ; w -= WEEK) {
+    const state = clean(w)
+    if (state === true) {
+      weeks++
+      continue
+    }
+    if (state === null) {
+      if (weeks === 0) break
+      paused = true
+      if (monday - w > 10 * WEEK) break
+      continue
+    }
+    break
+  }
+  return { weeks, paused: paused && weeks > 0 }
+}
+
+function trainerStageOf(reviews: number): StageState {
+  let index = 0
+  for (let i = TRAINER_STAGES.length - 1; i >= 0; i--) {
+    if (reviews >= TRAINER_STAGES[i].from) {
+      index = i
+      break
+    }
+  }
+  const next = TRAINER_STAGES[index + 1]
+  const base = TRAINER_STAGES[index].from
+  return {
+    index,
+    name: TRAINER_STAGES[index].name,
+    // Работа тренера меряется разборами: их и кладём в поле, которое у
+    // клиента занято тренировками. Тоннажа у него нет.
+    workouts: reviews,
+    tonnage: 0,
+    toNext: next ? next.from - reviews : null,
+    nextName: next ? next.name : null,
+    progress: next ? Math.min(1, (reviews - base) / (next.from - base)) : 1,
+  }
+}
+
+/** Сутки — порог «быстрого отклика»: за день клиент ещё помнит, о чём писал. */
+const FAST_RESPONSE_H = 24
+
+function buildTrainerMarks(input: {
+  clients: number
+  reviews: number
+  streak: StreakState
+  responseHours: number | null
+  programs: number
+}): Mark[] {
+  const mark = (
+    id: string,
+    title: string,
+    hint: string,
+    have: number,
+    need: number,
+    copper?: boolean,
+  ): Mark => ({ id, title, hint, have: Math.min(have, need), need, done: have >= need, copper })
+
+  // «Быстрый отклик» считаем только с десяти разборов: по двум-трём
+  // отчётам скорость — случайность, а не то, как человек работает.
+  const fast =
+    input.reviews >= 10 && input.responseHours != null && input.responseHours <= FAST_RESPONSE_H
+
+  return [
+    mark('first-client', 'Первый клиент', 'Практика началась', input.clients, 1),
+    mark('clients5', 'Пять клиентов', 'Это уже поток', input.clients, 5),
+    mark('own-program', 'Своя программа', 'Собрана руками', input.programs, 1),
+    mark('reviews10', '10 разборов', 'Обратная связь пошла', input.reviews, 10),
+    mark('reviews100', '100 разборов', 'Сотня прочитанных отчётов', input.reviews, 100),
+    mark('month-clean', 'Месяц без долгов', 'Четыре недели без хвостов', input.streak.weeks, 4),
+    mark('fast', 'Отклик за сутки', 'Клиент ещё помнит, о чём писал', fast ? 1 : 0, 1, true),
+  ]
+}
+
 /* --------------------- какие знаки уже показывали ---------------------- */
 
 /**
@@ -310,29 +579,48 @@ function buildMarks(input: {
  * это про экран, а не про работу: приезжать к тренеру ему не нужно, в обмене
  * ему делать нечего, и своей таблицы ради одной строки он не стоит.
  */
-export async function seenMarks(): Promise<string[]> {
+/**
+ * Список по каждому человеку отдельно.
+ *
+ * На одном телефоне живут два аккаунта — тренер заводит себе тестового
+ * клиента, семья пользуется общим планшетом, — а отметка о показе лежит в
+ * настройках устройства. Общий список означал бы, что знаки одного гасят
+ * поздравления другому.
+ *
+ * Прежний вид поля — просто массив. Он не читается как список по людям,
+ * поэтому у первого же захода отметки «нет», и знаки записываются молча:
+ * ровно то, что нужно, — старый список ничего не празднует повторно.
+ */
+async function seenFor(userId: string): Promise<string[] | undefined> {
   const state = await db.appState.get(APP_STATE_ID)
-  return state?.seen_marks ?? []
+  const map = state?.seen_marks
+  if (!map || Array.isArray(map)) return undefined
+  return map[userId]
 }
 
 /** Знаки, выданные с прошлого захода. Первый заход ничего не празднует. */
-export async function freshMarks(marks: Mark[]): Promise<Mark[]> {
-  const state = await db.appState.get(APP_STATE_ID)
-  const seen = state?.seen_marks
+export async function freshMarks(
+  marks: Mark[],
+  userId = currentUserId(),
+): Promise<Mark[]> {
+  const seen = await seenFor(userId)
   const done = marks.filter((m) => m.done)
 
   // У кого отметки ещё нет, тот пришёл с историей: поздравлять его разом за
   // полгода работы — значит вывалить шесть знаков подряд. Записываем молча.
   if (!seen) {
-    await rememberMarks(done.map((m) => m.id))
+    await rememberMarks(done.map((m) => m.id), userId)
     return []
   }
   return done.filter((m) => !seen.includes(m.id))
 }
 
-export async function rememberMarks(ids: string[]) {
+export async function rememberMarks(ids: string[], userId = currentUserId()) {
   const state = await db.appState.get(APP_STATE_ID)
   if (!state) return
-  const seen = new Set([...(state.seen_marks ?? []), ...ids])
-  await db.appState.update(APP_STATE_ID, { seen_marks: [...seen] })
+  const map = Array.isArray(state.seen_marks) ? {} : (state.seen_marks ?? {})
+  const seen = new Set([...(map[userId] ?? []), ...ids])
+  await db.appState.update(APP_STATE_ID, {
+    seen_marks: { ...map, [userId]: [...seen] },
+  })
 }

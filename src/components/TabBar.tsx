@@ -119,11 +119,19 @@ export function TabBar() {
  */
 function usePill(activePath: string, count: number) {
   const inner = useRef<HTMLDivElement>(null)
-  const [pill, setPill] = useState<{ width: number; transform: string; opacity: number }>({
+  const [pill, setPill] = useState<React.CSSProperties>({
     width: 0,
     transform: 'translateX(0)',
     opacity: 0,
   })
+  /*
+   * Первую постановку делаем без перехода.
+   *
+   * Иначе подложка на каждом открытии приложения выезжает от левого края к
+   * своей вкладке: переезд должен показывать переключение разделов, а на
+   * первом кадре переключаться было не с чего.
+   */
+  const first = useRef(true)
 
   useEffect(() => {
     const fit = () => {
@@ -135,11 +143,18 @@ function usePill(activePath: string, count: number) {
       // Подложка уже вкладки: она обводит иконку с подписью, а не занимает
       // всю ячейку — иначе соседние пилюли смыкались бы в сплошную полосу.
       const width = Math.min(a.width - 8, 96)
-      setPill({
+      const placed = {
         width,
         transform: `translateX(${a.left - b.left + (a.width - width) / 2}px)`,
         opacity: 1,
-      })
+      }
+      if (first.current) {
+        first.current = false
+        setPill({ ...placed, transition: 'none' })
+        requestAnimationFrame(() => setPill(placed))
+        return
+      }
+      setPill(placed)
     }
     // Кадр на отрисовку: сразу после перехода ссылка ещё без класса active.
     const id = requestAnimationFrame(fit)
