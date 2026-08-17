@@ -106,29 +106,6 @@
   }
 }
 
-/* Второй акцент палитры: сине-фиолетовый из Nocturne (переключатель темы в
-   профиле). Тон достаточно тёмный, чтобы читаться и заливкой под светлый
-   текст, и как цвет текста на светлом фоне — отдельная притемнённая версия
-   ему не нужна. */
-:root[data-accent='indigo'] {
-  --accent:#9184d9; --accent-press:#7972a9;
-  /* Тёмная подпись на светлом фиолетовом: белая даёт 3.2 против нужных 4.5. */
-  --on-accent:#1a1526; --accent-soft:rgba(145,132,217,.16); --accent-ink:#9184d9;
-  --c-muscle:#9184d9;
-}
-
-@media (prefers-color-scheme: light) {
-  :root[data-accent='indigo']:not([data-theme='dark']) {
-    --accent:#5d5294; --accent-press:#423a6a; --on-accent:#fff;
-    --accent-soft:rgba(93,82,148,.14); --accent-ink:#5d5294; --c-muscle:#5d5294;
-  }
-}
-
-:root[data-accent='indigo'][data-theme='light'] {
-  --accent:#5d5294; --accent-press:#423a6a; --on-accent:#fff;
-  --accent-soft:rgba(93,82,148,.14); --accent-ink:#5d5294; --c-muscle:#5d5294;
-}
-
 /* Типографическая шкала */
 .t-display{font:800 44px/1.05 var(--font-ui);letter-spacing:-.03em}
 .t-h1{font:800 28px/1.15 var(--font-ui);letter-spacing:-.02em}

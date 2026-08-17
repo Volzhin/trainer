@@ -9,14 +9,7 @@ import App from './App'
 import { AppProvider } from './store/app'
 import { repairCatalogIds, seedIfEmpty, syncCatalogPrograms } from './db/seed'
 import { restoreSession } from './db/account'
-import {
-  applyAccent,
-  applyTheme,
-  getAccentPref,
-  getLangPref,
-  getThemePref,
-  loadActiveUser,
-} from './db/db'
+import { applyTheme, getLangPref, getThemePref, loadActiveUser } from './db/db'
 import { setLang } from './lib/i18n'
 import './index.css'
 import { loadExerciseNames } from './lib/exerciseNames'
@@ -76,10 +69,9 @@ seedIfEmpty()
   // Если человек уже входил, поднимаем его аккаунт и запускаем обмен с
   // сервером до рендера: иначе экраны на мгновение покажут чужой профиль.
   .then(restoreSession)
-  // Тему и акцент применяем до рендера, иначе экран моргнёт чужим цветом.
+  // Тему применяем до рендера, иначе экран моргнёт чужим цветом.
   .then(async () => {
     applyTheme(await getThemePref())
-    applyAccent(await getAccentPref())
     // Язык — до рендера: иначе первый кадр выходит на одном языке, а
     // второй на другом, и это видно.
     setLang(await getLangPref())

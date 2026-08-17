@@ -613,8 +613,6 @@ const EN: Record<string, string> = {
   Авто: 'Auto',
   Светлая: 'Light',
   Тёмная: 'Dark',
-  Лаймовый: 'Lime',
-  'Сине-фиолетовый': 'Blue-violet',
   'Аккаунт создан': 'Account created',
   Видео: 'Video',
   Фото: 'Photo',

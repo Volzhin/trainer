@@ -268,8 +268,6 @@ export interface AppState {
   onboarded?: 0 | 1
   /** Тема оформления. 'auto' — следовать системной настройке. */
   theme?: ThemePref
-  /** Акцентный цвет интерфейса. */
-  accent?: AccentPref
   /** Язык интерфейса. Хранится на устройстве, а не в профиле: язык — это
    *  про того, кто держит телефон, а не про аккаунт. */
   lang?: Lang
@@ -305,7 +303,6 @@ export interface AppState {
 }
 
 export type ThemePref = 'auto' | 'light' | 'dark'
-export type AccentPref = 'lime' | 'indigo'
 
 export type ContactKind = 'telegram' | 'whatsapp' | 'max' | 'phone' | 'email'
 
@@ -1073,17 +1070,6 @@ export function applyTheme(pref: ThemePref) {
     ?.setAttribute('content', dark ? '#0c0f13' : '#f6f7f9')
 }
 
-/**
- * Акцент выставляется атрибутом на <html> — так же, как тема, и по той же
- * причине: переменные должны перекрываться до отрисовки, без вспышки
- * прежнего цвета.
- */
-export function applyAccent(pref: AccentPref) {
-  const root = document.documentElement
-  if (pref === 'lime') root.removeAttribute('data-accent')
-  else root.setAttribute('data-accent', pref)
-}
-
 export async function getLangPref(): Promise<Lang> {
   const state = await db.appState.get(APP_STATE_ID)
   return state?.lang ?? 'ru'
@@ -1110,23 +1096,6 @@ async function patchState(patch: Partial<AppState>) {
 export async function setLangPref(lang: Lang) {
   await patchState({ lang })
   setLang(lang)
-}
-
-export async function getAccentPref(): Promise<AccentPref> {
-  const state = await db.appState.get(APP_STATE_ID)
-  return state?.accent ?? 'lime'
-}
-
-/**
- * Настройки внешнего вида и придостижение онбординга лежат в одной строке с
- * курсорами обмена, поэтому пишутся поверх неё целиком, а не переносом
- * достижениеомых полей: перечислять их поимённо — значит потерять всё, о чём
- * забыли. Стёртые курсоры оборачиваются полной перезагрузкой данных, при
- * которой возвращается локально удалённое.
- */
-export async function setAccentPref(accent: AccentPref) {
-  await patchState({ accent })
-  applyAccent(accent)
 }
 
 export async function getThemePref(): Promise<ThemePref> {
