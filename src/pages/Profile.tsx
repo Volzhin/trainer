@@ -6,9 +6,8 @@ import { Sheet } from '../components/Sheet'
 import { IconSettings } from '../components/Icons'
 import { useApp, useProfile } from '../store/app'
 import { MyTrainerCard } from '../components/MyTrainerCard'
-import { MarksGrid, StageBar, YearStrip, useGame } from '../components/Game'
+import { AchievementsGrid, TotalsCard, YearStrip, useGame } from '../components/Game'
 import { Group, Row } from '../components/Group'
-import { plural } from '../lib/calc'
 import { t } from '../lib/i18n'
 
 export function Profile() {
@@ -52,41 +51,22 @@ export function Profile() {
 
       <MyTrainerCard />
 
-      {/* Ступень, знаки и год — здесь, а не на главной: на главную приходят
+      {/* Итоги, достижения и год — здесь, а не на главной: на главную приходят
           работать, а сюда — смотреть на себя. Единственное, что вынесено
           вперёд, — недельный счёт: он про то, что происходит прямо сейчас. */}
       {game && (
         <>
-          <div className="section-title">{t('Ступень')}</div>
-          <div className="card">
-            <div className="row between">
-              <div>
-                <div className="strong">{t(game.stage.name)}</div>
-                <div className="mute-sm">
-                  {game.stage.workouts}{' '}
-                  {plural(game.stage.workouts, ['тренировка', 'тренировки', 'тренировок'])}
-                  {game.stage.tonnage > 0 &&
-                    ` · ${Math.round(game.stage.tonnage / 1000)} ${t('т суммарно')}`}
-                </div>
-              </div>
-              <span className="t-num" style={{ color: 'var(--accent-ink)' }}>
-                {game.stage.index + 1}
-              </span>
-            </div>
-
-            <div className="mt-3">
-              <StageBar index={game.stage.index} />
-            </div>
-
-            {game.stage.toNext != null ? (
-              <div className="mute-sm mt-2">
-                {t('До ступени')} «{t(game.stage.nextName ?? '')}» — {game.stage.toNext}{' '}
-                {plural(game.stage.toNext, ['тренировка', 'тренировки', 'тренировок'])}
-              </div>
-            ) : (
-              <div className="mute-sm mt-2">{t('Последняя ступень. Дальше — просто работа.')}</div>
-            )}
-          </div>
+          {/* Три числа вместо прежней «ступени» с названиями вроде «База» и
+              «Ритм»: слово не говорило ни сколько сделано, ни сколько
+              осталось, а номер ступени рядом с ним — тем более. */}
+          <div className="section-title">{t('Всего')}</div>
+          <TotalsCard
+            items={[
+              { value: game.totals.workouts, forms: ['тренировка', 'тренировки', 'тренировок'] },
+              { value: game.totals.tonnage / 1000, decimals: 1, suffix: 'т', label: 'поднято' },
+              { value: game.totals.weeks, forms: ['неделя в зале', 'недели в зале', 'недель в зале'] },
+            ]}
+          />
 
           <div className="section-title">{t('Год одной строкой')}</div>
           <div className="card">
@@ -96,8 +76,8 @@ export function Profile() {
             </div>
           </div>
 
-          <div className="section-title">{t('Знаки')}</div>
-          <MarksGrid marks={game.marks} />
+          <div className="section-title">{t('Достижения')}</div>
+          <AchievementsGrid achievements={game.achievements} />
         </>
       )}
 

@@ -6,7 +6,7 @@ import { activeAssignmentFor } from '../db/coach'
 import { dueReportReminder, nutritionReminderDue, openTasks } from '../db/reports'
 import { plural, weekStart } from '../lib/calc'
 import { WorkoutCalendar } from '../components/WorkoutCalendar'
-import { NewMarkCard, WeekCard, useGame } from '../components/Game'
+import { NewAchievementCard, WeekCard, useGame } from '../components/Game'
 import { IconChevronRight, IconPlay } from '../components/Icons'
 import { useApp } from '../store/app'
 import { t } from '../lib/i18n'
@@ -123,11 +123,11 @@ export function Home() {
 
       {/* Счёт работы стоит выше календаря, но ниже всего, что требует
           действия: сначала «что от меня ждут», потом «как я иду». Новый
-          знак — единственное, что имеет право встать перед этим, и то
+          достижение — единственное, что имеет право встать перед этим, и то
           один раз. */}
       {game && (
         <>
-          <NewMarkCard marks={game.marks} />
+          <NewAchievementCard achievements={game.achievements} />
           <div className="section-title">{t('Эта неделя')}</div>
           <WeekCard game={game} />
         </>

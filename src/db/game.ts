@@ -3,7 +3,7 @@ import { setVolume, weekStart } from '../lib/calc'
 import { localDate } from '../lib/tdee'
 
 /**
- * Счёт работы: неделя, серия, ступень и знаки.
+ * Счёт работы: неделя, серия, итоги и достижения.
  *
  * Одно правило, из которого выведено всё остальное: **считается только то,
  * что человек действительно сделал и что лежит в базе**. Ни очков за
@@ -13,9 +13,9 @@ import { localDate } from '../lib/tdee'
  * чтобы тренироваться.
  *
  * Отсюда и место этого модуля: он ничего не пишет и не заводит своих таблиц —
- * только читает. Знаки не хранятся, а выводятся; на любом устройстве при тех
+ * только читает. Достижениеи не хранятся, а выводятся; на любом устройстве при тех
  * же данных получится тот же ответ, и синхронизировать нечего. На устройстве
- * остаётся единственная отметка — какие знаки человеку уже показали, чтобы
+ * остаётся единственная отметка — какие достижения человеку уже показали, чтобы
  * не поздравлять его дважды (см. seenMarks ниже).
  */
 
@@ -50,45 +50,41 @@ export type StreakState = {
   paused: boolean
 }
 
-/* ------------------------------ ступень -------------------------------- */
+/* ------------------------------- всего --------------------------------- */
 
 /**
- * Ступени по числу проведённых тренировок.
+ * Накопленное — простыми числами, без выдуманных ступеней.
  *
- * Границы редкие и растущие: между «Стартом» и «Базой» десять тренировок —
- * это месяц работы, между «Формой» и «Опорой» сорок. Ступень должна
- * отмечать пройденный путь, а не выдаваться каждую неделю, иначе она
- * перестаёт что-либо значить.
+ * Здесь была лестница с названиями («База», «Ритм», «Форма»), и она не
+ * сообщала ничего: слово «Ритм» не говорит человеку ни сколько он сделал,
+ * ни сколько осталось, а номер ступени рядом с ним — тем более. Число
+ * тренировок и поднятые тонны понятны без объяснений, а чувство пути
+ * дают достижения: у них есть и порог, и подпись, за что они.
  */
-export const STAGES = [
-  { name: 'Старт', from: 0 },
-  { name: 'База', from: 10 },
-  { name: 'Ритм', from: 30 },
-  { name: 'Форма', from: 60 },
-  { name: 'Опора', from: 100 },
-] as const
-
-export type StageState = {
-  index: number
-  name: string
-  /** Всего проведённых тренировок. */
+export type Totals = {
+  /** Завершённых тренировок за всё время. */
   workouts: number
   /** Суммарный тоннаж, кг. */
   tonnage: number
-  /** Сколько тренировок до следующей ступени. null — это последняя. */
-  toNext: number | null
-  nextName: string | null
-  /** Доля пути до следующей ступени, 0…1. */
-  progress: number
+  /** Недель с первой тренировки. 0 — тренировок ещё не было. */
+  weeks: number
 }
 
-/* -------------------------------- знаки -------------------------------- */
+/* -------------------------------- достижения -------------------------------- */
 
-export type Mark = {
+export type Achievement = {
   id: string
   title: string
   /** Чем он заслужен — короткой строкой, тем же языком, что и задание. */
   hint: string
+  /**
+   * За что он выдаётся и как считается — целиком, человеческими словами.
+   *
+   * Достижение без объяснения читается как украшение: непонятно, что он значит и
+   * что нужно сделать, чтобы получить следующий. Текст открывается нажатием
+   * на сам достижение, поэтому места в плитке он не занимает.
+   */
+  what: string
   done: boolean
   /** Медный — только рекорды: второй цветовой голос приложения. */
   copper?: boolean
@@ -97,13 +93,20 @@ export type Mark = {
   need: number
 }
 
+/** Собирает достижение и сам считает, выдан ли он. */
+const mark = (m: Omit<Achievement, 'done'>): Achievement => ({
+  ...m,
+  have: Math.min(m.have, m.need),
+  done: m.have >= m.need,
+})
+
 export type GameState = {
   week: WeekState
   streak: StreakState
-  stage: StageState
-  marks: Mark[]
-  /** Ближайший невыданный знак — тот, до которого меньше всего осталось. */
-  next: Mark | null
+  totals: Totals
+  achievements: Achievement[]
+  /** Ближайший невыданный достижение — тот, до которого меньше всего осталось. */
+  next: Achievement | null
   /** Тренировки по неделям за год — для полосы года. */
   year: { weekStart: number; sessions: number }[]
 }
@@ -112,7 +115,7 @@ export type GameState = {
  * Всё разом, одним проходом по данным.
  *
  * Одной выборкой, а не пятью хуками по экрану: тренировки нужны и неделе, и
- * серии, и ступени, и полосе года. Пять независимых запросов читали бы одну
+ * серии, и итогам, и полосе года. Пять независимых запросов читали бы одну
  * и ту же таблицу пять раз при каждой перерисовке.
  */
 export async function loadGame(userId = currentUserId()): Promise<GameState> {
@@ -150,19 +153,25 @@ export async function loadGame(userId = currentUserId()): Promise<GameState> {
   /* --- серия --- */
   const streak = countStreak(times, monday, target)
 
-  /* --- ступень --- */
+  /* --- всего --- */
   const sets = await db.sets
     .where('workout_session_id')
     .anyOf(sessions.map((s) => s.id))
     .toArray()
   const tonnage = Math.round(sets.reduce((acc, s) => acc + (s.is_done ? setVolume(s) : 0), 0))
-  const stage = stageOf(sessions.length, tonnage)
+  // Недели считаем от первой тренировки, а не от заведения аккаунта: человек
+  // мерит стаж работой, а не датой, когда скачал приложение.
+  const totals: Totals = {
+    workouts: sessions.length,
+    tonnage,
+    weeks: times.length ? Math.max(1, Math.round((Date.now() - times[0]) / WEEK)) : 0,
+  }
 
-  /* --- знаки --- */
+  /* --- достижения --- */
   const metrics = await db.bodyMetrics.where('user_id').equals(userId).toArray()
   const tasks = await db.tasks.where('client_id').equals(userId).toArray()
   const prs = sets.filter((s) => s.is_pr === 1).length
-  const marks = buildMarks({ sessions: sessions.length, tonnage, prs, metrics, tasks, streak })
+  const achievements = buildAchievements({ sessions: sessions.length, tonnage, prs, metrics, tasks, streak })
 
   /* --- полоса года --- */
   const yearFrom = weekStart(Date.now() - 51 * WEEK)
@@ -177,15 +186,15 @@ export async function loadGame(userId = currentUserId()): Promise<GameState> {
     .sort((a, b) => a[0] - b[0])
     .map(([weekStart_, sessions_]) => ({ weekStart: weekStart_, sessions: sessions_ }))
 
-  const pending = marks.filter((m) => !m.done)
+  const pending = achievements.filter((m) => !m.done)
   const next =
     pending.sort((a, b) => b.have / b.need - a.have / a.need)[0] ?? null
 
   return {
     week: { done: doneThisWeek, target, nutritionDays, days },
     streak,
-    stage,
-    marks,
+    totals,
+    achievements,
     next,
     year,
   }
@@ -239,81 +248,111 @@ function countStreak(times: number[], monday: number, target: number | null): St
   return { weeks, paused: paused && weeks > 0 }
 }
 
-function stageOf(workouts: number, tonnage: number): StageState {
-  let index = 0
-  for (let i = STAGES.length - 1; i >= 0; i--) {
-    if (workouts >= STAGES[i].from) {
-      index = i
-      break
-    }
-  }
-  const next = STAGES[index + 1]
-  const base = STAGES[index].from
-  return {
-    index,
-    name: STAGES[index].name,
-    workouts,
-    tonnage,
-    toNext: next ? next.from - workouts : null,
-    nextName: next ? next.name : null,
-    progress: next ? Math.min(1, (workouts - base) / (next.from - base)) : 1,
-  }
-}
-
 /** Замер с обхватами — то, что клиент сдаёт как «замеры», а не как вес. */
 const isGirth = (m: { waist_cm?: number; hip_cm?: number; chest_cm?: number; thigh_cm?: number }) =>
   m.waist_cm != null || m.hip_cm != null || m.chest_cm != null || m.thigh_cm != null
 
-function buildMarks(input: {
+function buildAchievements(input: {
   sessions: number
   tonnage: number
   prs: number
   metrics: { source?: string; logged_at: number; waist_cm?: number; hip_cm?: number; chest_cm?: number; thigh_cm?: number }[]
   tasks: ClientTask[]
   streak: StreakState
-}): Mark[] {
+}): Achievement[] {
   const inbody = input.metrics.filter((m) => m.source === 'inbody').length
   const girthWeeks = new Set(
     input.metrics.filter(isGirth).map((m) => weekStart(m.logged_at)),
   ).size
   const photos = input.tasks.filter((t) => t.kind === 'photos' && t.status === 'done').length
 
-  const mark = (
-    id: string,
-    title: string,
-    hint: string,
-    have: number,
-    need: number,
-    copper?: boolean,
-  ): Mark => ({ id, title, hint, have: Math.min(have, need), need, done: have >= need, copper })
-
   return [
-    mark('first-workout', 'Первая тренировка', 'Начало есть', input.sessions, 1),
-    mark('w10', '10 тренировок', 'Привычка складывается', input.sessions, 10),
-    mark('w50', '50 тренировок', 'Это уже стаж', input.sessions, 50),
-    mark('inbody', 'Первый InBody', 'Состав тела известен', inbody, 1),
-    mark('measures4', 'Месяц замеров', 'Обхваты за четыре недели', girthWeeks, 4),
-    mark('photos', 'Фото до/после', 'Точка отсчёта снята', photos, 1),
-    mark('month-plan', 'Месяц по плану', 'Четыре недели подряд', input.streak.weeks, 4),
-    mark('pr5', 'Пять рекордов', 'Вес растёт', input.prs, 5, true),
-    mark('ton100', 'Сто тонн', 'Суммарно поднято', input.tonnage, 100_000),
+    mark({
+      id: 'first-workout',
+      title: 'Первая тренировка',
+      hint: 'Начало есть',
+      what: 'Выдан за первую тренировку, доведённую до конца. Незавершённые не считаются: тренировкой становится та, которую закрыли кнопкой «Завершить».',
+      have: input.sessions,
+      need: 1,
+    }),
+    mark({
+      id: 'w10',
+      title: '10 тренировок',
+      hint: 'Привычка складывается',
+      what: 'Десять завершённых тренировок за всё время — обычно это первый месяц-полтора работы.',
+      have: input.sessions,
+      need: 10,
+    }),
+    mark({
+      id: 'w50',
+      title: '50 тренировок',
+      hint: 'Это уже стаж',
+      what: 'Пятьдесят завершённых тренировок. Считаются все — и по программе, и свободные.',
+      have: input.sessions,
+      need: 50,
+    }),
+    mark({
+      id: 'inbody',
+      title: 'Первый InBody',
+      hint: 'Состав тела известен',
+      what: 'Загружен хотя бы один отчёт биоимпеданса. С ним видно, из чего состоит вес: мышцы, жир, вода — а не просто цифра на весах.',
+      have: inbody,
+      need: 1,
+    }),
+    mark({
+      id: 'measures4',
+      title: 'Месяц замеров',
+      hint: 'Обхваты за четыре недели',
+      what: 'Обхваты сданы на четырёх разных неделях. Считаются именно недели, а не количество замеров: пять замеров за один день — это один день, а динамику показывает регулярность.',
+      have: girthWeeks,
+      need: 4,
+    }),
+    mark({
+      id: 'photos',
+      title: 'Фото до/после',
+      hint: 'Точка отсчёта снята',
+      what: 'Сдано задание с фотографиями. Через три месяца именно они покажут то, чего не видно ни на весах, ни в зеркале каждый день.',
+      have: photos,
+      need: 1,
+    }),
+    mark({
+      id: 'month-plan',
+      title: 'Месяц по плану',
+      hint: 'Четыре недели подряд',
+      what: 'Четыре недели подряд, в каждой выполнен недельный план тренировок. Неделя, в которую вы не тренировались вовсе, счёт не обнуляет — она ставит его на паузу.',
+      have: input.streak.weeks,
+      need: 4,
+    }),
+    mark({
+      id: 'pr5',
+      title: 'Пять рекордов',
+      hint: 'Вес растёт',
+      what: 'Пять подходов, отмеченных личным рекордом. Рекорд приложение ставит само, когда подход тяжелее всего, что вы делали в этом упражнении раньше.',
+      have: input.prs,
+      need: 5,
+      copper: true,
+    }),
+    mark({
+      id: 'ton100',
+      title: 'Сто тонн',
+      hint: 'Суммарно поднято',
+      what: 'Сто тысяч килограммов за всё время. Тоннаж подхода — вес на штанге, умноженный на повторения; складываются все выполненные подходы.',
+      have: input.tonnage,
+      need: 100_000,
+    }),
   ]
 }
 
 /* ========================= счёт работы тренера ========================= */
 
-/**
- * Ступени тренера считаются разборами, а не тренировками: работа тренера —
- * это прочитанные отчёты и ответы на них, и мерить её чужими приседаниями
- * было бы враньём.
- */
-export const TRAINER_STAGES = [
-  { name: 'Старт', from: 0 },
-  { name: 'Практика', from: 25 },
-  { name: 'Ритм', from: 100 },
-  { name: 'Школа', from: 300 },
-  { name: 'Опора', from: 800 },
-] as const
+export type TrainerTotals = {
+  /** Разобранных отчётов за всё время. */
+  reviews: number
+  /** Клиентов сейчас. */
+  clients: number
+  /** Недель практики — с первого разбора. */
+  weeks: number
+}
 
 export type TrainerGameState = {
   week: {
@@ -332,9 +371,9 @@ export type TrainerGameState = {
   responseHours: number | null
   /** Недели подряд, в которые всё пришедшее разобрано. */
   streak: StreakState
-  stage: StageState
-  marks: Mark[]
-  next: Mark | null
+  totals: TrainerTotals
+  achievements: Achievement[]
+  next: Achievement | null
   year: { weekStart: number; sessions: number }[]
 }
 
@@ -431,8 +470,15 @@ export async function loadTrainerGame(trainerId = currentUserId()): Promise<Trai
   /* --- недели без долгов --- */
   const streak = countCleanWeeks(submitted, seenKeys, monday)
 
-  /* --- ступень и год --- */
-  const stage = trainerStageOf(reviews.length)
+  /* --- всего и год --- */
+  const firstReview = reviews.reduce((min, r) => Math.min(min, r.reviewed_at), Infinity)
+  const totals: TrainerTotals = {
+    reviews: reviews.length,
+    clients: links.length,
+    weeks: Number.isFinite(firstReview)
+      ? Math.max(1, Math.round((Date.now() - firstReview) / WEEK))
+      : 0,
+  }
   const yearFrom = weekStart(Date.now() - 51 * WEEK)
   const buckets = new Map<number, number>()
   for (let w = yearFrom; w <= monday; w += WEEK) buckets.set(w, 0)
@@ -446,21 +492,21 @@ export async function loadTrainerGame(trainerId = currentUserId()): Promise<Trai
     .map(([weekStart_, count]) => ({ weekStart: weekStart_, sessions: count }))
 
   const programs = await db.programs.where('author_id').equals(trainerId).count()
-  const marks = buildTrainerMarks({
+  const achievements = buildTrainerAchievements({
     clients: links.length,
     reviews: reviews.length,
     streak,
     responseHours,
     programs,
   })
-  const next = marks.filter((m) => !m.done).sort((a, b) => b.have / b.need - a.have / a.need)[0] ?? null
+  const next = achievements.filter((m) => !m.done).sort((a, b) => b.have / b.need - a.have / a.need)[0] ?? null
 
   return {
     week: { reviewed: reviewedThisWeek, pending, onPlan, clients: links.length },
     responseHours,
     streak,
-    stage,
-    marks,
+    totals,
+    achievements,
     next,
     year,
   }
@@ -511,70 +557,88 @@ function countCleanWeeks(
   return { weeks, paused: paused && weeks > 0 }
 }
 
-function trainerStageOf(reviews: number): StageState {
-  let index = 0
-  for (let i = TRAINER_STAGES.length - 1; i >= 0; i--) {
-    if (reviews >= TRAINER_STAGES[i].from) {
-      index = i
-      break
-    }
-  }
-  const next = TRAINER_STAGES[index + 1]
-  const base = TRAINER_STAGES[index].from
-  return {
-    index,
-    name: TRAINER_STAGES[index].name,
-    // Работа тренера меряется разборами: их и кладём в поле, которое у
-    // клиента занято тренировками. Тоннажа у него нет.
-    workouts: reviews,
-    tonnage: 0,
-    toNext: next ? next.from - reviews : null,
-    nextName: next ? next.name : null,
-    progress: next ? Math.min(1, (reviews - base) / (next.from - base)) : 1,
-  }
-}
-
 /** Сутки — порог «быстрого отклика»: за день клиент ещё помнит, о чём писал. */
 const FAST_RESPONSE_H = 24
 
-function buildTrainerMarks(input: {
+function buildTrainerAchievements(input: {
   clients: number
   reviews: number
   streak: StreakState
   responseHours: number | null
   programs: number
-}): Mark[] {
-  const mark = (
-    id: string,
-    title: string,
-    hint: string,
-    have: number,
-    need: number,
-    copper?: boolean,
-  ): Mark => ({ id, title, hint, have: Math.min(have, need), need, done: have >= need, copper })
-
+}): Achievement[] {
   // «Быстрый отклик» считаем только с десяти разборов: по двум-трём
   // отчётам скорость — случайность, а не то, как человек работает.
   const fast =
     input.reviews >= 10 && input.responseHours != null && input.responseHours <= FAST_RESPONSE_H
 
   return [
-    mark('first-client', 'Первый клиент', 'Практика началась', input.clients, 1),
-    mark('clients5', 'Пять клиентов', 'Это уже поток', input.clients, 5),
-    mark('own-program', 'Своя программа', 'Собрана руками', input.programs, 1),
-    mark('reviews10', '10 разборов', 'Обратная связь пошла', input.reviews, 10),
-    mark('reviews100', '100 разборов', 'Сотня прочитанных отчётов', input.reviews, 100),
-    mark('month-clean', 'Месяц без долгов', 'Четыре недели без хвостов', input.streak.weeks, 4),
-    mark('fast', 'Отклик за сутки', 'Клиент ещё помнит, о чём писал', fast ? 1 : 0, 1, true),
+    mark({
+      id: 'first-client',
+      title: 'Первый клиент',
+      hint: 'Практика началась',
+      what: 'Первый человек ввёл ваш код приглашения и стал вашим клиентом.',
+      have: input.clients,
+      need: 1,
+    }),
+    mark({
+      id: 'clients5',
+      title: 'Пять клиентов',
+      hint: 'Это уже поток',
+      what: 'Пять клиентов одновременно. Считаются действующие связи: ушедший клиент из счёта уходит вместе со связью.',
+      have: input.clients,
+      need: 5,
+    }),
+    mark({
+      id: 'own-program',
+      title: 'Своя программа',
+      hint: 'Собрана руками',
+      what: 'Собрана хотя бы одна собственная программа, а не назначена готовая из каталога.',
+      have: input.programs,
+      need: 1,
+    }),
+    mark({
+      id: 'reviews10',
+      title: '10 разборов',
+      hint: 'Обратная связь пошла',
+      what: 'Десять разобранных отчётов. Разбором считается отметка «разобрано» — с ответом клиенту или без него.',
+      have: input.reviews,
+      need: 10,
+    }),
+    mark({
+      id: 'reviews100',
+      title: '100 разборов',
+      hint: 'Сотня прочитанных отчётов',
+      what: 'Сто разобранных отчётов за всё время — тренировки и дни питания вместе.',
+      have: input.reviews,
+      need: 100,
+    }),
+    mark({
+      id: 'month-clean',
+      title: 'Месяц без долгов',
+      hint: 'Четыре недели без хвостов',
+      what: 'Четыре недели подряд, в каждой разобрано всё, что прислали клиенты. Неделя, в которую вам ничего не сдавали, счёт не рвёт: разбирать было нечего.',
+      have: input.streak.weeks,
+      need: 4,
+    }),
+    mark({
+      id: 'fast',
+      title: 'Отклик за сутки',
+      hint: 'Клиент ещё помнит, о чём писал',
+      what: 'От сдачи отчёта до разбора в среднем меньше суток — по медиане за последний месяц. Засчитывается начиная с десяти разборов: по двум-трём скорость случайна.',
+      have: fast ? 1 : 0,
+      need: 1,
+      copper: true,
+    }),
   ]
 }
 
-/* --------------------- какие знаки уже показывали ---------------------- */
+/* --------------------- какие достижения уже показывали ---------------------- */
 
 /**
  * Отметка о показе живёт на устройстве, а не в данных человека.
  *
- * Сам знак выводится из тренировок и замеров и на любом устройстве
+ * Сам достижение выводится из тренировок и замеров и на любом устройстве
  * посчитается одинаково — хранить его незачем. А вот «мы уже поздравили» —
  * это про экран, а не про работу: приезжать к тренеру ему не нужно, в обмене
  * ему делать нечего, и своей таблицы ради одной строки он не стоит.
@@ -584,43 +648,43 @@ function buildTrainerMarks(input: {
  *
  * На одном телефоне живут два аккаунта — тренер заводит себе тестового
  * клиента, семья пользуется общим планшетом, — а отметка о показе лежит в
- * настройках устройства. Общий список означал бы, что знаки одного гасят
+ * настройках устройства. Общий список означал бы, что достижения одного гасят
  * поздравления другому.
  *
  * Прежний вид поля — просто массив. Он не читается как список по людям,
- * поэтому у первого же захода отметки «нет», и знаки записываются молча:
+ * поэтому у первого же захода отметки «нет», и достижения записываются молча:
  * ровно то, что нужно, — старый список ничего не празднует повторно.
  */
 async function seenFor(userId: string): Promise<string[] | undefined> {
   const state = await db.appState.get(APP_STATE_ID)
-  const map = state?.seen_marks
+  const map = state?.seen_achievements
   if (!map || Array.isArray(map)) return undefined
   return map[userId]
 }
 
-/** Знаки, выданные с прошлого захода. Первый заход ничего не празднует. */
-export async function freshMarks(
-  marks: Mark[],
+/** Достижениеи, выданные с прошлого захода. Первый заход ничего не празднует. */
+export async function freshAchievements(
+  achievements: Achievement[],
   userId = currentUserId(),
-): Promise<Mark[]> {
+): Promise<Achievement[]> {
   const seen = await seenFor(userId)
-  const done = marks.filter((m) => m.done)
+  const done = achievements.filter((m) => m.done)
 
   // У кого отметки ещё нет, тот пришёл с историей: поздравлять его разом за
-  // полгода работы — значит вывалить шесть знаков подряд. Записываем молча.
+  // полгода работы — значит вывалить шесть достижениеов подряд. Записываем молча.
   if (!seen) {
-    await rememberMarks(done.map((m) => m.id), userId)
+    await rememberAchievements(done.map((m) => m.id), userId)
     return []
   }
   return done.filter((m) => !seen.includes(m.id))
 }
 
-export async function rememberMarks(ids: string[], userId = currentUserId()) {
+export async function rememberAchievements(ids: string[], userId = currentUserId()) {
   const state = await db.appState.get(APP_STATE_ID)
   if (!state) return
-  const map = Array.isArray(state.seen_marks) ? {} : (state.seen_marks ?? {})
+  const map = Array.isArray(state.seen_achievements) ? {} : (state.seen_achievements ?? {})
   const seen = new Set([...(map[userId] ?? []), ...ids])
   await db.appState.update(APP_STATE_ID, {
-    seen_marks: { ...map, [userId]: [...seen] },
+    seen_achievements: { ...map, [userId]: [...seen] },
   })
 }

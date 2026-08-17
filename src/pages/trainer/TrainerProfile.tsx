@@ -9,16 +9,14 @@ import { haptics } from '../../lib/native'
 import { IconSettings } from '../../components/Icons'
 import { TrainerDocs } from '../../components/TrainerDocs'
 import {
-  MarksGrid,
-  NewMarkCard,
-  StageBar,
+  AchievementsGrid,
+  NewAchievementCard,
+  TotalsCard,
   TrainerWeekCard,
   YearStrip,
   useTrainerGame,
 } from '../../components/Game'
-import { TRAINER_STAGES } from '../../db/game'
 import { useApp, useProfile } from '../../store/app'
-import { plural } from '../../lib/calc'
 import { t } from '../../lib/i18n'
 
 export function TrainerProfile() {
@@ -133,40 +131,20 @@ export function TrainerProfile() {
           и как быстро отвечаю». Очков нет: тренер работает, а не играет. */}
       {game && (
         <>
-          <NewMarkCard marks={game.marks} userId={userId} />
+          <NewAchievementCard achievements={game.achievements} userId={userId} />
           <div className="section-title">{t('Эта неделя')}</div>
           <TrainerWeekCard game={game} />
 
-          <div className="section-title">{t('Ступень')}</div>
-          <div className="card">
-            <div className="row between">
-              <div>
-                <div className="strong">{t(game.stage.name)}</div>
-                <div className="mute-sm">
-                  {game.stage.workouts}{' '}
-                  {plural(game.stage.workouts, ['разбор', 'разбора', 'разборов'])}
-                  {(counts?.clients ?? 0) > 0 &&
-                    ` · ${counts?.clients} ${plural(counts?.clients ?? 0, ['клиент', 'клиента', 'клиентов'])}`}
-                </div>
-              </div>
-              <span className="t-num" style={{ color: 'var(--accent-ink)' }}>
-                {game.stage.index + 1}
-              </span>
-            </div>
-
-            <div className="mt-3">
-              <StageBar index={game.stage.index} steps={TRAINER_STAGES.length} />
-            </div>
-
-            {game.stage.toNext != null ? (
-              <div className="mute-sm mt-2">
-                {t('До ступени')} «{t(game.stage.nextName ?? '')}» — {game.stage.toNext}{' '}
-                {plural(game.stage.toNext, ['разбор', 'разбора', 'разборов'])}
-              </div>
-            ) : (
-              <div className="mute-sm mt-2">{t('Последняя ступень. Дальше — просто работа.')}</div>
-            )}
-          </div>
+          {/* Три числа вместо прежней «ступени»: «Практика» и «Школа» не
+              говорили тренеру ни сколько он сделал, ни сколько до следующей. */}
+          <div className="section-title">{t('Всего')}</div>
+          <TotalsCard
+            items={[
+              { value: game.totals.reviews, forms: ['разбор', 'разбора', 'разборов'] },
+              { value: game.totals.clients, forms: ['клиент', 'клиента', 'клиентов'] },
+              { value: game.totals.weeks, forms: ['неделя практики', 'недели практики', 'недель практики'] },
+            ]}
+          />
 
           <div className="section-title">{t('Год одной строкой')}</div>
           <div className="card">
@@ -176,8 +154,8 @@ export function TrainerProfile() {
             </div>
           </div>
 
-          <div className="section-title">{t('Знаки')}</div>
-          <MarksGrid marks={game.marks} />
+          <div className="section-title">{t('Достижения')}</div>
+          <AchievementsGrid achievements={game.achievements} />
         </>
       )}
 

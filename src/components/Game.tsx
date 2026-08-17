@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
-  STAGES,
-  freshMarks,
+  freshAchievements,
   loadGame,
   loadTrainerGame,
-  rememberMarks,
+  rememberAchievements,
   type GameState,
-  type Mark,
+  type Achievement,
   type TrainerGameState,
 } from '../db/game'
 import {
@@ -23,12 +22,13 @@ import {
   IconUsers,
   IconZap,
 } from './Icons'
+import { Sheet } from './Sheet'
 import { plural } from '../lib/calc'
 import { haptics } from '../lib/native'
-import { t } from '../lib/i18n'
+import { decimal, t } from '../lib/i18n'
 
 /**
- * Счёт работы на экране: неделя, серия, ступень, знаки.
+ * Счёт работы на экране: неделя, серия, итоги, достижения.
  *
  * Всё считается из тренировок, замеров и заданий, которые и так лежат в
  * базе (`db/game.ts`), поэтому здесь только показ. Один вход в данные на
@@ -145,55 +145,10 @@ export function WeekDots({ days }: { days: boolean[] }) {
   )
 }
 
-/* ------------------------------- ступень -------------------------------- */
+/* -------------------------------- достижения --------------------------------- */
 
-/**
- * Ступень нарисована грифом с дисками: сколько ступеней пройдено, столько
- * дисков висит. Знак из зала, а не из игры — читается без подписи.
- *
- * По нажатию диски проворачиваются. Это единственное движение в
- * приложении, которое ничего не сообщает, и оно тут намеренно: одна
- * пасхалка на всё приложение, которую находят руками.
- */
-export function StageBar({ index, steps = STAGES.length }: { index: number; steps?: number }) {
-  const [spin, setSpin] = useState(false)
-  const plates = Array.from({ length: steps }, (_, i) => i <= index)
-
-  return (
-    <button
-      className={`barbell${spin ? ' spin' : ''}`}
-      style={{ width: '100%', background: 'none', border: 0, padding: 0 }}
-      aria-label={t('Ступень')}
-      onClick={() => {
-        if (spin) return
-        haptics.selection()
-        setSpin(true)
-        setTimeout(() => setSpin(false), 900)
-      }}
-    >
-      {[...plates].reverse().map((filled, i) => (
-        <span
-          key={`l${i}`}
-          className={`plate${filled ? '' : ' blank'}`}
-          style={{ height: 12 + (plates.length - i) * 5 }}
-        />
-      ))}
-      <span className="bar-line" />
-      {plates.map((filled, i) => (
-        <span
-          key={`r${i}`}
-          className={`plate${filled ? '' : ' blank'}`}
-          style={{ height: 12 + (plates.length - i) * 5 }}
-        />
-      ))}
-    </button>
-  )
-}
-
-/* -------------------------------- знаки --------------------------------- */
-
-/** Значок знака. Медный — только рекорд и отклик: то, чем гордятся. */
-function MarkIcon({ id, size = 18 }: { id: string; size?: number }) {
+/** Значок достижениеа. Медный — только рекорд и отклик: то, чем гордятся. */
+function AchievementIcon({ id, size = 18 }: { id: string; size?: number }) {
   switch (id) {
     case 'inbody':
       return <IconChart size={size} />
@@ -208,7 +163,7 @@ function MarkIcon({ id, size = 18 }: { id: string; size?: number }) {
     case 'month-plan':
     case 'month-clean':
       return <IconCheck size={size} />
-    /* --- знаки тренера --- */
+    /* --- достижения тренера --- */
     case 'first-client':
     case 'clients5':
       return <IconUsers size={size} />
@@ -224,34 +179,138 @@ function MarkIcon({ id, size = 18 }: { id: string; size?: number }) {
   }
 }
 
-export function MarksGrid({ marks }: { marks: Mark[] }) {
+export function AchievementsGrid({ achievements }: { achievements: Achievement[] }) {
+  const [open, setOpen] = useState<Achievement | null>(null)
+
   return (
-    <div className="marks rise-list">
-      {marks.map((m, i) => (
-        <div
-          key={m.id}
-          className={`mark${m.done ? '' : ' locked'}${m.copper ? ' copper' : ''}`}
-          style={{ '--i': i } as React.CSSProperties}
+    <>
+      <div className="achievements rise-list">
+        {achievements.map((m, i) => (
+          /* Плитка нажимается: без объяснения достижение читается как украшение —
+             непонятно, что он значит и что нужно сделать, чтобы получить
+             следующий. Текст открывается листом, а не живёт в плитке: в
+             сетке по три в ряд он туда не поместится. */
+          <button
+            key={m.id}
+            className={`achievement${m.done ? '' : ' locked'}${m.copper ? ' copper' : ''}`}
+            style={{ '--i': i } as React.CSSProperties}
+            onClick={() => setOpen(m)}
+          >
+            <span className="glyph">
+              <AchievementIcon id={m.id} />
+            </span>
+            <span className="cap">{t(m.title)}</span>
+            {/* У полученного цифры не нужны: «5 из 5» под ним читается как
+                незакрытый долг. */}
+            {!m.done && (
+              <span className="mute-sm figures" style={{ display: 'block', marginTop: 4 }}>
+                {shortCount(m.have)} / {shortCount(m.need)}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      <AchievementSheet achievement={open} onClose={() => setOpen(null)} />
+    </>
+  )
+}
+
+/**
+ * Что означает достижение и как оно считается.
+ *
+ * Отдельным листом, потому что объяснение должно быть полным: короткая
+ * подпись в плитке отвечает «что это», но не «за что» и не «сколько
+ * осталось». Полученное показывает, чем заслужено; неполученное — сколько
+ * не хватает и что для этого сделать.
+ */
+function AchievementSheet({ achievement, onClose }: { achievement: Achievement | null; onClose: () => void }) {
+  if (!achievement) return null
+
+  const left = achievement.need - achievement.have
+
+  return (
+    <Sheet open={!!achievement} title={t(achievement.title)} onClose={onClose}>
+      <div className="row" style={{ gap: 14 }}>
+        <span
+          className={`glyph-inline${achievement.copper ? ' copper' : ''}`}
+          style={{ width: 48, height: 48, opacity: achievement.done ? 1 : 0.5 }}
         >
-          <span className="glyph">
-            <MarkIcon id={m.id} />
-          </span>
-          <div className="cap">{t(m.title)}</div>
-          {/* У выданного знака цифры не нужны: он уже получен, и «5 из 5»
-              под ним читается как незакрытый долг. */}
-          {!m.done && (
-            <div className="mute-sm figures" style={{ marginTop: 4 }}>
-              {shortCount(m.have)} / {shortCount(m.need)}
-            </div>
-          )}
+          <AchievementIcon id={achievement.id} size={22} />
+        </span>
+        <span className="grow">
+          <span className="strong">{achievement.done ? t('Получено') : t('Ещё не получено')}</span>
+          <span className="sub">{t(achievement.hint)}</span>
+        </span>
+      </div>
+
+      <div className="muted mt-4">{t(achievement.what)}</div>
+
+      {/* Полоса только у неполученного: у выданного она всегда полная и
+          говорить ей нечего. */}
+      {!achievement.done && (
+        <div className="mt-4">
+          <div className="row between mb-2">
+            <span className="mute-sm">{t('Осталось')}</span>
+            <span className="figures strong">{shortCount(left)}</span>
+          </div>
+          <div className="bar">
+            <i style={{ width: `${Math.round((achievement.have / achievement.need) * 100)}%` }} />
+          </div>
+          <div className="mute-sm mt-2">
+            {shortCount(achievement.have)} {t('из')} {shortCount(achievement.need)}
+          </div>
         </div>
-      ))}
-    </div>
+      )}
+    </Sheet>
   )
 }
 
 /** Сто тысяч килограммов — это «100 т», а не пятизначное число в плитке. */
 const shortCount = (n: number) => (n >= 10_000 ? `${Math.round(n / 1000)}т` : String(n))
+
+/* -------------------------------- всего ---------------------------------- */
+
+/**
+ * Накопленное — тремя простыми числами.
+ *
+ * На этом месте была «ступень» с названиями вроде «База» и «Ритм» и номером
+ * рядом. Она ничего не сообщала: слово не говорит ни сколько сделано, ни
+ * сколько осталось. Число тренировок, поднятые тонны и стаж понятны без
+ * подписи, а ощущение пути дают достижения — у них есть и порог, и текст,
+ * за что они выдаются.
+ */
+export function TotalsCard({
+  items,
+}: {
+  items: {
+    value: number
+    /** Подпись без склонения — когда число её не меняет («поднято»). */
+    label?: string
+    /** Три формы для склонения по числу: 1 тренировка, 2 тренировки, 5 тренировок. */
+    forms?: [string, string, string]
+    decimals?: number
+    suffix?: string
+  }[]
+}) {
+  return (
+    <div className="stat-grid three fade-in">
+      {items.map((it, i) => (
+        <div className="stat" key={it.label ?? it.forms?.[0] ?? i}>
+          <div className="value figures">
+            <Counter value={it.value} decimals={it.decimals} />
+            {it.suffix ? <span className="mute-sm"> {t(it.suffix)}</span> : null}
+          </div>
+          {/* Подпись склоняется по числу: «1 тренировок» выдаёт машину
+              с головой, а не человека, который это считал. */}
+          <div className="label">
+            {it.forms ? plural(Math.round(it.value), it.forms) : t(it.label ?? '')}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 /* ---------------------------- год одной строкой -------------------------- */
 
@@ -279,7 +338,7 @@ export function YearStrip({ year }: { year: { weekStart: number; sessions: numbe
 /* --------------------------- карточка на главной ------------------------- */
 
 /**
- * Неделя, серия и ближайший знак — одной карточкой на главной.
+ * Неделя, серия и ближайшее достижение — одной карточкой на главной.
  *
  * Единица счёта здесь неделя, а не день: план тренер выдаёт на неделю, и
  * «2 из 3» человек может пересчитать сам. Ежедневная галочка заставляла бы
@@ -338,12 +397,12 @@ export function WeekCard({ game }: { game: GameState }) {
         </div>
       )}
 
-      {/* Ближайший знак — ровно один. Витрина из десятка серых значков
+      {/* Ближайшее достижение — ровно одно. Витрина из десятка серых значков
           демотивирует, один достижимый — наоборот. */}
       {next && (
         <div className="row mt-4" style={{ gap: 12 }}>
           <span className={`glyph-inline${next.copper ? ' copper' : ''}`}>
-            <MarkIcon id={next.id} size={17} />
+            <AchievementIcon id={next.id} size={17} />
           </span>
           <span className="grow">
             <span className="strong">{t(next.title)}</span>
@@ -441,7 +500,7 @@ export function TrainerWeekCard({ game }: { game: TrainerGameState }) {
       {next && (
         <div className="row mt-4" style={{ gap: 12 }}>
           <span className={`glyph-inline${next.copper ? ' copper' : ''}`}>
-            <MarkIcon id={next.id} size={17} />
+            <AchievementIcon id={next.id} size={17} />
           </span>
           <span className="grow">
             <span className="strong">{t(next.title)}</span>
@@ -455,58 +514,58 @@ export function TrainerWeekCard({ game }: { game: TrainerGameState }) {
   )
 }
 
-/* --------------------------- момент выдачи знака ------------------------- */
+/* --------------------------- момент выдачи достижениеа ------------------------- */
 
 /**
- * Новый знак — короткое поздравление там, где человек его увидит.
+ * Новое достижение — короткое поздравление там, где человек его увидит.
  *
  * Ни модального окна поверх экрана, ни конфетти, ни звука: одно движение и
- * строка текста. Знак выдаётся один раз, отметка о показе живёт на
+ * строка текста. Достижение выдаётся один раз, отметка о показе живёт на
  * устройстве, и повторно приложение об этом не заговорит.
  */
-export function NewMarkCard({ marks, userId }: { marks: Mark[]; userId?: string }) {
-  const [fresh, setFresh] = useState<Mark[]>([])
+export function NewAchievementCard({ achievements, userId }: { achievements: Achievement[]; userId?: string }) {
+  const [fresh, setFresh] = useState<Achievement[]>([])
   // Отметку ставим сразу, как показали: иначе перерисовка экрана
   // поздравляет второй раз, и «один раз» превращается в мигание.
   const claimed = useRef(false)
 
   useEffect(() => {
-    if (claimed.current || !marks.length) return
+    if (claimed.current || !achievements.length) return
     claimed.current = true
-    void freshMarks(marks, userId).then((got) => {
+    void freshAchievements(achievements, userId).then((got) => {
       if (!got.length) return
       // Больше двух разом — это не сегодняшняя работа, а приехавшая
       // история: человек вошёл на новом устройстве, и обмен привёз ему
-      // полгода тренировок. Поздравлять шестью знаками подряд за то, что
+      // полгода тренировок. Поздравлять шестью достижениеами подряд за то, что
       // он уже давно сделал, — значит обесценить каждый. Отмечаем молча.
       if (got.length <= 2) {
         setFresh(got)
         haptics.success()
       }
-      void rememberMarks(got.map((m) => m.id), userId)
+      void rememberAchievements(got.map((m) => m.id), userId)
     })
     /*
      * Отмены здесь нет намеренно, и это тот редкий случай, когда она вредна.
      * В строгом режиме React выполняет эффект дважды — с размонтированием
      * между заходами, — и флаг «жив ли ещё» гасил ответ первого захода
-     * целиком: знак не показывался и, что хуже, не отмечался показанным.
+     * целиком: достижение не показывался и, что хуже, не отмечался показанным.
      * Ставить состояние размонтированному компоненту React 18 разрешает,
      * это пустая операция; повторный заход отсекает claimed.
      */
-  }, [marks.length])
+  }, [achievements.length])
 
   if (!fresh.length) return null
 
   return (
     <div className="card pop-in mb-4" style={{ borderColor: 'var(--accent)' }}>
-      <div className="mute-sm">{t('Новый знак')}</div>
+      <div className="mute-sm">{t('Новое достижение')}</div>
       {fresh.map((m) => (
         <div className="row mt-3" key={m.id} style={{ gap: 12 }}>
           <span
             className={`glyph-inline${m.copper ? ' copper' : ''}`}
             style={{ position: 'relative' }}
           >
-            <MarkIcon id={m.id} size={17} />
+            <AchievementIcon id={m.id} size={17} />
             <span className={`flare${m.copper ? '' : ' accent'}`} />
           </span>
           <span className="grow">
@@ -569,7 +628,9 @@ export function Counter({
 
   return (
     <>
-      {shown.toFixed(decimals)}
+      {/* Разделитель дробной части берём из языка: «76,8» по-русски и
+          «76.8» по-английски — toFixed знает только точку. */}
+      {decimal(shown.toFixed(decimals))}
       {suffix}
     </>
   )

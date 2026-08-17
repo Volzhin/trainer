@@ -2894,61 +2894,23 @@ button.group-row:active {
   }
 }
 
-/* --- ступень как гриф с дисками --------------------------------------- */
+/* --- достижения ------------------------------------------------------- */
 
-/* Ступень нарисована тем, чем её и зарабатывают. Диск на грифе — знак из
-   зала, а не из игр: пять ступеней — пять дисков, и человек читает свой
-   уровень, не читая подписи. */
-.barbell {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  height: 40px;
-}
-
-.barbell .bar-line {
-  flex: 1;
-  height: 4px;
-  border-radius: var(--r-full);
-  background: var(--border-strong);
-}
-
-.barbell .plate {
-  width: 11px;
-  border-radius: 3px;
-  background: var(--accent);
-  transition: transform var(--dur) var(--ease);
-}
-
- /* Не «empty»: этим классом в приложении уже назван пустой экран с
-    отступами в 40 пикселей, и диск раздувало до его размеров. */
-.barbell .plate.blank {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-}
-
-/* Диски проворачиваются от нажатия — единственная вещь в приложении,
-   которая ничего не сообщает и сделана просто так. Одна на всё
-   приложение: пасхалка, которую нашли дважды, перестаёт быть пасхалкой. */
-.barbell.spin .plate {
-  animation: plate-spin 900ms var(--ease);
-}
-
-@keyframes plate-spin {
-  to {
-    transform: rotateY(360deg);
-  }
-}
-
-/* --- знаки ------------------------------------------------------------ */
-
-.marks {
+.achievements {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
   gap: 10px;
 }
 
-.mark {
+.achievement {
+  /* Плитка нажимается — за объяснением, что достижение значит и как
+     считается, — поэтому это кнопка, и сброс кнопочных умолчаний нужен
+     ей целиком. */
+  display: block;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
@@ -2957,7 +2919,11 @@ button.group-row:active {
   box-shadow: var(--shadow-1);
 }
 
-.mark .glyph {
+.achievement:active {
+  background: var(--surface-2);
+}
+
+.achievement .glyph {
   width: 34px;
   height: 34px;
   margin: 0 auto 8px;
@@ -2968,22 +2934,23 @@ button.group-row:active {
   color: var(--accent-ink);
 }
 
-.mark.copper .glyph {
+.achievement.copper .glyph {
   background: var(--copper-soft);
   color: var(--copper);
 }
 
-.mark .cap {
+.achievement .cap {
+  display: block;
   font-size: 11px;
   line-height: 1.35;
   color: var(--text-2);
 }
 
-.mark.locked {
+.achievement.locked {
   opacity: 0.5;
 }
 
-.mark.locked .glyph {
+.achievement.locked .glyph {
   background: var(--surface-2);
   color: var(--text-3);
 }
