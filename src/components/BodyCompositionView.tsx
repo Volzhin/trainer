@@ -1216,9 +1216,52 @@ export function ManualMeasurementSheet({
   onClose: () => void
   onSaved: (replaced: boolean) => void
 }) {
+  return (
+    <Sheet open={open} title={t('Замер вручную')} onClose={onClose}>
+      <ManualMeasurementForm
+        userId={userId}
+        onSaved={(res) => {
+          onSaved(res.replaced)
+          onClose()
+        }}
+      />
+    </Sheet>
+  )
+}
+
+/**
+ * Наполовину заполненная таблица замеров, по человеку.
+ *
+ * Вне компонента, потому что лист закрывается тапом мимо него и по Escape,
+ * без подтверждения, — а с ним размонтируется и форма. Обхваты снимают
+ * лентой по одному, отвлекаясь на зеркало и телефон, и потерять четыре уже
+ * введённых числа от случайного касания значит мерить всё заново.
+ */
+const measurementDrafts = new Map<string, Record<string, string>>()
+
+/**
+ * Та же таблица замеров без шторки вокруг.
+ *
+ * Отдельно от шторки, потому что заполняют её из двух мест: из «Отчётов»,
+ * где она открывается листом, и внутри задания «сдать замеры», где лист уже
+ * открыт, а второй поверх него — это шторка в шторке ради одной и той же
+ * формы. Заодно задание узнаёт id сохранённого замера и ссылается на него.
+ */
+export function ManualMeasurementForm({
+  userId,
+  onSaved,
+  submitLabel,
+}: {
+  userId: string
+  onSaved: (result: { replaced: boolean; id: string }) => void
+  /** Чем подписана кнопка: в задании это не «сохранить», а «сдать». */
+  submitLabel?: string
+}) {
   const profile = useLiveQuery(async () => db.profile.get(userId), [userId])
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [values, setValues] = useState<Record<string, string>>({})
+  const [values, setValues] = useState<Record<string, string>>(
+    () => measurementDrafts.get(userId) ?? {},
+  )
   const [busy, setBusy] = useState(false)
 
   const num = (key: string) => {
@@ -1228,8 +1271,11 @@ export function ManualMeasurementSheet({
     return Number.isFinite(n) ? n : undefined
   }
 
-  const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setValues((v) => ({ ...v, [key]: e.target.value }))
+  const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const next = { ...values, [key]: e.target.value }
+    measurementDrafts.set(userId, next)
+    setValues(next)
+  }
 
   const heightCm = num('height_cm') ?? profile?.height_cm
   const sex = profile?.gender ?? 'м'
@@ -1329,9 +1375,9 @@ export function ManualMeasurementSheet({
         await db.profile.update(userId, { ...patch, updated_at: Date.now() })
       }
 
+      measurementDrafts.delete(userId)
       setValues({})
-      onSaved(res.replaced)
-      onClose()
+      onSaved(res)
     } finally {
       setBusy(false)
     }
@@ -1351,136 +1397,134 @@ export function ManualMeasurementSheet({
   const shown = rows.filter(([, v]) => v)
 
   return (
-    <Sheet open={open} title={t('Замер вручную')} onClose={onClose}>
-      <div className="stack">
-        <div className="field">
-          <label>{t('Дата')}</label>
-          <input
-            className="input"
-            type="date"
-            value={date}
-            max={new Date().toISOString().slice(0, 10)}
-            onChange={(e) => setDate(e.target.value)}
-          />
-          {!dateOk && (
-            <div className="mute-sm" style={{ color: 'var(--warn)', marginTop: 6 }}>
-              Укажите дату замера — без неё его некуда поставить в истории.
-            </div>
-          )}
-        </div>
-
-        <div className="row" style={{ gap: 8 }}>
-          <div className="field grow">
-            <label>{t('Вес, кг')}</label>
-            <input
-              className="input"
-              inputMode="decimal"
-              value={values.weight_kg ?? ''}
-              onChange={set('weight_kg')}
-              placeholder="—"
-            />
-          </div>
-          <div className="field grow">
-            <label>{t('Рост, см')}</label>
-            <input
-              className="input"
-              inputMode="numeric"
-              value={values.height_cm ?? (profile?.height_cm ? String(profile.height_cm) : '')}
-              onChange={set('height_cm')}
-              placeholder="—"
-            />
-          </div>
-        </div>
-
-        <div className="section-title">{t('Обхваты, см')}</div>
-        <div className="group">
-          {girthFields.map((f) => (
-            <div className="group-row" key={f.key}>
-              <span className="grow">
-                <span className="title">{t(f.label)}</span>
-                {f.hint && <span className="sub">{t(f.hint)}</span>}
-              </span>
-              <input
-                className="input"
-                inputMode="decimal"
-                value={values[f.key] ?? ''}
-                onChange={set(f.key)}
-                placeholder="—"
-                style={{
-                  width: 84,
-                  textAlign: 'center',
-                  fontFamily: 'var(--font-num)',
-                  padding: '9px 8px',
-                }}
-              />
-            </div>
-          ))}
-        </div>
-
-        {!heightCm && (
-          <div className="mute-sm" style={{ color: 'var(--warn)' }}>
-            {t('Без роста процент жира по обхватам не посчитать — укажите его выше.')}
+    <div className="stack">
+      <div className="field">
+        <label>{t('Дата')}</label>
+        <input
+          className="input"
+          type="date"
+          value={date}
+          max={new Date().toISOString().slice(0, 10)}
+          onChange={(e) => setDate(e.target.value)}
+        />
+        {!dateOk && (
+          <div className="mute-sm" style={{ color: 'var(--warn)', marginTop: 6 }}>
+            Укажите дату замера — без неё его некуда поставить в истории.
           </div>
         )}
-        {heightCm && !neckCm && (
-          <div className="mute-sm" style={{ color: 'var(--warn)' }}>
-            {t('Без обхвата шеи процент жира не посчитать — укажите его в настройках профиля.')}
-          </div>
-        )}
-        {heightCm && sex === 'ж' && !num('hip_cm') && (
-          <div className="mute-sm" style={{ color: 'var(--warn)' }}>
-            {t('Для женской формулы нужен обхват таза: без него расчёт занижает жир.')}
-          </div>
-        )}
+      </div>
 
-        {shown.length > 0 && (
-          <>
-            <div className="section-title">{t('Расчёт по обхватам')}</div>
-            <div className="group">
-              {shown.map(([label, value]) => (
-                <div className="group-row" key={label}>
-                  <span className="grow title">{label}</span>
-                  <span className="value figures">{value}</span>
-                </div>
-              ))}
-            </div>
-            <div className="mute-sm">
-              Оценка по методике ВМФ США: погрешность около трёх процентов. Отчёт биоимпеданса
-              точнее — если он есть, загрузите его.
-            </div>
-          </>
-        )}
-
-        <div className="field">
-          <label>{t('Свой процент жира, если знаете')}</label>
+      <div className="row" style={{ gap: 8 }}>
+        <div className="field grow">
+          <label>{t('Вес, кг')}</label>
           <input
             className="input"
             inputMode="decimal"
-            value={values.body_fat_pct ?? ''}
-            onChange={set('body_fat_pct')}
+            value={values.weight_kg ?? ''}
+            onChange={set('weight_kg')}
             placeholder="—"
           />
-          {/* Опечатку в проценте видно сразу: состав считается от него, и
-              значение вне диапазона просто подтянется к границе. */}
-          {fatOutOfRange && (
-            <div className="mute-sm" style={{ color: 'var(--warn)', marginTop: 6 }}>
-              Процент жира бывает от {BODY_FAT_RANGE.min} до {BODY_FAT_RANGE.max} — считаем по
-              ближайшей границе.
-            </div>
-          )}
         </div>
-
-        <button
-          className="btn primary block"
-          disabled={busy || !dateOk || (!values.weight_kg && derived.bodyFatPct == null)}
-          onClick={submit}
-        >
-          {t('Сохранить замер')}
-        </button>
-        <div className="mute-sm" style={{ textAlign: 'center' }}>
-          {t('Достаточно веса. Обхваты дадут состав тела без весов с биоимпедансом.')}
+        <div className="field grow">
+          <label>{t('Рост, см')}</label>
+          <input
+            className="input"
+            inputMode="numeric"
+            value={values.height_cm ?? (profile?.height_cm ? String(profile.height_cm) : '')}
+            onChange={set('height_cm')}
+            placeholder="—"
+          />
         </div>
       </div>
-    </Sheet>
+
+      <div className="section-title">{t('Обхваты, см')}</div>
+      <div className="group">
+        {girthFields.map((f) => (
+          <div className="group-row" key={f.key}>
+            <span className="grow">
+              <span className="title">{t(f.label)}</span>
+              {f.hint && <span className="sub">{t(f.hint)}</span>}
+            </span>
+            <input
+              className="input"
+              inputMode="decimal"
+              value={values[f.key] ?? ''}
+              onChange={set(f.key)}
+              placeholder="—"
+              style={{
+                width: 84,
+                textAlign: 'center',
+                fontFamily: 'var(--font-num)',
+                padding: '9px 8px',
+              }}
+            />
+          </div>
+        ))}
+      </div>
+
+      {!heightCm && (
+        <div className="mute-sm" style={{ color: 'var(--warn)' }}>
+          {t('Без роста процент жира по обхватам не посчитать — укажите его выше.')}
+        </div>
+      )}
+      {heightCm && !neckCm && (
+        <div className="mute-sm" style={{ color: 'var(--warn)' }}>
+          {t('Без обхвата шеи процент жира не посчитать — укажите его в настройках профиля.')}
+        </div>
+      )}
+      {heightCm && sex === 'ж' && !num('hip_cm') && (
+        <div className="mute-sm" style={{ color: 'var(--warn)' }}>
+          {t('Для женской формулы нужен обхват таза: без него расчёт занижает жир.')}
+        </div>
+      )}
+
+      {shown.length > 0 && (
+        <>
+          <div className="section-title">{t('Расчёт по обхватам')}</div>
+          <div className="group">
+            {shown.map(([label, value]) => (
+              <div className="group-row" key={label}>
+                <span className="grow title">{label}</span>
+                <span className="value figures">{value}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mute-sm">
+            Оценка по методике ВМФ США: погрешность около трёх процентов. Отчёт биоимпеданса
+            точнее — если он есть, загрузите его.
+          </div>
+        </>
+      )}
+
+      <div className="field">
+        <label>{t('Свой процент жира, если знаете')}</label>
+        <input
+          className="input"
+          inputMode="decimal"
+          value={values.body_fat_pct ?? ''}
+          onChange={set('body_fat_pct')}
+          placeholder="—"
+        />
+        {/* Опечатку в проценте видно сразу: состав считается от него, и
+            значение вне диапазона просто подтянется к границе. */}
+        {fatOutOfRange && (
+          <div className="mute-sm" style={{ color: 'var(--warn)', marginTop: 6 }}>
+            Процент жира бывает от {BODY_FAT_RANGE.min} до {BODY_FAT_RANGE.max} — считаем по
+            ближайшей границе.
+          </div>
+        )}
+      </div>
+
+      <button
+        className="btn primary block"
+        disabled={busy || !dateOk || (!values.weight_kg && derived.bodyFatPct == null)}
+        onClick={submit}
+      >
+        {submitLabel ?? t('Сохранить замер')}
+      </button>
+      <div className="mute-sm" style={{ textAlign: 'center' }}>
+        {t('Достаточно веса. Обхваты дадут состав тела без весов с биоимпедансом.')}
+      </div>
+    </div>
   )
 }

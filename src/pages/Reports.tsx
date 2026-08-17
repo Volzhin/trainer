@@ -2,12 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db'
-import type {
-  Attachment,
-  ClientTask,
-  WorkoutReport,
-  WorkoutSession,
-} from '../db/db'
+import type { ClientTask, WorkoutReport, WorkoutSession } from '../db/db'
 import { listMySessions } from '../db/repo'
 import {
   activityFor,
@@ -31,10 +26,12 @@ import { Sheet } from '../components/Sheet'
 import { WeightSheet } from '../components/WeightCard'
 import { isOverdue } from '../components/ClientReports'
 import { MeasurementEntry } from '../components/MeasurementEntry'
+import { ManualMeasurementForm } from '../components/BodyCompositionView'
+import { useInBodyImport } from '../components/InBodyImport'
 import { IntakeForm } from '../components/IntakeForm'
-import { ShotThumb } from '../components/ShotThumb'
-import { addTaskPhoto, taskPhotos } from '../db/coach'
-import { IconCheck, IconChevronRight, IconPlus, IconTrash } from '../components/Icons'
+import { POSES, TaskPhotos } from '../components/TaskPhotos'
+import { taskPhotos } from '../db/coach'
+import { IconCheck, IconChevronRight, IconTrash } from '../components/Icons'
 import { useApp, useTrainerLink } from '../store/app'
 import { haptics } from '../lib/native'
 import { t } from '../lib/i18n'
@@ -606,126 +603,24 @@ function ActivityCard({ date, userId }: { date: string; userId: string }) {
   )
 }
 
-/** Четыре ракурса фото до/после — по кадру на каждый. */
-const POSES: { key: NonNullable<Attachment['pose']>; label: string }[] = [
-  { key: 'front', label: 'Спереди' },
-  { key: 'side_left', label: 'Сбоку слева' },
-  { key: 'side_right', label: 'Сбоку справа' },
-  { key: 'back', label: 'Сзади' },
-]
-
-/**
- * Съёмка по ракурсам, а не «приложите файлы».
- *
- * Четыре кадра сравнивают между собой через месяцы, и пачка без подписей
- * для этого не годится: непонятно, где какой бок. Отдельная клетка на
- * ракурс заодно показывает, чего ещё не хватает.
- */
-function TaskPhotos({ taskId }: { taskId: string }) {
-  const { toast, userId } = useApp()
-  const version = useLiveQuery(() => db.attachments.count(), [])
-  const photos = useLiveQuery(() => taskPhotos(taskId, userId), [taskId, userId, version], [])
-  const refs = useRef(new Map<string, HTMLInputElement | null>())
-
-  const pick = async (pose: NonNullable<Attachment['pose']>, list: FileList | null) => {
-    const file = list?.[0]
-    if (!file) return
-    await addTaskPhoto({ taskId, pose, file, userId })
-    haptics.success()
-    toast(t('Фото добавлено'))
-  }
-
-  return (
-    <div className="field">
-      <label>{t('Фотографии')}</label>
-      <div className="shot-grid">
-        {POSES.map(({ key, label }) => {
-          const shot = photos.find((p) => p.pose === key)
-          return (
-            <div key={key}>
-              <input
-                ref={(el) => refs.current.set(key, el)}
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={(e) => void pick(key, e.target.files)}
-              />
-              {shot ? (
-                <ShotThumb attachment={shot} />
-              ) : (
-                <button
-                  className="btn block"
-                  style={{ aspectRatio: '3 / 4' }}
-                  onClick={() => refs.current.get(key)?.click()}
-                >
-                  <IconPlus size={16} />
-                </button>
-              )}
-              <div className="mute-sm text-center mt-1">{t(label)}</div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
 /* -------------------------------- задание ------------------------------ */
 
-/** Куда ведёт задание, если выполняется оно не текстом, а в другом разделе. */
-const TASK_ROUTE: Partial<Record<ClientTask['kind'], { to: string; label: string }>> = {
-  intake: { to: '/profile', label: t('Открыть профиль') },
-  measurements: { to: '/body', label: t('Открыть замеры') },
-  inbody: { to: '/body', label: t('Загрузить InBody') },
-}
-
+/**
+ * Задание клиенту — и сразу то, чем оно выполняется.
+ *
+ * Каждый вид закрывается сделанным делом, а не отметкой о нём: замеры —
+ * заполненной таблицей, InBody — разобранным отчётом, фото — снятыми
+ * кадрами, анкета и эссе — написанным текстом. Кнопки «Готово», которая
+ * закрывала бы задание сама по себе, здесь нет ни у одного вида: пока она
+ * была, тренер получал «выполнено» без единой цифры и шёл выяснять в чат,
+ * сделано ли что-нибудь на самом деле.
+ *
+ * Ссылки «открыть замеры в другом разделе» тоже нет. Она уводила из
+ * задания, и человек, вернувшись, всё равно должен был нажать «Готово» —
+ * то есть задание закрывала кнопка, а не сданный замер.
+ */
 function TaskSheet({ task, onClose }: { task: ClientTask | null; onClose: () => void }) {
-  const nav = useNavigate()
-  const { toast } = useApp()
-  const [answer, setAnswer] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  /**
-   * Черновик по каждому заданию. Шторка закрывается тапом мимо неё и по
-   * Escape, без подтверждения, — и написанное эссе пропадало от одного
-   * случайного касания. Здесь оно переживает закрытие и возвращается, когда
-   * задание открывают снова.
-   */
-  const drafts = useRef(new Map<string, string>())
-
-  useEffect(() => {
-    if (!task) return
-    setAnswer(drafts.current.get(task.id) ?? task.answer ?? '')
-  }, [task?.id])
-
   if (!task) return null
-
-  const edit = (value: string) => {
-    setAnswer(value)
-    drafts.current.set(task.id, value)
-  }
-
-  const route = TASK_ROUTE[task.kind]
-  const wantsPhotos = task.kind === 'photos'
-  // Эссе — это и есть ответ: отметить его выполненным, ничего не написав,
-  // означало бы закрыть задание, которого никто не сделал.
-  const needsText = task.kind === 'essay'
-
-  const done = async () => {
-    setBusy(true)
-    try {
-      await completeTask(task.id, answer)
-      drafts.current.delete(task.id)
-      haptics.success()
-      toast(t('Задание выполнено'))
-      onClose()
-    } catch {
-      // Молча закрывать шторку нельзя: человек решит, что задание отправлено.
-      toast('Не удалось сохранить — попробуйте ещё раз')
-    } finally {
-      setBusy(false)
-    }
-  }
 
   return (
     <Sheet open={!!task} title={t(task.title)} onClose={onClose}>
@@ -735,43 +630,216 @@ function TaskSheet({ task, onClose }: { task: ClientTask | null; onClose: () => 
           профиль и первую точку веса, и свободным полем это не собрать. */}
       {task.kind === 'intake' ? (
         <IntakeForm task={task} onDone={onClose} />
+      ) : task.kind === 'photos' ? (
+        <PhotoTaskForm task={task} onDone={onClose} />
+      ) : task.kind === 'measurements' ? (
+        <MeasurementTaskForm task={task} onDone={onClose} />
+      ) : task.kind === 'inbody' ? (
+        <InBodyTaskForm task={task} onDone={onClose} />
       ) : (
-      <div className="stack mt-4">
-        {wantsPhotos && <TaskPhotos taskId={task.id} />}
-
-        <div className="field">
-          <label>{needsText ? t('Ваш ответ') : t('Комментарий тренеру, если нужен')}</label>
-          <textarea
-            className="textarea"
-            style={needsText ? { minHeight: 160 } : undefined}
-            value={answer}
-            onChange={(e) => edit(e.target.value)}
-            placeholder={needsText ? t('Пишите как есть — это для вас и для тренера') : ''}
-          />
-        </div>
-
-        {route && (
-          <button
-            className="btn block"
-            onClick={() => {
-              onClose()
-              nav(route.to)
-            }}
-          >
-            {route.label}
-          </button>
-        )}
-
-        <button
-          className="btn primary block"
-          disabled={busy || (needsText && !answer.trim())}
-          onClick={done}
-        >
-          {t('Готово')}
-        </button>
-      </div>
+        <TextTaskForm task={task} onDone={onClose} />
       )}
     </Sheet>
+  )
+}
+
+/**
+ * Черновики ответов по заданиям.
+ *
+ * Живут вне компонента, а не в его ref: шторка закрывается тапом мимо неё и
+ * по Escape, без подтверждения, и вместе с ней размонтируется форма. Пока
+ * черновик лежал внутри неё, написанное эссе пропадало от одного
+ * случайного касания.
+ */
+const taskDrafts = new Map<string, string>()
+
+/**
+ * Эссе и задание, придуманное тренером: делом здесь служит написанный текст.
+ *
+ * Пустой ответ не принимается и у произвольного задания: «выполнено» без
+ * единого слова ничем не отличается от невыполненного — тренер всё равно
+ * идёт спрашивать в чат, что именно сделано.
+ */
+function TextTaskForm({ task, onDone }: { task: ClientTask; onDone: () => void }) {
+  const { toast } = useApp()
+  const [answer, setAnswer] = useState(() => taskDrafts.get(task.id) ?? task.answer ?? '')
+  const [busy, setBusy] = useState(false)
+
+  const essay = task.kind === 'essay'
+
+  const send = async () => {
+    setBusy(true)
+    try {
+      await completeTask(task.id, answer)
+      taskDrafts.delete(task.id)
+      haptics.success()
+      toast(t('Задание отправлено тренеру'))
+      onDone()
+    } catch {
+      // Молча закрывать шторку нельзя: человек решит, что задание отправлено.
+      toast(t('Не удалось сохранить — попробуйте ещё раз'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="stack mt-4">
+      <div className="field">
+        <label>{essay ? t('Ваш ответ') : t('Что сделано')}</label>
+        <textarea
+          className="textarea"
+          style={essay ? { minHeight: 160 } : undefined}
+          value={answer}
+          onChange={(e) => {
+            setAnswer(e.target.value)
+            taskDrafts.set(task.id, e.target.value)
+          }}
+          placeholder={
+            essay
+              ? t('Пишите как есть — это для вас и для тренера')
+              : t('Опишите, что сделали: это и есть отчёт')
+          }
+        />
+      </div>
+      <button className="btn primary block" disabled={busy || !answer.trim()} onClick={send}>
+        {t('Отправить тренеру')}
+      </button>
+    </div>
+  )
+}
+
+/**
+ * Фото до/после: задание закрывают сами снимки.
+ *
+ * Просят четыре ракурса, сдать можно с трёх. Одного-двух кадров через месяц
+ * не с чем сравнивать, а требовать все четыре значит запереть человека,
+ * которому четвёртый снять некому: он не сдаст ничего вместо трёх кадров,
+ * по которым разговор уже возможен. Недостающий ракурс при этом назван —
+ * тренер видит, чего нет, не открывая задание.
+ */
+const MIN_SHOTS = 3
+
+function PhotoTaskForm({ task, onDone }: { task: ClientTask; onDone: () => void }) {
+  const { toast, userId } = useApp()
+  const version = useLiveQuery(() => db.attachments.count(), [])
+  const photos = useLiveQuery(() => taskPhotos(task.id, userId), [task.id, userId, version], [])
+  const [comment, setComment] = useState(() => taskDrafts.get(task.id) ?? task.answer ?? '')
+  const [busy, setBusy] = useState(false)
+
+  const missing = POSES.filter((p) => !photos.some((x) => x.pose === p.key))
+  const enough = POSES.length - missing.length >= MIN_SHOTS
+
+  const send = async () => {
+    setBusy(true)
+    try {
+      await completeTask(task.id, comment)
+      taskDrafts.delete(task.id)
+      haptics.success()
+      toast(t('Фото отправлены тренеру'))
+      onDone()
+    } catch {
+      toast(t('Не удалось сохранить — попробуйте ещё раз'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="stack mt-4">
+      <TaskPhotos taskId={task.id} userId={userId} />
+
+      <div className="field">
+        <label>{t('Комментарий тренеру, если нужен')}</label>
+        <textarea
+          className="textarea"
+          value={comment}
+          onChange={(e) => {
+            setComment(e.target.value)
+            taskDrafts.set(task.id, e.target.value)
+          }}
+        />
+      </div>
+
+      {/* Чего не хватает, говорим до нажатия, а не отключённой кнопкой без
+          объяснения: иначе человек с двумя кадрами не понимает, что не так.
+          При трёх снимках это уже не запрет, а напоминание — отправить
+          можно, и лучше дослать четвёртый, чем не сдать ничего. */}
+      {missing.length > 0 && (
+        <div className="mute-sm">
+          {enough ? t('Не хватает кадра') : t('Не хватает кадров')}:{' '}
+          {missing.map((p) => t(p.label).toLowerCase()).join(', ')}
+          {!enough && `. ${t('Сдать можно с трёх.')}`}
+        </div>
+      )}
+
+      <button className="btn primary block" disabled={busy || !enough} onClick={send}>
+        {t('Отправить тренеру')}
+      </button>
+    </div>
+  )
+}
+
+/**
+ * Замеры: та же таблица, что в разделе «Тело», прямо внутри задания.
+ *
+ * Задание закрывается сохранённым замером и ссылается на него — тренер
+ * открывает ровно те цифры, которые прислал клиент, а не «выполнено».
+ */
+function MeasurementTaskForm({ task, onDone }: { task: ClientTask; onDone: () => void }) {
+  const { toast, userId } = useApp()
+
+  return (
+    <div className="mt-4">
+      <ManualMeasurementForm
+        userId={userId}
+        submitLabel={t('Сдать замеры тренеру')}
+        onSaved={async (res) => {
+          await completeTask(task.id, undefined, undefined, res.id)
+          haptics.success()
+          toast(t('Замеры сданы'))
+          onDone()
+        }}
+      />
+    </div>
+  )
+}
+
+/**
+ * InBody: задание закрывает разобранный отчёт, а не нажатие кнопки.
+ *
+ * Разбор идёт на устройстве, поэтому цифры видно до отправки — и сдаётся
+ * именно замер, который тренер потом откроет из задания.
+ */
+function InBodyTaskForm({ task, onDone }: { task: ClientTask; onDone: () => void }) {
+  const { toast, userId } = useApp()
+
+  const inbody = useInBodyImport({
+    userId,
+    onImported: async (ids) => {
+      if (!ids.length) return
+      // Из пачки берём последний по дате: задание про свежий замер, а
+      // остальные просто лягут в историю.
+      await completeTask(task.id, undefined, undefined, ids[ids.length - 1])
+      toast(t('Отчёт InBody сдан'))
+      onDone()
+    },
+  })
+
+  return (
+    <div className="stack mt-4">
+      <div className="muted">
+        {t('Загрузите PDF из зала — приложение прочитает его само и покажет, что получилось.')}
+      </div>
+      <button className="btn primary block" disabled={inbody.busy} onClick={inbody.pick}>
+        {inbody.busy
+          ? inbody.progress && inbody.progress.total > 1
+            ? `${t('Читаю')} ${inbody.progress.done + 1} ${t('из')} ${inbody.progress.total}…`
+            : t('Читаю отчёт…')
+          : t('Выбрать PDF отчёта')}
+      </button>
+      {inbody.node}
+    </div>
   )
 }
 

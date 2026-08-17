@@ -4,6 +4,7 @@ import {
   uid,
   now,
   currentUserId,
+  type BodyMetric,
   type ClientTask,
   type ReportReply,
   type DailyActivity,
@@ -721,15 +722,26 @@ export async function deleteTask(taskId: string, trainerId = currentUserId()) {
   await deleteSynced('tasks', taskId)
 }
 
+/**
+ * Клиент закрывает задание.
+ *
+ * `resultRef` — ссылка на то, чем оно закрыто: замер или разобранный отчёт
+ * InBody. Задание считается выполненным по сделанному делу, а не по нажатию
+ * кнопки, и эта ссылка — доказательство: по ней тренер открывает ровно ту
+ * строку, которую прислал клиент. Там, где делом служат фото, ссылки нет —
+ * снимки и так находятся по task_id во вложениях.
+ */
 export async function completeTask(
   taskId: string,
   answer?: string,
   answers?: Record<string, string>,
+  resultRef?: string,
 ) {
   const ts = now()
   await db.tasks.update(taskId, {
     status: 'done',
     answer: answer?.trim() || undefined,
+    result_ref: resultRef,
     // Пустые ответы анкеты не храним: пропущенный вопрос и вопрос с пустой
     // строкой — одно и то же, а тренеру в анкете нужно видеть, где ответили.
     answers: answers
@@ -738,6 +750,66 @@ export async function completeTask(
     completed_at: ts,
     updated_at: ts,
   })
+}
+
+/**
+ * Закрывает выданные задания тем, что человек сдал не из них.
+ *
+ * Замер сдают из трёх мест: из самого задания, из «Отчётов» и из «Тела», —
+ * а дело при этом одно и то же. Пока задание закрывалось только изнутри,
+ * клиент, сдавший замер соседней кнопкой, продолжал видеть «сдать замеры»
+ * висящим и сдавал его второй раз, а тренер получал две строки об одном
+ * замере.
+ *
+ * Возвращает, сколько заданий закрылось: вызывающий по нему решает, о чём
+ * сказать человеку.
+ */
+export async function completeOpenTasksOfKind(
+  kind: TaskKind,
+  resultRef: string,
+  clientId = currentUserId(),
+): Promise<number> {
+  const open = await db.tasks
+    .where('[client_id+status]')
+    .equals([clientId, 'open'])
+    .and((task) => task.kind === kind)
+    .toArray()
+
+  for (const task of open) await completeTask(task.id, undefined, undefined, resultRef)
+  return open.length
+}
+
+/** Сколько времени вокруг сдачи ищем замер у заданий без ссылки на него. */
+const RESULT_LOOKUP_MS = 2 * 86400_000
+
+/**
+ * Замер, которым закрыто задание, — то, что тренер открывает вместо
+ * «выполнено».
+ *
+ * Сначала по ссылке из задания. У сданных до её появления ссылки нет, и
+ * тогда берём ближайший к сдаче замер нужного вида: показать тренеру
+ * подходящую строку лучше, чем пустое место, а перепутать её не с чем —
+ * замер за те же сутки ровно один, они перезаписываются по дню.
+ */
+export async function taskResultMetric(task: ClientTask): Promise<BodyMetric | undefined> {
+  if (task.kind !== 'measurements' && task.kind !== 'inbody') return undefined
+
+  if (task.result_ref) {
+    const byRef = await db.bodyMetrics.get(task.result_ref)
+    if (byRef) return byRef
+  }
+
+  const at = task.completed_at
+  if (at == null) return undefined
+  const wantInBody = task.kind === 'inbody'
+  const rows = await db.bodyMetrics.where('user_id').equals(task.client_id).toArray()
+  return rows
+    .filter(
+      (m) =>
+        (m.source === 'inbody') === wantInBody &&
+        Math.abs(m.logged_at - at) <= RESULT_LOOKUP_MS,
+    )
+    .sort((a, b) => Math.abs(a.logged_at - at) - Math.abs(b.logged_at - at))[0]
 }
 
 /**

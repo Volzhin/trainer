@@ -6,7 +6,7 @@ import { loadProgress } from '../db/analytics'
 import { workoutReportsOf, reviewedRefs } from '../db/reports'
 import { activeAssignmentFor, cancelAssignment } from '../db/coach'
 import { localDate } from '../lib/tdee'
-import { plural } from '../lib/calc'
+import { formatDate, plural } from '../lib/calc'
 import { ReportCalendar, type ReportState } from './ReportCalendar'
 import { ExerciseRow } from './ProgressView'
 import { SessionReview } from './SessionReview'
@@ -72,6 +72,17 @@ export function ClientWorkouts({
 
   if (!reports || !seen || !sessions || !report) return <div className="empty">{t('Загрузка…')}</div>
 
+  // Сданное списком, свежее сверху: календарь отвечает на «когда», список —
+  // на «что именно», и открыть отсюда можно каждый отчёт, а не по одному в день.
+  const submitted = reports
+    .filter((r) => r.status === 'submitted')
+    .map((r) => ({ row: r, session: sessions.find((s) => s.id === r.session_id) }))
+    .sort(
+      (a, b) =>
+        (b.row.submitted_at ?? b.session?.start_time ?? 0) -
+        (a.row.submitted_at ?? a.session?.start_time ?? 0),
+    )
+
   const openDay = (date: string) => {
     const hit = (reports ?? []).find((r) => {
       const session = sessions.find((s) => s.id === r.session_id)
@@ -90,6 +101,34 @@ export function ClientWorkouts({
       <div className="card">
         <ReportCalendar states={byDate} onPick={openDay} />
       </div>
+
+      {/* Список под календарём, потому что клетка открывает первый отчёт за
+          день, а тренировок в дне бывает две: вторая из сетки недостижима.
+          Здесь же видно, что уже разобрано, а что ещё ждёт. */}
+      {submitted.length > 0 && (
+        <div className="group mt-3">
+          {submitted.map(({ row, session }) => (
+            <button
+              key={row.id}
+              className="group-row"
+              disabled={!session}
+              onClick={() => session && setReviewing(session)}
+            >
+              <span className="grow">
+                <span className="title">{session ? t(session.title) : t('Тренировка')}</span>
+                <span className="sub">
+                  {row.submitted_at ? formatDate(row.submitted_at) : ''}
+                  {/* Тренировка приезжает отдельной строкой и может отстать от
+                      отчёта: молчать об этом нельзя — строка без разбора
+                      выглядела бы сломанной. */}
+                  {session ? '' : ` · ${t('тренировка ещё не доехала')}`}
+                </span>
+              </span>
+              <span className="badge">{seen.has(row.id) ? t('разобрано') : t('ждёт')}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="section-title">{t('Программа')}</div>
       <div className="card">

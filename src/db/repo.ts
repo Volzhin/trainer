@@ -9,6 +9,7 @@ import {
   type WorkoutSession,
 } from './db'
 import { invalidateExercises } from './catalog'
+import { completeOpenTasksOfKind } from './reports'
 import { t } from '../lib/i18n'
 import { bestSet, estimate1RM, startOfDay } from '../lib/calc'
 import type { BodyMetric } from './db'
@@ -488,10 +489,14 @@ export async function saveInBodyReport(
     updated_at: now(),
   }
 
+  // Идентификатор возвращаем наружу: отчётом InBody закрывается задание от
+  // тренера, и оно ссылается на конкретный замер — иначе тренер, открывший
+  // задание, ищет нужную строку в истории замеров по дате на глаз.
+  const id = existing?.id ?? uid()
   if (existing) {
     await db.bodyMetrics.update(existing.id, payload)
   } else {
-    await db.bodyMetrics.add({ id: uid(), ...payload })
+    await db.bodyMetrics.add({ id, ...payload })
   }
 
   // Рост из отчёта дописываем в профиль, если пользователь его не указывал.
@@ -501,7 +506,13 @@ export async function saveInBodyReport(
       await db.profile.update(userId, { height_cm, updated_at: now() })
     }
   }
-  return { replaced: !!existing }
+
+  // Разобранный отчёт и есть выполненное задание «сдать InBody» — откуда бы
+  // его ни загрузили. Задание, оставшееся висеть после сданного отчёта,
+  // человек сдаёт второй раз, а тренер разбирает один замер дважды.
+  await completeOpenTasksOfKind('inbody', id, userId)
+
+  return { replaced: !!existing, id }
 }
 
 /**
@@ -533,10 +544,27 @@ export async function saveManualMeasurement(
     source: 'manual' as const,
     updated_at: now(),
   }
+  const id = existing?.id ?? uid()
   if (existing) await db.bodyMetrics.update(existing.id, payload)
-  else await db.bodyMetrics.add({ id: uid(), ...payload })
+  else await db.bodyMetrics.add({ id, ...payload })
 
-  return { replaced: !!existing }
+  /*
+   * Замер закрывает выданное задание «сдать замеры».
+   *
+   * Но только настоящий замер: одно взвешивание — это не замеры, а вес, и
+   * стартовая анкета, записывающая вес отдельной строкой, закрывала бы им
+   * задание про обхваты. Разница та же, по которой лента сданного делит
+   * «Вес» и «Замеры».
+   */
+  const measured =
+    fields.waist_cm != null ||
+    fields.hip_cm != null ||
+    fields.chest_cm != null ||
+    fields.thigh_cm != null ||
+    fields.body_fat_pct != null
+  if (measured) await completeOpenTasksOfKind('measurements', id, userId)
+
+  return { replaced: !!existing, id }
 }
 
 export async function deleteBodyMetric(id: string) {

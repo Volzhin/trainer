@@ -10,6 +10,7 @@ import {
   saveTaskTemplate,
   submittedNutritionDays,
   taskFileCount,
+  taskResultMetric,
   tasksOf,
   workoutReportsOf,
 } from '../db/reports'
@@ -17,8 +18,10 @@ import type { ClientTask } from '../db/db'
 import { formatDate } from '../lib/calc'
 import { Sheet } from './Sheet'
 import { ReviewSheet, type ReviewSubject } from './ReviewSheet'
+import { metricRows } from './BodyCompositionView'
+import { TaskPhotos } from './TaskPhotos'
 import { Group, Row } from './Group'
-import { IconCheck, IconPlus, IconTrash } from './Icons'
+import { IconPlus, IconTrash } from './Icons'
 import { Toggle } from './Toggle'
 import { useApp } from '../store/app'
 import { haptics } from '../lib/native'
@@ -114,11 +117,12 @@ export function ClientReports({ clientId }: { clientId: string }) {
                 заодно открывало анкету. */}
             {awaiting.map((task) => (
               <Row key={task.id} title={t(task.title)} sub={taskSub(task)}>
-                {task.answers && (
-                  <button className="btn sm" onClick={() => setReading(task)}>
-                    {t('Смотреть')}
-                  </button>
-                )}
+                {/* «Смотреть» у каждого задания, а не только у анкеты: принять
+                    не глядя тренер может и так, а вот открыть присланное —
+                    фотографии, замеры, отчёт InBody — раньше было негде. */}
+                <button className="btn sm" onClick={() => setReading(task)}>
+                  {t('Смотреть')}
+                </button>
                 <button
                   className="btn sm primary"
                   onClick={async () => {
@@ -147,6 +151,11 @@ export function ClientReports({ clientId }: { clientId: string }) {
               sub={taskSub(task)}
               danger={isOverdue(task)}
             >
+              {/* Открыть можно и невыполненное: тренер перечитывает, что сам
+                  написал в подробностях, — в строке они не помещаются. */}
+              <button className="btn sm" onClick={() => setReading(task)}>
+                {t('Смотреть')}
+              </button>
               {/* Снять выданное. У «ждут проверки» такой кнопки нет намеренно:
                   там от тренера ждут «Принять», а снести сделанное клиентом
                   одним нажатием рядом с ним — слишком легко промахнуться.
@@ -163,7 +172,9 @@ export function ClientReports({ clientId }: { clientId: string }) {
         </Group>
       )}
 
-      {archived.length > 0 && <ArchivedTasks tasks={archived} onRemove={setRemoving} />}
+      {archived.length > 0 && (
+        <ArchivedTasks tasks={archived} onOpen={setReading} onRemove={setRemoving} />
+      )}
       <button className="btn block mt-3" onClick={() => setTaskOpen(true)}>
         <IconPlus size={16} /> {t('Выдать задание')}
       </button>
@@ -175,18 +186,13 @@ export function ClientReports({ clientId }: { clientId: string }) {
         onClose={() => setReviewing(null)}
         onDone={() => toast(t('Отчёт разобран'))}
       />
-      <Sheet open={!!reading} title={reading ? t(reading.title) : ''} onClose={() => setReading(null)}>
-        {reading?.answers && (
-          <div className="stack">
-            {Object.entries(reading.answers).map(([question, value]) => (
-              <div key={question}>
-                <div className="mute-sm">{t(question)}</div>
-                <div className="mt-1">{value}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Sheet>
+      <TaskReviewSheet
+        task={reading}
+        clientId={clientId}
+        accepted={reading ? isAccepted(reading) : false}
+        onClose={() => setReading(null)}
+        onAccepted={() => toast(t('Задание принято'))}
+      />
 
       <TaskSheet
         open={taskOpen}
@@ -315,9 +321,11 @@ function taskSub(task: ClientTask): string {
 /** Принятые задания. Свёрнуты: это архив, за ним приходят намеренно. */
 function ArchivedTasks({
   tasks,
+  onOpen,
   onRemove,
 }: {
   tasks: ClientTask[]
+  onOpen: (task: ClientTask) => void
   onRemove: (task: ClientTask) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -333,8 +341,13 @@ function ArchivedTasks({
               key={task.id}
               title={t(task.title)}
               sub={task.answer ? `${t('Принято')} · ${task.answer}` : t('Принято')}
-              value={<IconCheck size={16} />}
             >
+              {/* Принятое открывается так же, как ждущее проверки: к фото
+                  «до» тренер возвращается через месяцы, и «принято» не
+                  должно означать «больше не посмотреть». */}
+              <button className="btn sm" onClick={() => onOpen(task)}>
+                {t('Смотреть')}
+              </button>
               <button
                 className="icon-btn"
                 aria-label={`${t('Удалить задание')} «${task.title}»`}
@@ -347,6 +360,133 @@ function ArchivedTasks({
         </Group>
       )}
     </>
+  )
+}
+
+/* ------------------------ что клиент прислал по заданию ---------------- */
+
+/**
+ * Выполненное задание глазами тренера — не «выполнено», а то, чем оно
+ * выполнено.
+ *
+ * Один лист на все виды: тренер открывает задание одинаково, а внутри
+ * показывается сделанное дело — фотографии по ракурсам, цифры замера,
+ * разобранный отчёт InBody, ответы анкеты или написанный текст. Пока
+ * открывалась одна анкета, всё остальное клиент отправлял в пустоту:
+ * тренер видел строку «выполнено» и шёл спрашивать в чат, что именно.
+ */
+function TaskReviewSheet({
+  task,
+  clientId,
+  accepted,
+  onClose,
+  onAccepted,
+}: {
+  task: ClientTask | null
+  clientId: string
+  accepted: boolean
+  onClose: () => void
+  onAccepted: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  // Замер читаем при открытии: ссылка на него лежит в самом задании, а у
+  // сданных до её появления он ищется по дате — см. taskResultMetric.
+  const metric = useLiveQuery(
+    async () => (task ? ((await taskResultMetric(task)) ?? null) : null),
+    [task?.id, task?.result_ref, task?.completed_at],
+  )
+
+  if (!task) return null
+
+  const wantsMetric = task.kind === 'measurements' || task.kind === 'inbody'
+  const done = task.status === 'done'
+
+  const accept = async () => {
+    setBusy(true)
+    try {
+      await acceptTask(task.id, clientId)
+      haptics.success()
+      onAccepted()
+      onClose()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Sheet open={!!task} title={t(task.title)} onClose={onClose}>
+      <div className="mute-sm">
+        {!done
+          ? taskSub(task)
+          : task.completed_at
+            ? `${t('Выполнено')} ${formatDate(task.completed_at)}`
+            : t('Выполнено')}
+      </div>
+      {task.description && <div className="muted mt-2">{t(task.description)}</div>}
+
+      <div className="stack mt-4">
+        {task.kind === 'photos' && <TaskPhotos taskId={task.id} userId={clientId} readOnly />}
+
+        {wantsMetric &&
+          (metric === undefined ? (
+            <div className="card skeleton" style={{ height: 96 }} />
+          ) : metric ? (
+            <>
+              <div className="mute-sm">
+                {task.kind === 'inbody' ? t('Отчёт от') : t('Замер от')}{' '}
+                {formatDate(metric.logged_at)}
+                {metric.source_file ? ` · ${metric.source_file}` : ''}
+              </div>
+              <div className="group">
+                {metricRows(metric).map(([label, value]) => (
+                  <div className="group-row" key={label}>
+                    <span className="grow title">{label}</span>
+                    <span className="value figures">{value}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            /* Замера может не быть по двум причинам: он ещё не доехал (обмен
+               возит строки по одной) или задание закрыли комментарием — так
+               было до того, как его стал закрывать сам замер. Обещать «сейчас
+               подгрузится» во втором случае нечестно, поэтому говорим, где
+               искать. */
+            <div className="empty compact">
+              {done
+                ? t('Цифр к заданию не привязано — ищите замер во вкладке «Тело».')
+                : t('Клиент ещё не сдал замер.')}
+            </div>
+          ))}
+
+        {task.answers && (
+          <div className="stack">
+            {Object.entries(task.answers).map(([question, value]) => (
+              <div key={question}>
+                <div className="mute-sm">{t(question)}</div>
+                <div className="mt-1">{value}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {task.answer && (
+          <div className="card">
+            <div className="mute-sm">{t('Что написал клиент')}</div>
+            <div className="mt-1">{task.answer}</div>
+          </div>
+        )}
+
+        {done &&
+          (accepted ? (
+            <div className="mute-sm text-center">{t('Задание принято.')}</div>
+          ) : (
+            <button className="btn primary block" disabled={busy} onClick={accept}>
+              {t('Принять')}
+            </button>
+          ))}
+      </div>
+    </Sheet>
   )
 }
 
