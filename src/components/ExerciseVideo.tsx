@@ -163,6 +163,12 @@ export function VideoUploader({
   const inputRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
+  /*
+   * Доля сжатия отдельным состоянием от busy: пережатие занимает секунды и
+   * без числа выглядит как зависшая кнопка. Прикрепление фото проходит мимо
+   * него — там сжимать нечего, и «0 %» на долю секунды только мигнёт.
+   */
+  const [shrink, setShrink] = useState<number | null>(null)
 
   const items = useLiveQuery(
     () =>
@@ -178,13 +184,20 @@ export function VideoUploader({
     if (!file) return
     setBusy(true)
     try {
-      await addAttachment({ sessionId, exerciseId, file, userId })
+      await addAttachment({
+        sessionId,
+        exerciseId,
+        file,
+        userId,
+        onShrink: (f) => setShrink(Math.round(f * 100)),
+      })
       haptics.success()
       toast(t('Видео прикреплено'))
     } catch (e) {
       toast(e instanceof Error ? t(e.message) : t('Не удалось прикрепить файл'))
     } finally {
       setBusy(false)
+      setShrink(null)
       // Сбрасываем оба поля: иначе повторный выбор того же файла не
       // вызовет change и кнопка будет выглядеть сломанной.
       if (inputRef.current) inputRef.current.value = ''
@@ -237,7 +250,7 @@ export function VideoUploader({
           onClick={() => inputRef.current?.click()}
         >
           <IconVideo size={15} />
-          {busy ? t('Сохраняю…') : t('Снять')}
+          {shrink !== null ? `${t('Сжимаю…')} ${shrink}%` : busy ? t('Сохраняю…') : t('Снять')}
         </button>
         <button
           className="btn sm grow"

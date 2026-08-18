@@ -628,6 +628,7 @@ const EN: Record<string, string> = {
   Видео: 'Video',
   Фото: 'Photo',
   МБ: 'MB',
+  'Сжимаю…': 'Compressing…',
   'Видео прикреплено': 'Video attached',
   'Видео удалено': 'Video deleted',
   'Не удалось прикрепить файл': 'Could not attach the file',

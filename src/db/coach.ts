@@ -23,6 +23,7 @@ import {
 } from './db'
 import { deleteAttachment } from './files'
 import { issueRequiredTasks } from './reports'
+import { shrinkVideo } from '../lib/video'
 import { syncCatalogPrograms } from './seed'
 import { estimate1RM, startOfDay, weekStart } from '../lib/calc'
 import { locale, t } from '../lib/i18n'
@@ -1120,6 +1121,8 @@ export async function addAttachment(input: {
   exerciseId: string
   file: File
   userId?: string
+  /** Доля сжатия, 0..1 — чтобы экран мог показать, что телефон занят делом. */
+  onShrink?: (fraction: number) => void
 }) {
   /*
    * Просим постоянное хранилище до записи, а не после.
@@ -1136,16 +1139,28 @@ export async function addAttachment(input: {
     /* хранилище может быть недоступно — прикреплению это не мешает */
   }
 
-  const kind: Attachment['kind'] = input.file.type.startsWith('image/') ? 'photo' : 'video'
+  /*
+   * Пережимаем до записи, а не перед отправкой, и оригинал не храним.
+   *
+   * Так экономится не только мобильный трафик, но и место на устройстве:
+   * держать рядом исходные 92 МБ и пережатые 8 МБ значит занимать квоту
+   * IndexedDB тем, что уже никому не нужно — тренер смотрит пережатое, а
+   * снятый файл и так остался в галерее телефона. Сорваться сжатие может
+   * (старый браузер, отказ кодека) — тогда вернётся исходный файл, и
+   * прикрепление всё равно состоится.
+   */
+  const file = await shrinkVideo(input.file, input.onShrink)
+
+  const kind: Attachment['kind'] = file.type.startsWith('image/') ? 'photo' : 'video'
   const attachment: Attachment = {
     id: uid(),
     user_id: input.userId ?? currentUserId(),
     session_id: input.sessionId,
     exercise_id: input.exerciseId,
     kind,
-    blob: input.file,
-    mime: input.file.type || (kind === 'photo' ? 'image/jpeg' : 'video/mp4'),
-    size: input.file.size,
+    blob: file,
+    mime: file.type || (kind === 'photo' ? 'image/jpeg' : 'video/mp4'),
+    size: file.size,
     created_at: now(),
     updated_at: now(),
   }
